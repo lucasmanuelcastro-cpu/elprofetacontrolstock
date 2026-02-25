@@ -22,19 +22,23 @@ function registrarVenta() {
     usuario.ventas.push(nuevaVenta);
 
     // 2. Enviar a Google Sheets para sincronizar con otros Android
-    fetch(G_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify({
-        fecha: nuevaVenta.fecha,
-        usuario: prev.usuarioActivo,
-        cliente: nuevaVenta.cliente,
-        estilos: nuevaVenta.estilos,
-        cobrado: nuevaVenta.totalCobrado,
-        paraProfeta: nuevaVenta.paraProfeta,
-        metodo: nuevaVenta.metodoPago
-      })
-    });
+// Cambiá el bloque fetch por este que es más compatible con Android
+fetch(G_URL, {
+  method: 'POST',
+  mode: 'no-cors', // Mantenemos no-cors para evitar errores de seguridad
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    fecha: nuevaVenta.fecha,
+    usuario: prev.usuarioActivo,
+    cliente: nuevaVenta.cliente,
+    estilos: nuevaVenta.estilos,
+    cobrado: nuevaVenta.totalCobrado,
+    paraProfeta: nuevaVenta.paraProfeta,
+    metodo: nuevaVenta.metodoPago
+  })
+});
 
     // 3. Cliente Global
     if (prev.clienteNombre.trim() !== "") {
@@ -56,3 +60,4 @@ function registrarVenta() {
     return prev;
   });
 }
+
