@@ -1,30 +1,43 @@
-/**
- * APP.JS - Iniciador de la aplicación
- * Este archivo conecta la carga de datos con la visualización inicial.
- */
+const G_URL = 'https://script.google.com/macros/s/AKfycbyYBbsr5bFi8o0lzYguDYfJRILTTV3GwxHmoOkmsjI0CAwqhL4qU7h7dQ2CdlEgg_nUYg/exec';
 
- document.addEventListener("DOMContentLoaded", () => {
-    console.log("Iniciando Control Integral - El Profeta...");
+document.addEventListener("DOMContentLoaded", async () => {
+    console.log("Iniciando Sincronización Global - El Profeta...");
+    
+    // 1. Cargar datos locales primero para rapidez
+    cargarDatos(); 
 
-    // 1. Cargamos los datos desde el LocalStorage (definido en state.js)
-    cargarDatos();
+    // 2. Intentar descargar datos nuevos de la nube
+    try {
+        const response = await fetch(G_URL);
+        const ventasNube = await response.json();
+        
+        if (ventasNube && ventasNube.length > 0) {
+            actualizarEstadoConNube(ventasNube);
+        }
+    } catch (e) {
+        console.warn("No se pudo sincronizar con la nube, usando datos locales.");
+    }
 
-    // 2. Ejecutamos el primer renderizado para dibujar toda la interfaz
-    // La función render() está definida en ui.js y dibuja:
-    // - Stock General y Popularidad
-    // - Ventas Totales y Ganancia Profeta
-    // - Cartera de Clientes (Deudores)
-    // - Selectores de Usuarios y Panel Activo
     render();
-
-    console.log("Aplicación lista para usar.");
 });
 
-/**
- * Nota: Para que este archivo funcione correctamente, 
- * debe ser el ÚLTIMO en cargarse en tu index.html:
- * * <script src="state.js"></script>
- * <script src="logic.js"></script>
- * <script src="ui.js"></script>
- * <script src="app.js"></script>
- */
+function actualizarEstadoConNube(ventas) {
+    setState(prev => {
+        // Limpiamos ventas locales para no duplicar y cargamos las de la nube
+        Object.keys(prev.usuarios).forEach(u => prev.usuarios[u].ventas = []);
+        
+        ventas.forEach(v => {
+            if (prev.usuarios[v.usuario]) {
+                prev.usuarios[v.usuario].ventas.push({
+                    cliente: v.cliente,
+                    estilos: v.estilos,
+                    totalCobrado: v.cobrado,
+                    paraProfeta: v.paraProfeta,
+                    metodoPago: v.metodo,
+                    fecha: v.fecha
+                });
+            }
+        });
+        return prev;
+    });
+}
