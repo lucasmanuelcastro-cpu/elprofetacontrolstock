@@ -119,12 +119,16 @@ async function cargarDatosDesdeSheet() {
     }
 
     setState((prev) => {
-      // Recorrer cada usuario que vino del Sheet
       Object.entries(datosCloud.usuarios).forEach(function(entry) {
-        const nombre = entry[0];   // "Julian", "Matias", "Lucas"
-        const datos  = entry[1];   // { stock: { BLONDE: 333, ... } }
+        const nombre = entry[0];
+        const datos  = entry[1];
+
+        console.log("Procesando:", nombre, "stock recibido:", JSON.stringify(datos.stock));
 
         if (prev.usuarios[nombre] && datos.stock) {
+          const keys = Object.keys(datos.stock);
+          console.log("Keys exactas del Sheet:", keys);
+
           prev.usuarios[nombre].stock = {
             "BLONDE":      Number(datos.stock["BLONDE"])      || 0,
             "IRISH RED":   Number(datos.stock["IRISH RED"])   || 0,
@@ -133,8 +137,15 @@ async function cargarDatosDesdeSheet() {
             "RED IPA":     Number(datos.stock["RED IPA"])     || 0,
             "HONEY":       Number(datos.stock["HONEY"])       || 0
           };
+
+          console.log("Stock cargado:", JSON.stringify(prev.usuarios[nombre].stock));
+        } else {
+          console.warn("PROBLEMA - usuario:", nombre, 
+            "existe en app:", !!prev.usuarios[nombre],
+            "datos.stock:", JSON.stringify(datos ? datos.stock : null));
         }
       });
+      console.log("STATE FINAL usuarios:", JSON.stringify(prev.usuarios));
       return prev;
     });
 
