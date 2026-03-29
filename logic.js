@@ -127,28 +127,7 @@ function registrarPagoCliente(index, metodo = "efectivo") {
   const monto = prompt(`¿Cuánto pagó ${state.clientesGlobales[index].nombre}?`);
   if (!monto) return;
   const montoNum = Number(monto);
-  const cliente = state.clientesGlobales[index];
   const fecha = new Date().toLocaleDateString("es-AR");
-
-  // Encolar el cobro para grabarlo en la hoja
-  const cobroDatos = {
-    cliente: cliente.nombre,
-    estilos: {},
-    alquilerBarril: "COBRO DEUDA",
-    totalCobrado: montoNum,
-    paraProfeta: 0,
-    comision: 0,
-    totalLatas: 0,
-    costo: 0,
-    ganancia: 0,
-    metodoPago: metodo,
-    fecha: fecha,
-    vendedor: state.usuarioActivo || "",
-    esCobro: true,
-  };
-  ventasPendientes.push(cobroDatos);
-  localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
-  console.log("💰 Cobro registrado. Pendientes:", ventasPendientes.length);
 
   setState((prev) => {
     const c = prev.clientesGlobales[index];
