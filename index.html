@@ -50,14 +50,7 @@
             <p>Sistema Integral de Gestión de Stock</p>
         </header>
 
-        <!-- Barra de sincronización -->
-        <div style="display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; padding:8px 14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px;">
-          <span id="refresh-indicator" style="font-weight:bold; font-size:0.92em;">⏳ Iniciando...</span>
-          <span id="refresh-countdown" style="color:#6b7280; font-size:0.82em;"></span>
-          <button id="btn-sync-manual" onclick="syncManual()" style="padding:5px 12px; font-size:0.82em; background:#3b82f6;">🔄 Sync Ahora</button>
-          <button id="btn-toggle-refresh" onclick="toggleRefresh()" style="padding:5px 12px; font-size:0.82em; background:#f59e0b;">⏸️ Pausar Sync</button>
-        </div>
-        <div id="aviso-sync" style="color:#dc2626;font-weight:bold;text-align:center;min-height:1.2em;margin-bottom:8px;"></div>
+        <div id="aviso-sync" style="display:none;"></div>
         <section id="stock-general-section" class="card-section"></section>
 
         <section id="ventas-general-section" class="card-section"></section>
