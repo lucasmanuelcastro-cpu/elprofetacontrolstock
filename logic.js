@@ -12,8 +12,12 @@ function modificarStockDirecto(usuario, estilo, cantidad) {
   });
 }
 
-function registrarVenta() {
+async function registrarVenta() {
   if (!state.usuarioActivo) return;
+
+  // 1. Sincronizar desde el Sheet antes de guardar para no pisar datos de otros
+  await cargarDatosDesdeSheet();
+
   const preview = calcularPreview();
   const totalVenta = Number(state.totalCobradoInput) || 0;
   const alquilerBarril = state.alquilerBarril || "";
