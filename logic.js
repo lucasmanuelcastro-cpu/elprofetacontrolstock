@@ -1,5 +1,10 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycby516QlK6tXkDISDJIdG075_LdH0CyhYs63KqTevYIl5lllkxcQLiNqLRKyFqyFhURs1g/exec";
+
+// Clientes históricos cargados desde "Venta de Latas y Barriles"
+let clientesHistoricos = [];
+
 function modificarStockDirecto(usuario, estilo, cantidad) {
   setState((prev) => {
     prev.usuarios[usuario].stock[estilo] = Number(cantidad) || 0;
@@ -11,21 +16,38 @@ function registrarVenta() {
   if (!state.usuarioActivo) return;
   const preview = calcularPreview();
   const totalVenta = Number(state.totalCobradoInput) || 0;
+  const alquilerBarril = state.alquilerBarril || "";
+
+  // Capturar datos ANTES de que setState los limpie
+  const ventaDatos = {
+    cliente: state.clienteNombre || "Consumidor Final",
+    estilos: { ...state.ventaActual },
+    alquilerBarril: alquilerBarril,
+    totalCobrado: totalVenta,
+    paraProfeta: preview.paraProfeta,
+    comision: preview.comision,
+    totalLatas: preview.totalLatas,
+    costo: preview.costoTotal,
+    ganancia: totalVenta - preview.costoTotal,
+    metodoPago: state.metodoPago || "efectivo",
+    fecha: new Date().toLocaleDateString("es-AR"),
+    vendedor: state.usuarioActivo,
+  };
 
   setState((prev) => {
     const usuario = prev.usuarios[prev.usuarioActivo];
-    
+
     usuario.ventas.push({
-      cliente: prev.clienteNombre || "Consumidor Final",
-      estilos: { ...prev.ventaActual },
+      cliente: ventaDatos.cliente,
+      estilos: ventaDatos.estilos,
       totalCobrado: totalVenta,
       paraProfeta: preview.paraProfeta,
       comision: preview.comision,
-      metodoPago: prev.metodoPago || "efectivo",
-      fecha: new Date().toLocaleDateString(),
+      metodoPago: ventaDatos.metodoPago,
+      fecha: ventaDatos.fecha,
     });
 
-    if (prev.clienteNombre.trim() !== "") {
+    if (prev.clienteNombre && prev.clienteNombre.trim() !== "") {
       const idx = prev.clientesGlobales.findIndex(c => c.nombre.toLowerCase() === prev.clienteNombre.toLowerCase());
       if (idx !== -1) {
         prev.clientesGlobales[idx].deuda += totalVenta;
@@ -42,8 +64,47 @@ function registrarVenta() {
     prev.clienteNombre = "";
     prev.totalCobradoInput = "";
     prev.metodoPago = "efectivo";
+    prev.alquilerBarril = "";
     return prev;
   });
+
+  // Guardar en Google Sheets (silencioso, no bloquea)
+  guardarVentaEnSheet(ventaDatos);
+  guardarEnSheets();
+}
+
+// --- GUARDAR VENTA EN "Venta de Latas y Barriles" ---
+async function guardarVentaEnSheet(venta) {
+  try {
+    const payload = {
+      accion: "nuevaVenta",
+      venta: venta
+    };
+    await fetch(URL_SCRIPT, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: { "Content-Type": "text/plain" }
+    });
+    console.log("✅ Venta guardada en Sheet.");
+  } catch (err) {
+    console.error("❌ Error guardando venta en Sheet:", err);
+  }
+}
+
+// --- CARGAR CLIENTES HISTÓRICOS DESDE "Venta de Latas y Barriles" ---
+async function cargarClientesHistoricos() {
+  try {
+    const url = URL_SCRIPT + "?accion=clientes&v=" + Date.now();
+    const resp = await fetch(url, { method: "GET", mode: "cors", cache: "no-cache" });
+    const texto = await resp.text();
+    const datos = JSON.parse(texto.trim().replace(/^\uFEFF/, ""));
+    if (datos.clientes && Array.isArray(datos.clientes)) {
+      clientesHistoricos = datos.clientes;
+      console.log("✅ Clientes históricos cargados:", clientesHistoricos.length);
+    }
+  } catch (err) {
+    console.error("❌ Error cargando clientes históricos:", err);
+  }
 }
 
 function registrarPagoCliente(index, metodo = "efectivo") {
@@ -90,45 +151,22 @@ function swapMetodoPago(nombreUsuario, ventaIndex) {
   });
 }
 
-// --- FUNCIÓN DE LECTURA CRÍTICA (NUBE -> APP) ---
-
+// --- LECTURA DE STOCK DESDE NUBE ---
 async function cargarDatosDesdeSheet() {
-  const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbwSfPgfmAD2eavLkIPN_qhOmo0XounU-nehZzEgpdzmZptvq1ELgMukla1kCBmGJysm/exec";
-  
   try {
-    console.log("Intentando sincronizar con El Profeta Cloud...");
-
     const url = URL_SCRIPT + "?v=" + Date.now();
     const respuesta = await fetch(url, { method: "GET", mode: "cors", cache: "no-cache" });
-
-    if (!respuesta.ok) {
-      throw new Error("HTTP " + respuesta.status + ": " + respuesta.statusText);
-    }
+    if (!respuesta.ok) throw new Error("HTTP " + respuesta.status);
 
     const texto = await respuesta.text();
     const datosCloud = JSON.parse(texto.trim().replace(/^\uFEFF/, ""));
-    console.log("Datos recibidos del Sheet:", datosCloud);
 
-    // Tu doGet devuelve: { usuarios: { Julian: { stock: {...} }, Matias: {...}, Lucas: {...} } }
-    if (datosCloud.error) {
-      throw new Error("Error del Sheet: " + datosCloud.error);
-    }
-
-    if (!datosCloud.usuarios || typeof datosCloud.usuarios !== "object") {
-      throw new Error("Formato inesperado: " + JSON.stringify(datosCloud).substring(0, 100));
-    }
+    if (datosCloud.error) throw new Error(datosCloud.error);
+    if (!datosCloud.usuarios || typeof datosCloud.usuarios !== "object") return;
 
     setState((prev) => {
-      Object.entries(datosCloud.usuarios).forEach(function(entry) {
-        const nombre = entry[0];
-        const datos  = entry[1];
-
-        console.log("Procesando:", nombre, "stock recibido:", JSON.stringify(datos.stock));
-
+      Object.entries(datosCloud.usuarios).forEach(([nombre, datos]) => {
         if (prev.usuarios[nombre] && datos.stock) {
-          const keys = Object.keys(datos.stock);
-          console.log("Keys exactas del Sheet:", keys);
-
           prev.usuarios[nombre].stock = {
             "BLONDE":      Number(datos.stock["BLONDE"])      || 0,
             "IRISH RED":   Number(datos.stock["IRISH RED"])   || 0,
@@ -137,28 +175,17 @@ async function cargarDatosDesdeSheet() {
             "RED IPA":     Number(datos.stock["RED IPA"])     || 0,
             "HONEY":       Number(datos.stock["HONEY"])       || 0
           };
-
-          console.log("Stock cargado:", JSON.stringify(prev.usuarios[nombre].stock));
-        } else {
-          console.warn("PROBLEMA - usuario:", nombre, 
-            "existe en app:", !!prev.usuarios[nombre],
-            "datos.stock:", JSON.stringify(datos ? datos.stock : null));
         }
       });
-      console.log("STATE FINAL usuarios:", JSON.stringify(prev.usuarios));
       return prev;
     });
 
-    const aviso = document.getElementById("aviso-sync");
-    if (aviso) aviso.textContent = "";
-    console.log("✅ Sincronizacion exitosa. Datos cargados en el panel.");
+    // También actualizar clientes históricos silenciosamente
+    if (datosCloud.clientesHistoricos) {
+      clientesHistoricos = datosCloud.clientesHistoricos;
+    }
 
   } catch (error) {
     console.error("❌ Error de lectura desde Google Sheets:", error);
-    const aviso = document.getElementById("aviso-sync");
-    if (aviso) aviso.textContent = "⚠️ Sin conexión al Sheet: " + error.message;
   }
 }
-
-// NOTA: cargarDatosDesdeSheet() se llama desde app.js,
-// después de que ui.js (que define render()) ya está cargado.
