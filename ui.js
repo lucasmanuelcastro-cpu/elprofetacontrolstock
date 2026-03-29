@@ -184,31 +184,43 @@ function renderPanelUsuario() {
             <div id="calc-display" style="
               background: #0f172a; color: #f1f5f9; font-size: 1.3em; font-weight: bold;
               padding: 8px 12px; border-radius: 6px; text-align: right;
-              min-height: 38px; margin-bottom: 8px; word-break: break-all;
-              letter-spacing: 1px;">
+              min-height: 38px; margin-bottom: 8px; word-break: break-all;">
               ${state.totalCobradoInput || "0"}
             </div>
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
-              ${[
-                ["7","8","9","÷"],
-                ["4","5","6","×"],
-                ["1","2","3","-"],
-                ["0","00",".","+"],
-                ["C","⌫","=","="]
-              ].map(fila => fila.map((t, i) => {
-                const esIgual = t === "=" && i >= 2;
-                const esBorrar = t === "⌫";
-                const esC = t === "C";
-                const esOp = ["÷","×","-","+"].includes(t);
-                const bg = esIgual ? "#2563eb" : esC ? "#ef4444" : esBorrar ? "#64748b" : esOp ? "#f59e0b" : "#334155";
-                return `<button onclick="calcPresionar('${t}')" style="
-                  background:${bg}; color:white; border:none; border-radius:6px;
-                  padding: 10px 0; font-size: 1em; font-weight: bold; cursor:pointer;
-                  ${esIgual && i === 3 ? '' : ''}
-                ">${t}</button>`;
-              }).join("")).join("")}
+              <button class="cbtn" onclick="calcPresionar('7')">7</button>
+              <button class="cbtn" onclick="calcPresionar('8')">8</button>
+              <button class="cbtn" onclick="calcPresionar('9')">9</button>
+              <button class="cbtn cop" onclick="calcPresionar('/')">÷</button>
+
+              <button class="cbtn" onclick="calcPresionar('4')">4</button>
+              <button class="cbtn" onclick="calcPresionar('5')">5</button>
+              <button class="cbtn" onclick="calcPresionar('6')">6</button>
+              <button class="cbtn cop" onclick="calcPresionar('*')">×</button>
+
+              <button class="cbtn" onclick="calcPresionar('1')">1</button>
+              <button class="cbtn" onclick="calcPresionar('2')">2</button>
+              <button class="cbtn" onclick="calcPresionar('3')">3</button>
+              <button class="cbtn cop" onclick="calcPresionar('-')">−</button>
+
+              <button class="cbtn" onclick="calcPresionar('0')">0</button>
+              <button class="cbtn" onclick="calcPresionar('00')">00</button>
+              <button class="cbtn" onclick="calcPresionar('.')">.</button>
+              <button class="cbtn cop" onclick="calcPresionar('+')">+</button>
+
+              <button class="cbtn cclr" onclick="calcPresionar('C')">C</button>
+              <button class="cbtn cdel" onclick="calcPresionar('DEL')">⌫</button>
+              <button class="cbtn ceq" onclick="calcPresionar('=')" style="grid-column: span 2;">=</button>
             </div>
           </div>
+          <style>
+            .cbtn { color:white; border:none; border-radius:6px; padding:10px 0; font-size:1em; font-weight:bold; cursor:pointer; background:#334155; }
+            .cbtn:active { opacity: 0.7; }
+            .cop  { background:#f59e0b; }
+            .cclr { background:#ef4444; }
+            .cdel { background:#64748b; }
+            .ceq  { background:#2563eb; }
+          </style>
 
           <!-- PREVIEW -->
           <div class="card" style="background:#fef3c7; border: 1px solid #f59e0b; margin-top: 10px;">
@@ -268,13 +280,11 @@ function calcPresionar(tecla) {
 
   if (tecla === "C") {
     calcExpr = "";
-  } else if (tecla === "⌫") {
+  } else if (tecla === "DEL") {
     calcExpr = calcExpr.slice(0, -1);
   } else if (tecla === "=") {
     try {
-      // Reemplazar símbolos visuales por operadores JS
-      const expr = calcExpr.replace(/÷/g, "/").replace(/×/g, "*");
-      const resultado = Function('"use strict"; return (' + expr + ')')();
+      const resultado = Function('"use strict"; return (' + calcExpr + ')')();
       calcExpr = isFinite(resultado) ? String(Math.round(resultado * 100) / 100) : "0";
     } catch {
       calcExpr = "0";
@@ -285,10 +295,9 @@ function calcPresionar(tecla) {
 
   display.textContent = calcExpr || "0";
 
-  // Actualizar state con el valor numérico actual (si es número válido)
   const val = parseFloat(calcExpr);
   if (!isNaN(val)) {
-    setState(p => { p.totalCobradoInput = String(val); return p; });
+    state.totalCobradoInput = String(val);
   }
 }
 
