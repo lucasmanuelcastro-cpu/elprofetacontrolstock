@@ -1,5 +1,5 @@
 const estilosBase = ["BLONDE", "IRISH RED", "STOUT", "SESSION IPA", "RED IPA", "HONEY"];
-const costoPorLata = 1700;
+const costoPorLata = 1750;
 
 let state = {
   usuarios: {
