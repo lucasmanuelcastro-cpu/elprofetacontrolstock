@@ -14,6 +14,8 @@ let state = {
   metodoPago: "efectivo",
   clienteNombre: "",
   totalCobradoInput: "",
+  alquilerBarril: "",
+  precioUnitario: "",
   transferDesde: "Julian",
   transferHacia: "Matias",
   transferEstilo: "BLONDE",
