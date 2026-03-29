@@ -1,5 +1,5 @@
 const estilosBase = ["BLONDE", "IRISH RED", "STOUT", "SESSION IPA", "RED IPA", "HONEY"];
-const costoPorLata = 1800;
+const costoPorLata = 1700;
 
 let state = {
   usuarios: {
@@ -50,34 +50,33 @@ function getVentasGenerales() {
 }
 
 function getTotalVentasDinero() {
-  // Total real cobrado = efectivo + transferencia (ya descontando deudas pendientes)
   return getTotalVentasPorMetodo("efectivo") + getTotalVentasPorMetodo("transferencia");
 }
 
 function getTotalVentasPorMetodo(metodo) {
-  // Ventas registradas con ese método
-  const ventas = getVentasGenerales().filter(v => (v.metodoPago || "efectivo") === metodo);
-  const totalVentas = ventas.reduce((acc, v) => acc + (Number(v.totalCobrado) || 0), 0);
+  // Nombres de clientes que tienen deuda registrada
+  const nombresDeudores = new Set(
+    state.clientesGlobales.map(c => c.nombre.toLowerCase().trim())
+  );
 
-  // Pagos recibidos de deudores con ese método
-  const pagosCobrados = state.clientesGlobales.reduce((acc, c) => {
+  // Ventas cobradas en el momento (no deudores, o "Consumidor Final")
+  const ventasAlContado = getVentasGenerales().filter(v =>
+    (v.metodoPago || "efectivo") === metodo &&
+    (!v.cliente || v.cliente.trim() === "" ||
+     v.cliente === "Consumidor Final" ||
+     !nombresDeudores.has(v.cliente.toLowerCase().trim()))
+  );
+  const totalContado = ventasAlContado.reduce((acc, v) => acc + (Number(v.totalCobrado) || 0), 0);
+
+  // Cobros de deuda recibidos con ese método
+  const cobrosDeuda = state.clientesGlobales.reduce((acc, c) => {
     const pagos = c.pagos || [];
     return acc + pagos
       .filter(p => (p.metodo || "efectivo") === metodo)
       .reduce((s, p) => s + (Number(p.monto) || 0), 0);
   }, 0);
 
-  // Deuda pendiente total (se resta solo del efectivo como método default)
-  const deudaPendienteTotal = state.clientesGlobales.reduce((acc, c) => {
-    const saldo = (Number(c.deuda) || 0) - (Number(c.pagado) || 0);
-    return acc + (saldo > 0 ? saldo : 0);
-  }, 0);
-
-  // Solo restamos deuda pendiente del efectivo (método por defecto de las deudas)
-  if (metodo === "efectivo") {
-    return totalVentas - deudaPendienteTotal + pagosCobrados;
-  }
-  return totalVentas + pagosCobrados;
+  return totalContado + cobrosDeuda;
 }
 
 function getGananciaTotalProfeta() {
