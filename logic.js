@@ -3,7 +3,7 @@
 const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbwQemksFavbTyqR1wFAGTS19p6OJMUAqFoyDbBIZfQLIE3sEQ-xpVOaDVMasMS77yNufw/exec";
 
 let clientesHistoricos = [];
-let ventasPendientes = []; // ventas registradas localmente, pendientes de enviar al Sheet
+let ventasPendientes = [];
 
 function modificarStockDirecto(usuario, estilo, cantidad) {
   setState((prev) => {
@@ -12,7 +12,6 @@ function modificarStockDirecto(usuario, estilo, cantidad) {
   });
 }
 
-// REGISTRAR VENTA — solo local, NO manda al Sheet
 function registrarVentaLocal() {
   if (!state.usuarioActivo) return;
   const preview = calcularPreview();
@@ -34,8 +33,9 @@ function registrarVentaLocal() {
     vendedor: state.usuarioActivo,
   };
 
-  // Guardar en cola de pendientes para enviar al Sheet cuando el usuario presione Guardar
   ventasPendientes.push(ventaDatos);
+  localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
+  console.log("📝 Venta registrada. Pendientes:", ventasPendientes.length);
 
   setState((prev) => {
     const usuario = prev.usuarios[prev.usuarioActivo];
@@ -70,16 +70,28 @@ function registrarVentaLocal() {
   });
 }
 
-// GUARDAR EN SHEET — manda todas las ventas pendientes una por una
 async function guardarVentasPendientesEnSheet() {
-  if (!ventasPendientes.length) return;
+  // Recuperar pendientes del localStorage por si se recargó la página
+  if (!ventasPendientes.length) {
+    const guardadas = localStorage.getItem("ventasPendientes");
+    if (guardadas) ventasPendientes = JSON.parse(guardadas);
+  }
+
+  console.log("📦 Ventas pendientes a enviar:", ventasPendientes.length, JSON.stringify(ventasPendientes));
+
+  if (!ventasPendientes.length) {
+    console.warn("⚠️ No hay ventas pendientes para enviar.");
+    return;
+  }
 
   const colaActual = [...ventasPendientes];
   ventasPendientes = [];
+  localStorage.removeItem("ventasPendientes");
 
   for (const venta of colaActual) {
     try {
       const payload = { accion: "nuevaVenta", venta: venta };
+      console.log("📤 Enviando:", JSON.stringify(payload));
       const resp = await fetch(URL_SCRIPT, {
         method: "POST",
         body: JSON.stringify(payload),
@@ -87,10 +99,11 @@ async function guardarVentasPendientesEnSheet() {
         mode: "cors"
       });
       const texto = await resp.text();
-      console.log("✅ Venta enviada al Sheet:", texto);
+      console.log("✅ Respuesta del Sheet:", texto);
     } catch (err) {
       console.error("❌ Error enviando venta:", err);
-      ventasPendientes.push(venta); // re-encolar si falla
+      ventasPendientes.push(venta);
+      localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
     }
   }
 }
@@ -154,7 +167,6 @@ function swapMetodoPago(nombreUsuario, ventaIndex) {
   });
 }
 
-// LECTURA DE STOCK + CLIENTES HISTÓRICOS
 async function cargarDatosDesdeSheet() {
   try {
     const url = URL_SCRIPT + "?v=" + Date.now();
