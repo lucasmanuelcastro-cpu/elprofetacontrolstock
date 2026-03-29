@@ -1,9 +1,9 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycby516QlK6tXkDISDJIdG075_LdH0CyhYs63KqTevYIl5lllkxcQLiNqLRKyFqyFhURs1g/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbyjqreoVexGri4vwdmg7O5M-z_DcNTOB053bQK0dWHW6xJakXwKIvbU08d1YPyKb7mw/exec";
 
-// Clientes históricos cargados desde "Venta de Latas y Barriles"
 let clientesHistoricos = [];
+let ventasPendientes = []; // ventas registradas localmente, pendientes de enviar al Sheet
 
 function modificarStockDirecto(usuario, estilo, cantidad) {
   setState((prev) => {
@@ -12,17 +12,13 @@ function modificarStockDirecto(usuario, estilo, cantidad) {
   });
 }
 
-async function registrarVenta() {
+// REGISTRAR VENTA — solo local, NO manda al Sheet
+function registrarVentaLocal() {
   if (!state.usuarioActivo) return;
-
-  // 1. Sincronizar desde el Sheet antes de guardar para no pisar datos de otros
-  await cargarDatosDesdeSheet();
-
   const preview = calcularPreview();
   const totalVenta = Number(state.totalCobradoInput) || 0;
   const alquilerBarril = state.alquilerBarril || "";
 
-  // Capturar datos ANTES de que setState los limpie
   const ventaDatos = {
     cliente: state.clienteNombre || "Consumidor Final",
     estilos: { ...state.ventaActual },
@@ -33,14 +29,16 @@ async function registrarVenta() {
     totalLatas: preview.totalLatas,
     costo: preview.costoTotal,
     ganancia: totalVenta - preview.costoTotal,
-    metodoPago: state.metodoPago || "efectivo",
+    metodoPago: "efectivo",
     fecha: new Date().toLocaleDateString("es-AR"),
     vendedor: state.usuarioActivo,
   };
 
+  // Guardar en cola de pendientes para enviar al Sheet cuando el usuario presione Guardar
+  ventasPendientes.push(ventaDatos);
+
   setState((prev) => {
     const usuario = prev.usuarios[prev.usuarioActivo];
-
     usuario.ventas.push({
       cliente: ventaDatos.cliente,
       estilos: ventaDatos.estilos,
@@ -67,35 +65,36 @@ async function registrarVenta() {
     prev.ventaActual = {};
     prev.clienteNombre = "";
     prev.totalCobradoInput = "";
-    prev.metodoPago = "efectivo";
     prev.alquilerBarril = "";
     return prev;
   });
-
-  // Guardar en Google Sheets (silencioso, no bloquea)
-  guardarVentaEnSheet(ventaDatos);
-  guardarEnSheets();
 }
 
-// --- GUARDAR VENTA EN "Venta de Latas y Barriles" ---
-async function guardarVentaEnSheet(venta) {
-  try {
-    const payload = {
-      accion: "nuevaVenta",
-      venta: venta
-    };
-    await fetch(URL_SCRIPT, {
-      method: "POST",
-      body: JSON.stringify(payload),
-      headers: { "Content-Type": "text/plain" }
-    });
-    console.log("✅ Venta guardada en Sheet.");
-  } catch (err) {
-    console.error("❌ Error guardando venta en Sheet:", err);
+// GUARDAR EN SHEET — manda todas las ventas pendientes una por una
+async function guardarVentasPendientesEnSheet() {
+  if (!ventasPendientes.length) return;
+
+  const colaActual = [...ventasPendientes];
+  ventasPendientes = [];
+
+  for (const venta of colaActual) {
+    try {
+      const payload = { accion: "nuevaVenta", venta: venta };
+      const resp = await fetch(URL_SCRIPT, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "text/plain" },
+        mode: "cors"
+      });
+      const texto = await resp.text();
+      console.log("✅ Venta enviada al Sheet:", texto);
+    } catch (err) {
+      console.error("❌ Error enviando venta:", err);
+      ventasPendientes.push(venta); // re-encolar si falla
+    }
   }
 }
 
-// --- CARGAR CLIENTES HISTÓRICOS DESDE "Venta de Latas y Barriles" ---
 async function cargarClientesHistoricos() {
   try {
     const url = URL_SCRIPT + "?accion=clientes&v=" + Date.now();
@@ -104,7 +103,7 @@ async function cargarClientesHistoricos() {
     const datos = JSON.parse(texto.trim().replace(/^\uFEFF/, ""));
     if (datos.clientes && Array.isArray(datos.clientes)) {
       clientesHistoricos = datos.clientes;
-      console.log("✅ Clientes históricos cargados:", clientesHistoricos.length);
+      console.log("✅ Clientes históricos:", clientesHistoricos.length);
     }
   } catch (err) {
     console.error("❌ Error cargando clientes históricos:", err);
@@ -155,7 +154,7 @@ function swapMetodoPago(nombreUsuario, ventaIndex) {
   });
 }
 
-// --- LECTURA DE STOCK DESDE NUBE ---
+// LECTURA DE STOCK + CLIENTES HISTÓRICOS
 async function cargarDatosDesdeSheet() {
   try {
     const url = URL_SCRIPT + "?v=" + Date.now();
@@ -164,7 +163,6 @@ async function cargarDatosDesdeSheet() {
 
     const texto = await respuesta.text();
     const datosCloud = JSON.parse(texto.trim().replace(/^\uFEFF/, ""));
-
     if (datosCloud.error) throw new Error(datosCloud.error);
     if (!datosCloud.usuarios || typeof datosCloud.usuarios !== "object") return;
 
@@ -184,12 +182,12 @@ async function cargarDatosDesdeSheet() {
       return prev;
     });
 
-    // También actualizar clientes históricos silenciosamente
     if (datosCloud.clientesHistoricos) {
       clientesHistoricos = datosCloud.clientesHistoricos;
     }
 
+    console.log("✅ Sync exitosa.");
   } catch (error) {
-    console.error("❌ Error de lectura desde Google Sheets:", error);
+    console.error("❌ Error de lectura:", error);
   }
 }
