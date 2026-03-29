@@ -50,20 +50,16 @@ function getVentasGenerales() {
 }
 
 function getTotalVentasDinero() {
-  const totalVentas = getVentasGenerales().reduce((acc, v) => acc + (Number(v.totalCobrado) || 0), 0);
-  const deudaPendiente = state.clientesGlobales.reduce((acc, c) => {
-    const saldo = (Number(c.deuda) || 0) - (Number(c.pagado) || 0);
-    return acc + (saldo > 0 ? saldo : 0);
-  }, 0);
-  return totalVentas - deudaPendiente;
+  // Total real cobrado = efectivo + transferencia (ya descontando deudas pendientes)
+  return getTotalVentasPorMetodo("efectivo") + getTotalVentasPorMetodo("transferencia");
 }
 
 function getTotalVentasPorMetodo(metodo) {
-  // Solo las ventas registradas con ese método de pago
+  // Ventas registradas con ese método
   const ventas = getVentasGenerales().filter(v => (v.metodoPago || "efectivo") === metodo);
   const totalVentas = ventas.reduce((acc, v) => acc + (Number(v.totalCobrado) || 0), 0);
 
-  // Pagos recibidos de clientes deudores con ese método
+  // Pagos recibidos de deudores con ese método
   const pagosCobrados = state.clientesGlobales.reduce((acc, c) => {
     const pagos = c.pagos || [];
     return acc + pagos
@@ -71,22 +67,17 @@ function getTotalVentasPorMetodo(metodo) {
       .reduce((s, p) => s + (Number(p.monto) || 0), 0);
   }, 0);
 
-  // Deuda pendiente SOLO de ventas de ese método (lo que todavía no cobró)
-  const deudaPendienteDeEsteMetodo = state.clientesGlobales.reduce((acc, c) => {
-    // Buscar las ventas de este cliente con este método
-    const ventasCliente = getVentasGenerales().filter(v =>
-      v.cliente && v.cliente.toLowerCase() === c.nombre.toLowerCase() &&
-      (v.metodoPago || "efectivo") === metodo
-    );
-    const totalVentasCliente = ventasCliente.reduce((s, v) => s + (Number(v.totalCobrado) || 0), 0);
-    const pagosDeEsteMetodo = (c.pagos || [])
-      .filter(p => (p.metodo || "efectivo") === metodo)
-      .reduce((s, p) => s + (Number(p.monto) || 0), 0);
-    const saldo = totalVentasCliente - pagosDeEsteMetodo;
+  // Deuda pendiente total (se resta solo del efectivo como método default)
+  const deudaPendienteTotal = state.clientesGlobales.reduce((acc, c) => {
+    const saldo = (Number(c.deuda) || 0) - (Number(c.pagado) || 0);
     return acc + (saldo > 0 ? saldo : 0);
   }, 0);
 
-  return totalVentas - deudaPendienteDeEsteMetodo + pagosCobrados;
+  // Solo restamos deuda pendiente del efectivo (método por defecto de las deudas)
+  if (metodo === "efectivo") {
+    return totalVentas - deudaPendienteTotal + pagosCobrados;
+  }
+  return totalVentas + pagosCobrados;
 }
 
 function getGananciaTotalProfeta() {
