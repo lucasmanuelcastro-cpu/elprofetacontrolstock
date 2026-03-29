@@ -15,7 +15,6 @@ function render() {
 function renderStockGeneral() {
   const container = document.getElementById("stock-general-section");
   const stats = getEstadisticasVentas();
-
   container.innerHTML = `
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
       <div class="card">
@@ -29,7 +28,6 @@ function renderStockGeneral() {
           </div>
         `).join("")}
       </div>
-
       <div class="card" style="background: #f8fafc; border: 1px solid #e2e8f0;">
         <h2>Popularidad (% Ventas)</h2>
         ${Object.entries(stats.totalesPorEstilo).length === 0
@@ -42,16 +40,14 @@ function renderStockGeneral() {
                   <div class="flex space-between" style="padding: 4px 0; border-bottom: 1px solid #e2e8f0;">
                     <span>${estilo}</span>
                     <span style="color: #3b82f6; font-weight: bold;">${porcentaje}%</span>
-                  </div>
-                `;
+                  </div>`;
               }).join("")
         }
         <div style="margin-top: 15px; text-align: right;">
           <small style="color: #64748b;">Total latas vendidas: <b>${stats.granTotalLatas}</b></small>
         </div>
       </div>
-    </div>
-  `;
+    </div>`;
 }
 
 // 2. VENTAS GENERALES
@@ -61,7 +57,6 @@ function renderVentasGeneral() {
   const dineroTransferencia = getTotalVentasPorMetodo("transferencia");
   const dineroTotal = getTotalVentasDinero();
   const totalProfeta = getGananciaTotalProfeta();
-
   container.innerHTML = `
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
       <div class="card" style="border-left: 4px solid #059669;">
@@ -89,14 +84,12 @@ function renderVentasGeneral() {
     </div>`;
 }
 
-// 3. CARTERA DE CLIENTES
+// 3. CARTERA DE CLIENTES (método de pago solo acá)
 function renderClientesGlobales() {
   const container = document.getElementById("clientes-section");
   if (!container) return;
-
   const deudores = state.clientesGlobales.filter(c => (c.deuda - c.pagado) > 0);
   const deudaTotal = deudores.reduce((acc, c) => acc + (c.deuda - c.pagado), 0);
-
   container.innerHTML = `
     <div class="card" style="border-left: 5px solid #ef4444;">
       <div class="flex space-between">
@@ -125,11 +118,10 @@ function renderClientesGlobales() {
     </div>`;
 }
 
-// 4. PANEL DE USUARIO INDIVIDUAL
+// 4. PANEL DE USUARIO
 function renderPanelUsuario() {
   const container = document.getElementById("panel-usuario-container");
   if (!state.usuarioActivo) { container.innerHTML = ""; return; }
-
   const usuario = state.usuarios[state.usuarioActivo];
   const preview = calcularPreview();
 
@@ -137,7 +129,8 @@ function renderPanelUsuario() {
     <div class="panel-usuario card">
       <h1 style="border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Panel de ${state.usuarioActivo}</h1>
       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
-        
+
+        <!-- STOCK PROPIO -->
         <div>
           <h3>📦 Stock Propio</h3>
           ${estilosBase.map(e => `
@@ -147,6 +140,7 @@ function renderPanelUsuario() {
             </div>`).join("")}
         </div>
 
+        <!-- AGREGAR STOCK -->
         <div>
           <h3>➕ Agregar Stock</h3>
           ${estilosBase.map(e => `
@@ -158,19 +152,14 @@ function renderPanelUsuario() {
           <button id="btn-reset-stock" style="width:100%; margin-top:6px; background:#ef4444;">Reset Stock</button>
         </div>
 
+        <!-- REGISTRAR VENTA -->
         <div>
           <h3>🛒 Registrar Venta</h3>
-          
-          <!-- CAMPO CLIENTE CON AUTOCOMPLETADO -->
+
+          <!-- CLIENTE CON AUTOCOMPLETADO -->
           <div style="position: relative; margin-bottom: 10px;">
-            <input 
-              type="text" 
-              id="cliente-nombre" 
-              placeholder="Nombre Cliente (Opcional)" 
-              value="${state.clienteNombre}"
-              autocomplete="off"
-              style="margin-bottom: 0; width: 100%;"
-            >
+            <input type="text" id="cliente-nombre" placeholder="Nombre Cliente (Opcional)"
+              value="${state.clienteNombre}" autocomplete="off" style="margin-bottom: 0; width: 100%;">
             <div id="sugerencias-cliente" style="
               position: absolute; top: 100%; left: 0; right: 0;
               background: white; border: 1px solid #d1d5db; border-top: none;
@@ -187,22 +176,39 @@ function renderPanelUsuario() {
             </div>`).join("")}
 
           <!-- ALQUILER BARRIL -->
-          <input 
-            type="text" 
-            id="alquiler-barril" 
-            placeholder="Alquiler barril (ej: HONEY 30Lts)" 
-            value="${state.alquilerBarril || ""}"
-            style="margin-top: 6px;"
-          >
+          <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)"
+            value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
 
-          <!-- TOTAL COBRADO -->
-          <input type="number" id="total-cobrado" placeholder="Total a Cobrar ($)" value="${state.totalCobradoInput}" style="margin-top:6px; font-weight:bold;">
-
-          <!-- MÉTODO DE PAGO -->
-          <select id="metodo-pago-venta" style="margin-top:6px;">
-            <option value="efectivo" ${(state.metodoPago || "efectivo") === "efectivo" ? "selected" : ""}>💵 Efectivo</option>
-            <option value="transferencia" ${state.metodoPago === "transferencia" ? "selected" : ""}>🏦 Transferencia</option>
-          </select>
+          <!-- CALCULADORA TOTAL A COBRAR -->
+          <div style="margin-top: 8px; background: #1e293b; border-radius: 10px; padding: 10px;">
+            <div id="calc-display" style="
+              background: #0f172a; color: #f1f5f9; font-size: 1.3em; font-weight: bold;
+              padding: 8px 12px; border-radius: 6px; text-align: right;
+              min-height: 38px; margin-bottom: 8px; word-break: break-all;
+              letter-spacing: 1px;">
+              ${state.totalCobradoInput || "0"}
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
+              ${[
+                ["7","8","9","÷"],
+                ["4","5","6","×"],
+                ["1","2","3","-"],
+                ["0","00",".","+"],
+                ["C","⌫","=","="]
+              ].map(fila => fila.map((t, i) => {
+                const esIgual = t === "=" && i >= 2;
+                const esBorrar = t === "⌫";
+                const esC = t === "C";
+                const esOp = ["÷","×","-","+"].includes(t);
+                const bg = esIgual ? "#2563eb" : esC ? "#ef4444" : esBorrar ? "#64748b" : esOp ? "#f59e0b" : "#334155";
+                return `<button onclick="calcPresionar('${t}')" style="
+                  background:${bg}; color:white; border:none; border-radius:6px;
+                  padding: 10px 0; font-size: 1em; font-weight: bold; cursor:pointer;
+                  ${esIgual && i === 3 ? '' : ''}
+                ">${t}</button>`;
+              }).join("")).join("")}
+            </div>
+          </div>
 
           <!-- PREVIEW -->
           <div class="card" style="background:#fef3c7; border: 1px solid #f59e0b; margin-top: 10px;">
@@ -211,7 +217,11 @@ function renderPanelUsuario() {
             <p style="margin: 5px 0;">Comisión (50%): $${preview.comision.toLocaleString()}</p>
             <p style="margin: 5px 0;"><strong>Total a Rendir: $${preview.paraProfeta.toLocaleString()}</strong></p>
           </div>
-          <button id="btn-registrar" style="width:100%; margin-top:10px; background:#1e40af;">Registrar Venta</button>
+
+          <!-- BOTÓN REGISTRAR (solo local, no guarda en Sheet) -->
+          <button id="btn-registrar" style="width:100%; margin-top:10px; background:#1e40af;">
+            ✅ Registrar Venta
+          </button>
         </div>
       </div>
 
@@ -219,18 +229,22 @@ function renderPanelUsuario() {
       <div class="flex space-between">
         <h3>📜 Historial de Ventas</h3>
         <div>
-          <button id="btn-guardar" style="background:#059669;">💾 Guardar</button>
+          <!-- GUARDAR: sincroniza y manda al Sheet -->
+          <button id="btn-guardar" style="background:#059669;">💾 Guardar en Sheet</button>
           <button id="btn-borrar" class="danger">Borrar Historial</button>
         </div>
       </div>
       <div id="historial-lista" style="margin-top: 15px;">
         ${usuario.ventas.length === 0 ? '<p>No hay ventas registradas</p>' :
-          usuario.ventas.map((v, idx) => `
+          usuario.ventas.map((v) => `
           <div style="border-bottom:1px solid #eee; padding:10px 0; font-size: 0.9em;">
             <div class="flex space-between"><b>👤 ${v.cliente}</b> <small>📅 ${v.fecha}</small></div>
-            <div style="color: #666; margin: 4px 0;">Pedido: ${Object.entries(v.estilos).filter(e => e[1]>0).map(e => `${e[1]} ${e[0]}`).join(", ")} <b style="color:#1e40af;">(${Object.values(v.estilos).reduce((a,b) => a + (Number(b)||0), 0)} latas)</b></div>
+            <div style="color: #666; margin: 4px 0;">
+              Pedido: ${Object.entries(v.estilos).filter(e => e[1]>0).map(e => `${e[1]} ${e[0]}`).join(", ")}
+              <b style="color:#1e40af;">(${Object.values(v.estilos).reduce((a,b) => a+(Number(b)||0),0)} latas)</b>
+            </div>
             <div>
-              <span>Cobrado: $${v.totalCobrado.toLocaleString()} | Comisión: $${v.comision.toLocaleString()} | 👑 Profeta: $${v.paraProfeta.toLocaleString()}</span>
+              Cobrado: $${v.totalCobrado.toLocaleString()} | Comisión: $${v.comision.toLocaleString()} | 👑 Profeta: $${v.paraProfeta.toLocaleString()}
             </div>
           </div>`).reverse().join("")}
       </div>
@@ -238,9 +252,47 @@ function renderPanelUsuario() {
 
   bindPanelEventos();
   bindAutocompletadoCliente();
+  bindCalculadora();
 }
 
-// 5. AUTOCOMPLETADO DE CLIENTE
+// 5. CALCULADORA
+let calcExpr = "";
+
+function bindCalculadora() {
+  calcExpr = state.totalCobradoInput ? String(state.totalCobradoInput) : "";
+}
+
+function calcPresionar(tecla) {
+  const display = document.getElementById("calc-display");
+  if (!display) return;
+
+  if (tecla === "C") {
+    calcExpr = "";
+  } else if (tecla === "⌫") {
+    calcExpr = calcExpr.slice(0, -1);
+  } else if (tecla === "=") {
+    try {
+      // Reemplazar símbolos visuales por operadores JS
+      const expr = calcExpr.replace(/÷/g, "/").replace(/×/g, "*");
+      const resultado = Function('"use strict"; return (' + expr + ')')();
+      calcExpr = isFinite(resultado) ? String(Math.round(resultado * 100) / 100) : "0";
+    } catch {
+      calcExpr = "0";
+    }
+  } else {
+    calcExpr += tecla;
+  }
+
+  display.textContent = calcExpr || "0";
+
+  // Actualizar state con el valor numérico actual (si es número válido)
+  const val = parseFloat(calcExpr);
+  if (!isNaN(val)) {
+    setState(p => { p.totalCobradoInput = String(val); return p; });
+  }
+}
+
+// 6. AUTOCOMPLETADO CLIENTE
 function bindAutocompletadoCliente() {
   const input = document.getElementById("cliente-nombre");
   const sugerencias = document.getElementById("sugerencias-cliente");
@@ -249,43 +301,28 @@ function bindAutocompletadoCliente() {
   input.addEventListener("input", () => {
     const val = input.value.trim().toLowerCase();
     state.clienteNombre = input.value;
+    if (val.length < 1) { sugerencias.style.display = "none"; return; }
 
-    if (val.length < 1) {
-      sugerencias.style.display = "none";
-      return;
-    }
-
-    // Combinar clientes históricos del Sheet + clientes locales
-    const todosLosClientes = [
+    const todos = [...new Set([
       ...clientesHistoricos,
       ...state.clientesGlobales.map(c => c.nombre)
-    ];
-    const unicos = [...new Set(todosLosClientes)];
-    const filtrados = unicos.filter(n => n.toLowerCase().includes(val)).slice(0, 8);
+    ])];
+    const filtrados = todos.filter(n => n.toLowerCase().includes(val)).slice(0, 8);
 
-    if (filtrados.length === 0) {
-      sugerencias.style.display = "none";
-      return;
-    }
+    if (!filtrados.length) { sugerencias.style.display = "none"; return; }
 
     sugerencias.innerHTML = filtrados.map(nombre => `
       <div onclick="seleccionarCliente('${nombre.replace(/'/g, "\\'")}')"
         style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; font-size: 0.9em;"
-        onmouseover="this.style.background='#eff6ff'" 
+        onmouseover="this.style.background='#eff6ff'"
         onmouseout="this.style.background='white'">
         👤 ${nombre}
-      </div>
-    `).join("");
+      </div>`).join("");
     sugerencias.style.display = "block";
   });
 
-  input.addEventListener("blur", () => {
-    setTimeout(() => { sugerencias.style.display = "none"; }, 200);
-  });
-
-  input.addEventListener("focus", () => {
-    if (input.value.trim().length > 0) input.dispatchEvent(new Event("input"));
-  });
+  input.addEventListener("blur", () => setTimeout(() => { sugerencias.style.display = "none"; }, 200));
+  input.addEventListener("focus", () => { if (input.value.trim().length > 0) input.dispatchEvent(new Event("input")); });
 }
 
 function seleccionarCliente(nombre) {
@@ -295,7 +332,6 @@ function seleccionarCliente(nombre) {
   const sugerencias = document.getElementById("sugerencias-cliente");
   if (sugerencias) sugerencias.style.display = "none";
 
-  // Buscar último pedido del cliente en historial local
   const ventas = Object.values(state.usuarios).flatMap(u => u.ventas);
   const ventasCliente = ventas.filter(v => v.cliente && v.cliente.toLowerCase() === nombre.toLowerCase());
   if (ventasCliente.length > 0) {
@@ -304,22 +340,31 @@ function seleccionarCliente(nombre) {
   }
 }
 
-// 6. EVENTOS Y BOTONES
+// 7. EVENTOS
 function bindPanelEventos() {
-  document.querySelectorAll("[data-stock]").forEach(i => i.onchange = (e) => modificarStockDirecto(state.usuarioActivo, e.target.dataset.stock, e.target.value));
-  
-  document.querySelectorAll("[data-venta]").forEach(i => i.onchange = (e) => setState(p => { p.ventaActual[e.target.dataset.venta] = e.target.value; return p; }));
-  
+  document.querySelectorAll("[data-stock]").forEach(i =>
+    i.onchange = (e) => modificarStockDirecto(state.usuarioActivo, e.target.dataset.stock, e.target.value));
+
+  document.querySelectorAll("[data-venta]").forEach(i =>
+    i.onchange = (e) => setState(p => { p.ventaActual[e.target.dataset.venta] = e.target.value; return p; }));
+
   document.getElementById("cliente-nombre").oninput = (e) => { state.clienteNombre = e.target.value; };
-  
   document.getElementById("alquiler-barril").oninput = (e) => { state.alquilerBarril = e.target.value; };
-  
-  document.getElementById("total-cobrado").onchange = (e) => setState(p => { p.totalCobradoInput = e.target.value; return p; });
-  
-  document.getElementById("metodo-pago-venta").onchange = (e) => setState(p => { p.metodoPago = e.target.value; return p; });
-  
-  document.getElementById("btn-registrar").onclick = registrarVenta;
-  document.getElementById("btn-guardar").onclick = function() { guardarDatos(); guardarEnSheets(); };
+
+  // REGISTRAR: solo local, NO manda al Sheet
+  document.getElementById("btn-registrar").onclick = registrarVentaLocal;
+
+  // GUARDAR: sincroniza y manda todo al Sheet
+  document.getElementById("btn-guardar").onclick = async function() {
+    this.disabled = true;
+    this.textContent = "⏳ Guardando...";
+    await guardarDatos();
+    await guardarEnSheets();
+    await guardarVentasPendientesEnSheet();
+    this.disabled = false;
+    this.textContent = "💾 Guardar en Sheet";
+  };
+
   document.getElementById("btn-borrar").onclick = borrarHistorialUsuario;
   document.getElementById("btn-ver-clientes").onclick = mostrarTodosLosClientes;
 
@@ -350,8 +395,7 @@ function renderUsuarios() {
     <button onclick="setState(p => { p.usuarioActivo = '${u}'; return p; })"
       style="background: ${state.usuarioActivo === u ? '#1e40af' : '#3b82f6'}; margin: 5px;">
       Panel ${u}
-    </button>
-  `).join("");
+    </button>`).join("");
 }
 
 function renderTransferencia() {
@@ -378,17 +422,12 @@ function renderTransferencia() {
 
 function mostrarTodosLosClientes() {
   const div = document.getElementById("lista-clientes");
-  if (!state.clientesGlobales.length) {
-    div.innerHTML = "<p>No hay clientes registrados</p>";
-    return;
-  }
-  div.innerHTML = state.clientesGlobales
-    .map((c, i) => `
-      <div>
-        ${c.nombre} — Deuda: $${c.deuda.toLocaleString()} | Pagado: $${c.pagado.toLocaleString()}
-        <button onclick="borrarCliente(${i})" style="margin-left:10px;background:#ef4444;">Borrar</button>
-      </div>
-    `).join("");
+  if (!state.clientesGlobales.length) { div.innerHTML = "<p>No hay clientes registrados</p>"; return; }
+  div.innerHTML = state.clientesGlobales.map((c, i) => `
+    <div>
+      ${c.nombre} — Deuda: $${c.deuda.toLocaleString()} | Pagado: $${c.pagado.toLocaleString()}
+      <button onclick="borrarCliente(${i})" style="margin-left:10px;background:#ef4444;">Borrar</button>
+    </div>`).join("");
 }
 
 function borrarCliente(index) {
