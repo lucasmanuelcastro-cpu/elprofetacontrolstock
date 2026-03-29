@@ -118,9 +118,26 @@ function cargarDatos() {
   }
 }
 function guardarEnSheets() {
-  const SHEET_URL = "https://script.google.com/macros/s/AKfycbxrzNHhEc-Oh-Y7CD-MV8yb5-g1GI-5l_NswotDtz0KSQJILb1EkYoZYv4T4hE4OEm0dQ/exec";
+  const SHEET_URL = "https://script.google.com/macros/s/AKfycbzsNDTHpBPGbIE8fGV9F8RJhjlKTyOB5AZEKkcm59OhTgX5ZIiw3rBFw5bZgFrBdrCG5Q/exec";
 
   const stats = getEstadisticasVentas();
+  const ventas = getVentasGenerales();
+
+  // Totales de ventas
+  const totalCobrado = ventas.reduce((a, v) => a + (Number(v.totalCobrado) || 0), 0);
+  const totalProfeta = ventas.reduce((a, v) => a + (Number(v.paraProfeta) || 0), 0);
+  const totalEfectivo = getTotalVentasPorMetodo("efectivo");
+  const totalTransferencia = getTotalVentasPorMetodo("transferencia");
+
+  // Clientes: nombre, deuda total, pagado, saldo pendiente
+  const clientes = state.clientesGlobales.map(function(c) {
+    return {
+      nombre: c.nombre,
+      deuda: Number(c.deuda) || 0,
+      pagado: Number(c.pagado) || 0,
+      saldo: (Number(c.deuda) || 0) - (Number(c.pagado) || 0)
+    };
+  });
 
   const payload = {
     stockGeneral: state.stockGeneral,
@@ -130,7 +147,15 @@ function guardarEnSheets() {
     popularidad: {
       totalesPorEstilo: stats.totalesPorEstilo,
       granTotalLatas: stats.granTotalLatas
-    }
+    },
+    ventas: {
+      totalCobrado: totalCobrado,
+      totalProfeta: totalProfeta,
+      totalEfectivo: totalEfectivo,
+      totalTransferencia: totalTransferencia,
+      cantidadVentas: ventas.length
+    },
+    clientes: clientes
   };
 
   fetch(SHEET_URL, {
