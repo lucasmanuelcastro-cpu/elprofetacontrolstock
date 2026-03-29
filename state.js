@@ -59,27 +59,34 @@ function getTotalVentasDinero() {
 }
 
 function getTotalVentasPorMetodo(metodo) {
-  // Ventas ya cobradas con ese método (clientes sin deuda o consumidor final)
+  // Solo las ventas registradas con ese método de pago
   const ventas = getVentasGenerales().filter(v => (v.metodoPago || "efectivo") === metodo);
   const totalVentas = ventas.reduce((acc, v) => acc + (Number(v.totalCobrado) || 0), 0);
 
-  // Pagos de clientes deudores cobrados con ese método
+  // Pagos recibidos de clientes deudores con ese método
   const pagosCobrados = state.clientesGlobales.reduce((acc, c) => {
     const pagos = c.pagos || [];
-    return acc + pagos.filter(p => (p.metodo || "efectivo") === metodo)
-                      .reduce((s, p) => s + (Number(p.monto) || 0), 0);
+    return acc + pagos
+      .filter(p => (p.metodo || "efectivo") === metodo)
+      .reduce((s, p) => s + (Number(p.monto) || 0), 0);
   }, 0);
 
-  // Deuda pendiente de ventas de ese método (aún no cobrada)
-  const deudaPendiente = state.clientesGlobales.reduce((acc, c) => {
-    const saldo = (Number(c.deuda) || 0) - (Number(c.pagado) || 0);
+  // Deuda pendiente SOLO de ventas de ese método (lo que todavía no cobró)
+  const deudaPendienteDeEsteMetodo = state.clientesGlobales.reduce((acc, c) => {
+    // Buscar las ventas de este cliente con este método
+    const ventasCliente = getVentasGenerales().filter(v =>
+      v.cliente && v.cliente.toLowerCase() === c.nombre.toLowerCase() &&
+      (v.metodoPago || "efectivo") === metodo
+    );
+    const totalVentasCliente = ventasCliente.reduce((s, v) => s + (Number(v.totalCobrado) || 0), 0);
+    const pagosDeEsteMetodo = (c.pagos || [])
+      .filter(p => (p.metodo || "efectivo") === metodo)
+      .reduce((s, p) => s + (Number(p.monto) || 0), 0);
+    const saldo = totalVentasCliente - pagosDeEsteMetodo;
     return acc + (saldo > 0 ? saldo : 0);
   }, 0);
 
-  if (metodo === "efectivo") {
-    return totalVentas - deudaPendiente + pagosCobrados;
-  }
-  return totalVentas + pagosCobrados;
+  return totalVentas - deudaPendienteDeEsteMetodo + pagosCobrados;
 }
 
 function getGananciaTotalProfeta() {
