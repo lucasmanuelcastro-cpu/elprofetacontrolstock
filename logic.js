@@ -1,6 +1,6 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbwQemksFavbTyqR1wFAGTS19p6OJMUAqFoyDbBIZfQLIE3sEQ-xpVOaDVMasMS77yNufw/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbzL5HwcrDVGtWYsJkRdMjDrM3euUJXR-oj8Yjb0pF8OZJq-vMl5SfmfLYWkj1JzAl5crg/exec";
 
 let clientesHistoricos = [];
 let ventasPendientes = [];
@@ -31,6 +31,7 @@ function registrarVentaLocal() {
     metodoPago: "efectivo",
     fecha: new Date().toLocaleDateString("es-AR"),
     vendedor: state.usuarioActivo,
+    esCobro: false,
   };
 
   ventasPendientes.push(ventaDatos);
@@ -71,7 +72,6 @@ function registrarVentaLocal() {
 }
 
 async function guardarVentasPendientesEnSheet() {
-  // Recuperar pendientes del localStorage por si se recargó la página
   if (!ventasPendientes.length) {
     const guardadas = localStorage.getItem("ventasPendientes");
     if (guardadas) ventasPendientes = JSON.parse(guardadas);
@@ -126,11 +126,35 @@ async function cargarClientesHistoricos() {
 function registrarPagoCliente(index, metodo = "efectivo") {
   const monto = prompt(`¿Cuánto pagó ${state.clientesGlobales[index].nombre}?`);
   if (!monto) return;
+  const montoNum = Number(monto);
+  const cliente = state.clientesGlobales[index];
+  const fecha = new Date().toLocaleDateString("es-AR");
+
+  // Encolar el cobro para grabarlo en la hoja
+  const cobroDatos = {
+    cliente: cliente.nombre,
+    estilos: {},
+    alquilerBarril: "COBRO DEUDA",
+    totalCobrado: montoNum,
+    paraProfeta: 0,
+    comision: 0,
+    totalLatas: 0,
+    costo: 0,
+    ganancia: 0,
+    metodoPago: metodo,
+    fecha: fecha,
+    vendedor: state.usuarioActivo || "",
+    esCobro: true,
+  };
+  ventasPendientes.push(cobroDatos);
+  localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
+  console.log("💰 Cobro registrado. Pendientes:", ventasPendientes.length);
+
   setState((prev) => {
-    const cliente = prev.clientesGlobales[index];
-    cliente.pagado += Number(monto);
-    if (!cliente.pagos) cliente.pagos = [];
-    cliente.pagos.push({ monto: Number(monto), metodo, fecha: new Date().toLocaleDateString() });
+    const c = prev.clientesGlobales[index];
+    c.pagado += montoNum;
+    if (!c.pagos) c.pagos = [];
+    c.pagos.push({ monto: montoNum, metodo, fecha });
     return prev;
   });
 }
