@@ -182,8 +182,7 @@ function renderPanelUsuario() {
       <div class="flex space-between">
         <h3>📜 Historial de Ventas</h3>
         <div>
-          <button id="btn-guardar" style="background:#059669;">Guardar Datos</button>
-          <button id="btn-sheets" style="background:#16a34a;">📊 Guardar en Sheets</button>
+          <button id="btn-guardar" style="background:#059669;">💾 Guardar</button>
           <button id="btn-borrar" class="danger">Borrar Historial</button>
         </div>
       </div>
@@ -211,7 +210,7 @@ function bindPanelEventos() {
   document.getElementById("cliente-nombre").oninput = (e) => state.clienteNombre = e.target.value;
   document.getElementById("total-cobrado").onchange = (e) => setState(p => { p.totalCobradoInput = e.target.value; return p; });
   document.getElementById("btn-registrar").onclick = registrarVenta;
-  document.getElementById("btn-guardar").onclick = guardarDatos;
+  document.getElementById("btn-guardar").onclick = function() { guardarDatos(); guardarEnSheets(); };
   document.getElementById("btn-borrar").onclick = borrarHistorialUsuario;
   document.getElementById("btn-ver-clientes").onclick = mostrarTodosLosClientes;
   document.getElementById("btn-agregar-stock").onclick = () => {
@@ -224,7 +223,6 @@ function bindPanelEventos() {
       }
     });
   };
-  document.getElementById("btn-sheets").onclick = guardarEnSheets;
   document.getElementById("btn-reset-stock").onclick = () => {
     if (confirm("¿Resetear todo el stock a 0?")) {
       setState(p => {
