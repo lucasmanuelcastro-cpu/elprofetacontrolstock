@@ -84,7 +84,7 @@ function renderVentasGeneral() {
     </div>`;
 }
 
-// 3. CARTERA DE CLIENTES (método de pago solo acá)
+// 3. CARTERA DE CLIENTES
 function renderClientesGlobales() {
   const container = document.getElementById("clientes-section");
   if (!container) return;
@@ -124,6 +124,9 @@ function renderPanelUsuario() {
   if (!state.usuarioActivo) { container.innerHTML = ""; return; }
   const usuario = state.usuarios[state.usuarioActivo];
   const preview = calcularPreview();
+  const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+  const precioUnitario = state.precioUnitario || "";
+  const totalCobrado = totalLatas > 0 && precioUnitario ? totalLatas * Number(precioUnitario) : 0;
 
   container.innerHTML = `
     <div class="panel-usuario card">
@@ -179,48 +182,26 @@ function renderPanelUsuario() {
           <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)"
             value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
 
-          <!-- CALCULADORA TOTAL A COBRAR -->
-          <div style="margin-top: 8px; background: #1e293b; border-radius: 10px; padding: 10px;">
-            <div id="calc-display" style="
-              background: #0f172a; color: #f1f5f9; font-size: 1.3em; font-weight: bold;
-              padding: 8px 12px; border-radius: 6px; text-align: right;
-              min-height: 38px; margin-bottom: 8px; word-break: break-all;">
-              ${state.totalCobradoInput || "0"}
+          <!-- TOTAL LATAS + PRECIO UNITARIO -->
+          <div style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="color: #94a3b8; font-size: 0.9em;">Total latas:</span>
+              <b style="color: #f1f5f9; font-size: 1.4em;">${totalLatas}</b>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
-              <button class="cbtn" onclick="calcPresionar('7')">7</button>
-              <button class="cbtn" onclick="calcPresionar('8')">8</button>
-              <button class="cbtn" onclick="calcPresionar('9')">9</button>
-              <button class="cbtn cop" onclick="calcPresionar('/')">÷</button>
-
-              <button class="cbtn" onclick="calcPresionar('4')">4</button>
-              <button class="cbtn" onclick="calcPresionar('5')">5</button>
-              <button class="cbtn" onclick="calcPresionar('6')">6</button>
-              <button class="cbtn cop" onclick="calcPresionar('*')">×</button>
-
-              <button class="cbtn" onclick="calcPresionar('1')">1</button>
-              <button class="cbtn" onclick="calcPresionar('2')">2</button>
-              <button class="cbtn" onclick="calcPresionar('3')">3</button>
-              <button class="cbtn cop" onclick="calcPresionar('-')">−</button>
-
-              <button class="cbtn" onclick="calcPresionar('0')">0</button>
-              <button class="cbtn" onclick="calcPresionar('00')">00</button>
-              <button class="cbtn" onclick="calcPresionar('.')">.</button>
-              <button class="cbtn cop" onclick="calcPresionar('+')">+</button>
-
-              <button class="cbtn cclr" onclick="calcPresionar('C')">C</button>
-              <button class="cbtn cdel" onclick="calcPresionar('DEL')">⌫</button>
-              <button class="cbtn ceq" onclick="calcPresionar('=')" style="grid-column: span 2;">=</button>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap;">Precio unitario $</label>
+              <input type="number" id="precio-unitario" value="${precioUnitario}"
+                placeholder="ej: 2400"
+                style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155;
+                       border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
+            </div>
+            <div style="text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155;">
+              <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
+              <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;">
+                $${totalCobrado > 0 ? totalCobrado.toLocaleString() : "—"}
+              </b>
             </div>
           </div>
-          <style>
-            .cbtn { color:white; border:none; border-radius:6px; padding:10px 0; font-size:1em; font-weight:bold; cursor:pointer; background:#334155; }
-            .cbtn:active { opacity: 0.7; }
-            .cop  { background:#f59e0b; }
-            .cclr { background:#ef4444; }
-            .cdel { background:#64748b; }
-            .ceq  { background:#2563eb; }
-          </style>
 
           <!-- PREVIEW -->
           <div class="card" style="background:#fef3c7; border: 1px solid #f59e0b; margin-top: 10px;">
@@ -230,7 +211,7 @@ function renderPanelUsuario() {
             <p style="margin: 5px 0;"><strong>Total a Rendir: $${preview.paraProfeta.toLocaleString()}</strong></p>
           </div>
 
-          <!-- BOTÓN REGISTRAR (solo local, no guarda en Sheet) -->
+          <!-- BOTÓN REGISTRAR -->
           <button id="btn-registrar" style="width:100%; margin-top:10px; background:#1e40af;">
             ✅ Registrar Venta
           </button>
@@ -241,7 +222,6 @@ function renderPanelUsuario() {
       <div class="flex space-between">
         <h3>📜 Historial de Ventas</h3>
         <div>
-          <!-- GUARDAR: sincroniza y manda al Sheet -->
           <button id="btn-guardar" style="background:#059669;">💾 Guardar en Sheet</button>
           <button id="btn-borrar" class="danger">Borrar Historial</button>
         </div>
@@ -264,41 +244,23 @@ function renderPanelUsuario() {
 
   bindPanelEventos();
   bindAutocompletadoCliente();
-  bindCalculadora();
+  bindPrecioUnitario();
 }
 
-// 5. CALCULADORA
-let calcExpr = "";
-
-function bindCalculadora() {
-  calcExpr = state.totalCobradoInput ? String(state.totalCobradoInput) : "";
-}
-
-function calcPresionar(tecla) {
-  const display = document.getElementById("calc-display");
-  if (!display) return;
-
-  if (tecla === "C") {
-    calcExpr = "";
-  } else if (tecla === "DEL") {
-    calcExpr = calcExpr.slice(0, -1);
-  } else if (tecla === "=") {
-    try {
-      const resultado = Function('"use strict"; return (' + calcExpr + ')')();
-      calcExpr = isFinite(resultado) ? String(Math.round(resultado * 100) / 100) : "0";
-    } catch {
-      calcExpr = "0";
-    }
-  } else {
-    calcExpr += tecla;
-  }
-
-  display.textContent = calcExpr || "0";
-
-  const val = parseFloat(calcExpr);
-  if (!isNaN(val)) {
-    state.totalCobradoInput = String(val);
-  }
+// 5. PRECIO UNITARIO — actualiza totalCobradoInput en tiempo real
+function bindPrecioUnitario() {
+  const input = document.getElementById("precio-unitario");
+  if (!input) return;
+  input.addEventListener("input", () => {
+    const precio = Number(input.value) || 0;
+    state.precioUnitario = input.value;
+    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+    const total = totalLatas * precio;
+    state.totalCobradoInput = total > 0 ? String(total) : "";
+    // Actualizar display sin re-renderizar todo
+    const display = document.querySelector("[data-total-display]");
+    if (display) display.textContent = total > 0 ? "$" + total.toLocaleString() : "$—";
+  });
 }
 
 // 6. AUTOCOMPLETADO CLIENTE
@@ -355,15 +317,24 @@ function bindPanelEventos() {
     i.onchange = (e) => modificarStockDirecto(state.usuarioActivo, e.target.dataset.stock, e.target.value));
 
   document.querySelectorAll("[data-venta]").forEach(i =>
-    i.onchange = (e) => setState(p => { p.ventaActual[e.target.dataset.venta] = e.target.value; return p; }));
+    i.onchange = (e) => {
+      setState(p => { p.ventaActual[e.target.dataset.venta] = e.target.value; return p; });
+    });
 
   document.getElementById("cliente-nombre").oninput = (e) => { state.clienteNombre = e.target.value; };
   document.getElementById("alquiler-barril").oninput = (e) => { state.alquilerBarril = e.target.value; };
 
-  // REGISTRAR: solo local, NO manda al Sheet
-  document.getElementById("btn-registrar").onclick = registrarVentaLocal;
+  document.getElementById("btn-registrar").onclick = () => {
+    // Calcular total desde precio unitario antes de registrar
+    const precio = Number(state.precioUnitario) || 0;
+    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+    if (precio > 0 && totalLatas > 0) {
+      state.totalCobradoInput = String(totalLatas * precio);
+    }
+    registrarVentaLocal();
+    state.precioUnitario = "";
+  };
 
-  // GUARDAR: sincroniza y manda todo al Sheet
   document.getElementById("btn-guardar").onclick = async function() {
     this.disabled = true;
     this.textContent = "⏳ Guardando...";
