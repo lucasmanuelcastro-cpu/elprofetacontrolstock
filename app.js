@@ -1,21 +1,15 @@
 /**
  * APP.JS - Iniciador de la aplicación
- * Sincronización silenciosa con Google Sheets cada 500ms.
+ * Carga una sola vez al entrar. Al guardar, sincroniza primero y luego guarda.
  */
 
-const INTERVALO_REFRESH_MS = 500;
-let refreshTimer = null;
-
-function iniciarAutoRefresh() {
-  if (refreshTimer) clearInterval(refreshTimer);
-  refreshTimer = setInterval(() => {
-    cargarDatosDesdeSheet();
-  }, INTERVALO_REFRESH_MS);
-}
-
 document.addEventListener("DOMContentLoaded", async () => {
+  // 1. Datos locales primero para arrancar rápido
   cargarDatos();
   render();
+
+  // 2. Sincronización única al entrar
   await cargarDatosDesdeSheet();
-  iniciarAutoRefresh();
+
+  console.log("Aplicacion lista.");
 });
