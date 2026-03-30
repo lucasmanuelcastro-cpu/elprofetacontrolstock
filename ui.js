@@ -223,20 +223,27 @@ function renderPanelUsuario() {
         <h3>📜 Historial de Ventas</h3>
         <div>
           <button id="btn-guardar" style="background:#059669;">💾 Guardar en Sheet</button>
-          <button id="btn-borrar" class="danger">Borrar Historial</button>
         </div>
       </div>
       <div id="historial-lista" style="margin-top: 15px;">
         ${usuario.ventas.length === 0 ? '<p>No hay ventas registradas</p>' :
-          usuario.ventas.map((v) => `
+          usuario.ventas.map((v, i) => `
           <div style="border-bottom:1px solid #eee; padding:10px 0; font-size: 0.9em;">
-            <div class="flex space-between"><b>👤 ${v.cliente}</b> <small>📅 ${v.fecha}</small></div>
-            <div style="color: #666; margin: 4px 0;">
-              Pedido: ${Object.entries(v.estilos).filter(e => e[1]>0).map(e => `${e[1]} ${e[0]}`).join(", ")}
-              <b style="color:#1e40af;">(${Object.values(v.estilos).reduce((a,b) => a+(Number(b)||0),0)} latas)</b>
-            </div>
-            <div>
-              Cobrado: $${v.totalCobrado.toLocaleString()} | Comisión: $${v.comision.toLocaleString()} | 👑 Profeta: $${v.paraProfeta.toLocaleString()}
+            <div class="flex space-between" style="align-items: flex-start;">
+              <div style="flex:1;">
+                <div class="flex space-between"><b>👤 ${v.cliente}</b> <small>📅 ${v.fecha}</small></div>
+                <div style="color: #666; margin: 4px 0;">
+                  Pedido: ${Object.entries(v.estilos).filter(e => e[1]>0).map(e => `${e[1]} ${e[0]}`).join(", ")}
+                  <b style="color:#1e40af;">(${Object.values(v.estilos).reduce((a,b) => a+(Number(b)||0),0)} latas)</b>
+                </div>
+                <div>
+                  Cobrado: $${v.totalCobrado.toLocaleString()} | Comisión: $${v.comision.toLocaleString()} | 👑 Profeta: $${v.paraProfeta.toLocaleString()}
+                </div>
+              </div>
+              <button onclick="borrarVentaIndividual(${i})" title="Borrar esta venta"
+                style="margin-left:12px; background:#ef4444; padding:4px 10px; font-size:0.85em; border-radius:6px; flex-shrink:0; cursor:pointer;">
+                🗑️
+              </button>
             </div>
           </div>`).reverse().join("")}
       </div>
@@ -345,7 +352,6 @@ function bindPanelEventos() {
     this.textContent = "💾 Guardar en Sheet";
   };
 
-  document.getElementById("btn-borrar").onclick = borrarHistorialUsuario;
   document.getElementById("btn-ver-clientes").onclick = mostrarTodosLosClientes;
 
   document.getElementById("btn-agregar-stock").onclick = () => {
