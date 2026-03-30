@@ -148,6 +148,20 @@ function borrarHistorialUsuario() {
   }
 }
 
+function borrarVentaIndividual(index) {
+  if (!state.usuarioActivo) return;
+  // El historial se muestra en orden inverso (.reverse()), 
+  // así que hay que convertir el índice visual al índice real del array
+  const ventas = state.usuarios[state.usuarioActivo].ventas;
+  const indiceReal = ventas.length - 1 - index;
+  if (confirm("¿Borrar esta venta del historial?")) {
+    setState((prev) => {
+      prev.usuarios[prev.usuarioActivo].ventas.splice(indiceReal, 1);
+      return prev;
+    });
+  }
+}
+
 function transferirStock() {
   setState((prev) => {
     const { transferDesde, transferHacia, transferEstilo, transferCantidad } = prev;
