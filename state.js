@@ -1,5 +1,6 @@
 const estilosBase = ["BLONDE", "IRISH RED", "STOUT", "SESSION IPA", "RED IPA", "HONEY"];
 const costoPorLata = 1750;
+const costoPorLataSinEtiqueta = 1450;
 
 let state = {
   usuarios: {
@@ -15,6 +16,7 @@ let state = {
   clienteNombre: "",
   totalCobradoInput: "",
   alquilerBarril: "",
+  tipoLata: "conEtiqueta",
   precioUnitario: "",
   transferDesde: "Julian",
   transferHacia: "Matias",
@@ -41,7 +43,8 @@ function actualizarStockGeneral() {
 function calcularPreview() {
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
   const totalCobrado = Number(state.totalCobradoInput) || 0;
-  const costoTotal = totalLatas * costoPorLata;
+  const costo = state.tipoLata === "sinEtiqueta" ? costoPorLataSinEtiqueta : costoPorLata;
+  const costoTotal = totalLatas * costo;
   const gananciaBruta = totalCobrado > costoTotal ? totalCobrado - costoTotal : 0;
   const comision = gananciaBruta * 0.5;
   return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas };
