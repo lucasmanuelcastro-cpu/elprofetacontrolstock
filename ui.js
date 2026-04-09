@@ -182,12 +182,35 @@ function renderPanelUsuario() {
           <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)"
             value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
 
-          <!-- TOTAL LATAS + PRECIO UNITARIO -->
+          <!-- TOTAL LATAS + TIPO LATA + PRECIO UNITARIO -->
           <div style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
               <span style="color: #94a3b8; font-size: 0.9em;">Total latas:</span>
               <b style="color: #f1f5f9; font-size: 1.4em;">${totalLatas}</b>
             </div>
+
+            <!-- TOGGLE TIPO LATA -->
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+              <button
+                onclick="setState(p => { p.tipoLata = 'conEtiqueta'; return p; })"
+                style="flex:1; padding: 8px 4px; border-radius: 8px;
+                       border: 2px solid ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#334155'};
+                       background: ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#0f172a'};
+                       color: ${state.tipoLata !== 'sinEtiqueta' ? '#1e293b' : '#64748b'};
+                       font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
+                🏷️ Con Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$1.750</span>
+              </button>
+              <button
+                onclick="setState(p => { p.tipoLata = 'sinEtiqueta'; return p; })"
+                style="flex:1; padding: 8px 4px; border-radius: 8px;
+                       border: 2px solid ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#334155'};
+                       background: ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#0f172a'};
+                       color: ${state.tipoLata === 'sinEtiqueta' ? '#1e293b' : '#64748b'};
+                       font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
+                📦 Sin Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$1.450</span>
+              </button>
+            </div>
+
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
               <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap;">Precio unitario $</label>
               <input type="number" id="precio-unitario" value="${precioUnitario}"
@@ -197,18 +220,27 @@ function renderPanelUsuario() {
             </div>
             <div style="text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155;">
               <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
-              <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;">
+              <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display>
                 $${totalCobrado > 0 ? totalCobrado.toLocaleString() : "—"}
               </b>
             </div>
           </div>
 
           <!-- PREVIEW -->
-          <div class="card" style="background:#fef3c7; border: 1px solid #f59e0b; margin-top: 10px;">
-            <h4 style="margin-top:0;">Vista Previa Profeta</h4>
-            <p style="margin: 5px 0;">Costo: $${preview.costoTotal.toLocaleString()}</p>
-            <p style="margin: 5px 0;">Comisión (50%): $${preview.comision.toLocaleString()}</p>
-            <p style="margin: 5px 0;"><strong>Total a Rendir: $${preview.paraProfeta.toLocaleString()}</strong></p>
+          <div style="background:#fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-top: 10px;">
+            <h4 style="margin: 0 0 8px 0; color: #92400e;">📊 Vista Previa Profeta</h4>
+            <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
+              <span style="color:#78350f;">Costo (${state.tipoLata === 'sinEtiqueta' ? 'sin etiqueta' : 'con etiqueta'}):</span>
+              <b style="color:#92400e;">$${preview.costoTotal.toLocaleString()}</b>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
+              <span style="color:#78350f;">Comisión (50%):</span>
+              <b style="color:#92400e;">$${preview.comision.toLocaleString()}</b>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f59e0b;">
+              <span style="color:#78350f; font-weight:bold;">Total a Rendir:</span>
+              <b style="color:#b45309; font-size:1.1em;">$${preview.paraProfeta.toLocaleString()}</b>
+            </div>
           </div>
 
           <!-- BOTÓN REGISTRAR -->
