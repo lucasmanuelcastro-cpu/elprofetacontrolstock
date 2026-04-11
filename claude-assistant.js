@@ -311,7 +311,7 @@
     epShowTyping();
 
     try {
-      var resp = await fetch("http://localhost:3000/chat", {
+      var resp = await fetch("https://elprofetacontrolstock.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
