@@ -352,81 +352,14 @@ function seleccionarCliente(nombre) {
 
 // 7. EVENTOS
 function bindPanelEventos() {
-  // 1. Manejo de Stock (Manual)
   document.querySelectorAll("[data-stock]").forEach(i =>
     i.onchange = (e) => modificarStockDirecto(state.usuarioActivo, e.target.dataset.stock, e.target.value));
 
-  // 2. Manejo de Venta (Cálculos instantáneos)
   document.querySelectorAll("[data-venta]").forEach(i =>
-    i.oninput = (e) => {
-      setState(p => { 
-        p.ventaActual[e.target.dataset.venta] = e.target.value; 
-        return p; 
-      });
+    i.onchange = (e) => {
+      setState(p => { p.ventaActual[e.target.dataset.venta] = e.target.value; return p; });
     });
 
-  // 3. Precio Unitario (Calcula total y comisión al escribir)
-  const inputPrecio = document.getElementById("precio-unitario");
-  if (inputPrecio) {
-    inputPrecio.oninput = (e) => {
-      state.precioUnitario = e.target.value;
-      const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-      const total = totalLatas * (Number(e.target.value) || 0);
-      state.totalCobradoInput = total > 0 ? String(total) : "";
-      render(); // ESTO hace que la comisión se vea en el momento
-    };
-  }
-
-  // 4. Datos del Cliente y Barriles
-  document.getElementById("cliente-nombre").oninput = (e) => { state.clienteNombre = e.target.value; };
-  document.getElementById("alquiler-barril").oninput = (e) => { state.alquilerBarril = e.target.value; };
-
-  // 5. Botón Registrar Venta
-  document.getElementById("btn-registrar").onclick = async () => {
-    const precio = Number(state.precioUnitario) || 0;
-    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-    if (precio > 0 && totalLatas > 0) {
-      state.totalCobradoInput = String(totalLatas * precio);
-    }
-    await registrarVentaLocal(); // Ahora es asíncrono para esperar la nube
-    state.precioUnitario = "";
-  };
-
-  // 6. Botón Guardar / Sincronizar
-  document.getElementById("btn-guardar").onclick = async function() {
-    this.disabled = true;
-    this.textContent = "⏳ Guardando...";
-    await guardarDatos();
-    await guardarEnSheets();
-    await guardarVentasPendientesEnSheet();
-    await cargarDatosDesdeSheet(); // Recargamos para estar al día con otros usuarios
-    this.disabled = false;
-    this.textContent = "💾 Guardar en Sheet";
-  };
-
-  // 7. Otros botones
-  document.getElementById("btn-ver-clientes").onclick = mostrarTodosLosClientes;
-
-  document.getElementById("btn-agregar-stock").onclick = () => {
-    document.querySelectorAll("[data-agregar]").forEach(input => {
-      const estilo = input.dataset.agregar;
-      const cantidad = Number(input.value);
-      if (!isNaN(cantidad) && input.value.trim() !== "" && cantidad !== 0) {
-        modificarStockDirecto(state.usuarioActivo, estilo, (state.usuarios[state.usuarioActivo].stock[estilo] || 0) + cantidad);
-        input.value = "";
-      }
-    });
-  };
-
-  document.getElementById("btn-reset-stock").onclick = () => {
-    if (confirm("¿Resetear todo el stock a 0?")) {
-      setState(p => {
-        estilosBase.forEach(e => { p.usuarios[p.usuarioActivo].stock[e] = 0; });
-        return p;
-      });
-    }
-  };
-}
   document.getElementById("cliente-nombre").oninput = (e) => { state.clienteNombre = e.target.value; };
   document.getElementById("alquiler-barril").oninput = (e) => { state.alquilerBarril = e.target.value; };
 
