@@ -1,6 +1,6 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbzMd76MQpwnWeOluDo4SEX4rBAC4skskmFCgr73WCh2P33Mnh6OUUoBseTEJyGtRwkxtA/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbwcN2g_jeNnm6Ziv4goLKp6oIDolkydO2cVFpgvyblX-12S4Vpp9PSkN1KP7M_-IcD0Ag/exec";
 
 let clientesHistoricos = [];
 let ventasPendientes = [];
@@ -188,30 +188,34 @@ async function cargarDatosDesdeSheet() {
   try {
     const url = URL_SCRIPT + "?v=" + Date.now();
     const respuesta = await fetch(url, { method: "GET", mode: "cors", cache: "no-cache" });
+    if (!respuesta.ok) throw new Error("HTTP " + respuesta.status);
+
     const texto = await respuesta.text();
     const datosCloud = JSON.parse(texto.trim().replace(/^\uFEFF/, ""));
-
     if (datosCloud.error) throw new Error(datosCloud.error);
+    if (!datosCloud.usuarios || typeof datosCloud.usuarios !== "object") return;
 
     setState((prev) => {
-      // 1. Aquí le decimos al mensajero que traiga el Stock Y TAMBIÉN LAS VENTAS
       Object.entries(datosCloud.usuarios).forEach(([nombre, datos]) => {
-        if (prev.usuarios[nombre]) {
-          prev.usuarios[nombre].stock = datos.stock || {};
-          // Esta es la línea mágica que faltaba:
-          prev.usuarios[nombre].ventas = datos.ventas || []; 
+        if (prev.usuarios[nombre] && datos.stock) {
+          prev.usuarios[nombre].stock = {
+            "BLONDE":      Number(datos.stock["BLONDE"])      || 0,
+            "IRISH RED":   Number(datos.stock["IRISH RED"])   || 0,
+            "STOUT":       Number(datos.stock["STOUT"])       || 0,
+            "SESSION IPA": Number(datos.stock["SESSION IPA"]) || 0,
+            "RED IPA":     Number(datos.stock["RED IPA"])     || 0,
+            "HONEY":       Number(datos.stock["HONEY"])       || 0
+          };
         }
       });
-
-      // 2. Aquí le decimos que traiga a "Alejandro" y los demás clientes
-      if (datosCloud.clientes && Array.isArray(datosCloud.clientes)) {
-        prev.clientesGlobales = datosCloud.clientes;
-      }
-      
       return prev;
     });
 
-    console.log("✅ Datos leídos correctamente desde la nube.");
+    if (datosCloud.clientesHistoricos) {
+      clientesHistoricos = datosCloud.clientesHistoricos;
+    }
+
+    console.log("✅ Sync exitosa.");
   } catch (error) {
     console.error("❌ Error de lectura:", error);
   }
