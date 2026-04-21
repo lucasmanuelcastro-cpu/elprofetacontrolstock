@@ -1,6 +1,6 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbwcN2g_jeNnm6Ziv4goLKp6oIDolkydO2cVFpgvyblX-12S4Vpp9PSkN1KP7M_-IcD0Ag/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbzMd76MQpwnWeOluDo4SEX4rBAC4skskmFCgr73WCh2P33Mnh6OUUoBseTEJyGtRwkxtA/exec";
 
 let clientesHistoricos = [];
 let ventasPendientes = [];
@@ -197,17 +197,44 @@ async function cargarDatosDesdeSheet() {
 
     setState((prev) => {
       Object.entries(datosCloud.usuarios).forEach(([nombre, datos]) => {
-        if (prev.usuarios[nombre] && datos.stock) {
-          prev.usuarios[nombre].stock = {
-            "BLONDE":      Number(datos.stock["BLONDE"])      || 0,
-            "IRISH RED":   Number(datos.stock["IRISH RED"])   || 0,
-            "STOUT":       Number(datos.stock["STOUT"])       || 0,
-            "SESSION IPA": Number(datos.stock["SESSION IPA"]) || 0,
-            "RED IPA":     Number(datos.stock["RED IPA"])     || 0,
-            "HONEY":       Number(datos.stock["HONEY"])       || 0
-          };
+        if (prev.usuarios[nombre]) {
+          // Sincronizar stock
+          if (datos.stock) {
+            prev.usuarios[nombre].stock = {
+              "BLONDE":      Number(datos.stock["BLONDE"])      || 0,
+              "IRISH RED":   Number(datos.stock["IRISH RED"])   || 0,
+              "STOUT":       Number(datos.stock["STOUT"])       || 0,
+              "SESSION IPA": Number(datos.stock["SESSION IPA"]) || 0,
+              "RED IPA":     Number(datos.stock["RED IPA"])     || 0,
+              "HONEY":       Number(datos.stock["HONEY"])       || 0
+            };
+          }
+          // Sincronizar ventas desde el Sheet (reemplaza las locales para tener consistencia)
+          if (datos.ventas && Array.isArray(datos.ventas) && datos.ventas.length > 0) {
+            prev.usuarios[nombre].ventas = datos.ventas;
+          }
         }
       });
+
+      // Sincronizar clientes/deudores desde el Sheet
+      if (datosCloud.clientes && Array.isArray(datosCloud.clientes) && datosCloud.clientes.length > 0) {
+        // Mergear: preservar pagos locales si existen
+        datosCloud.clientes.forEach(clienteCloud => {
+          const idx = prev.clientesGlobales.findIndex(c => c.nombre.toLowerCase() === clienteCloud.nombre.toLowerCase());
+          if (idx !== -1) {
+            prev.clientesGlobales[idx].deuda = clienteCloud.deuda;
+            prev.clientesGlobales[idx].saldo = clienteCloud.saldo;
+          } else {
+            prev.clientesGlobales.push({
+              nombre: clienteCloud.nombre,
+              deuda: clienteCloud.deuda || 0,
+              pagado: clienteCloud.pagado || 0,
+              pagos: []
+            });
+          }
+        });
+      }
+
       return prev;
     });
 
@@ -215,7 +242,7 @@ async function cargarDatosDesdeSheet() {
       clientesHistoricos = datosCloud.clientesHistoricos;
     }
 
-    console.log("✅ Sync exitosa.");
+    console.log("✅ Sync exitosa — stock, ventas y clientes cargados.");
   } catch (error) {
     console.error("❌ Error de lectura:", error);
   }
