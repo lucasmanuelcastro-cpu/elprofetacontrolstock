@@ -188,34 +188,30 @@ async function cargarDatosDesdeSheet() {
   try {
     const url = URL_SCRIPT + "?v=" + Date.now();
     const respuesta = await fetch(url, { method: "GET", mode: "cors", cache: "no-cache" });
-    if (!respuesta.ok) throw new Error("HTTP " + respuesta.status);
-
     const texto = await respuesta.text();
     const datosCloud = JSON.parse(texto.trim().replace(/^\uFEFF/, ""));
+
     if (datosCloud.error) throw new Error(datosCloud.error);
-    if (!datosCloud.usuarios || typeof datosCloud.usuarios !== "object") return;
 
     setState((prev) => {
+      // 1. Aquí le decimos al mensajero que traiga el Stock Y TAMBIÉN LAS VENTAS
       Object.entries(datosCloud.usuarios).forEach(([nombre, datos]) => {
-        if (prev.usuarios[nombre] && datos.stock) {
-          prev.usuarios[nombre].stock = {
-            "BLONDE":      Number(datos.stock["BLONDE"])      || 0,
-            "IRISH RED":   Number(datos.stock["IRISH RED"])   || 0,
-            "STOUT":       Number(datos.stock["STOUT"])       || 0,
-            "SESSION IPA": Number(datos.stock["SESSION IPA"]) || 0,
-            "RED IPA":     Number(datos.stock["RED IPA"])     || 0,
-            "HONEY":       Number(datos.stock["HONEY"])       || 0
-          };
+        if (prev.usuarios[nombre]) {
+          prev.usuarios[nombre].stock = datos.stock || {};
+          // Esta es la línea mágica que faltaba:
+          prev.usuarios[nombre].ventas = datos.ventas || []; 
         }
       });
+
+      // 2. Aquí le decimos que traiga a "Alejandro" y los demás clientes
+      if (datosCloud.clientes && Array.isArray(datosCloud.clientes)) {
+        prev.clientesGlobales = datosCloud.clientes;
+      }
+      
       return prev;
     });
 
-    if (datosCloud.clientesHistoricos) {
-      clientesHistoricos = datosCloud.clientesHistoricos;
-    }
-
-    console.log("✅ Sync exitosa.");
+    console.log("✅ Datos leídos correctamente desde la nube.");
   } catch (error) {
     console.error("❌ Error de lectura:", error);
   }
