@@ -45,9 +45,10 @@ function calcularPreview() {
   const totalCobrado = Number(state.totalCobradoInput) || 0;
   const costo = state.tipoLata === "sinEtiqueta" ? costoPorLataSinEtiqueta : costoPorLata;
   const costoTotal = totalLatas * costo;
+  // Comisión solo si hay precio cargado y supera el costo
   const gananciaBruta = totalCobrado > costoTotal ? totalCobrado - costoTotal : 0;
   const comision = gananciaBruta * 0.5;
-  return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas };
+  return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas, gananciaBruta };
 }
 
 function getVentasGenerales() {
