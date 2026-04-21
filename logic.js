@@ -12,7 +12,7 @@ function modificarStockDirecto(usuario, estilo, cantidad) {
   });
 }
 
-function registrarVentaLocal() {
+async function registrarVentaLocal() {
   if (!state.usuarioActivo) return;
   const preview = calcularPreview();
   const totalVenta = Number(state.totalCobradoInput) || 0;
@@ -28,15 +28,15 @@ function registrarVentaLocal() {
     totalLatas: preview.totalLatas,
     costo: preview.costoTotal,
     ganancia: totalVenta - preview.costoTotal,
-    metodoPago: "efectivo",
+    metodoPago: state.metodoPago || "efectivo",
     fecha: new Date().toLocaleDateString("es-AR"),
     vendedor: state.usuarioActivo,
     esCobro: false,
   };
 
+  // 1. Guardamos localmente (como ya hacías)
   ventasPendientes.push(ventaDatos);
   localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
-  console.log("📝 Venta registrada. Pendientes:", ventasPendientes.length);
 
   setState((prev) => {
     const usuario = prev.usuarios[prev.usuarioActivo];
@@ -50,6 +50,7 @@ function registrarVentaLocal() {
       fecha: ventaDatos.fecha,
     });
 
+    // Actualizamos deuda de clientes
     if (prev.clienteNombre && prev.clienteNombre.trim() !== "") {
       const idx = prev.clientesGlobales.findIndex(c => c.nombre.toLowerCase() === prev.clienteNombre.toLowerCase());
       if (idx !== -1) {
@@ -59,6 +60,7 @@ function registrarVentaLocal() {
       }
     }
 
+    // Descontamos stock
     Object.entries(prev.ventaActual).forEach(([estilo, cant]) => {
       usuario.stock[estilo] = (usuario.stock[estilo] || 0) - (Number(cant) || 0);
     });
@@ -69,6 +71,11 @@ function registrarVentaLocal() {
     prev.alquilerBarril = "";
     return prev;
   });
+
+  // 2. NUEVO: Forzamos la sincronización inmediata con la nube
+  console.log("🚀 Sincronizando venta con Google Sheets...");
+  await guardarVentasPendientesEnSheet(); // Esta función ya existe en tu logic.js
+  await cargarDatosDesdeSheet();          // Recargamos para que aparezcan Alejandro y otros
 }
 
 async function guardarVentasPendientesEnSheet() {
