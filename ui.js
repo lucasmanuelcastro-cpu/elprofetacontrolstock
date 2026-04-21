@@ -57,6 +57,8 @@ function renderVentasGeneral() {
   const dineroTransferencia = getTotalVentasPorMetodo("transferencia");
   const dineroTotal = getTotalVentasDinero();
   const totalProfeta = getGananciaTotalProfeta();
+  const todasLasVentas = getVentasGenerales();
+
   container.innerHTML = `
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
       <div class="card" style="border-left: 4px solid #059669;">
@@ -77,9 +79,44 @@ function renderVentasGeneral() {
         <small>Efectivo + Transferencia</small>
       </div>
       <div class="card">
-        <h2>Para El Profeta (Total)</h2>
+        <h2>👑 Para El Profeta (Total)</h2>
         <p class="big-number" style="color: #059669;">$${totalProfeta.toLocaleString()}</p>
         <small>Costo + 50% Ganancia generada</small>
+      </div>
+    </div>
+
+    <!-- HISTORIAL GLOBAL DE TODAS LAS VENTAS -->
+    <div class="card" style="margin-top: 20px; border-left: 4px solid #7c3aed;">
+      <h2>📋 Historial Global (${todasLasVentas.length} ventas)</h2>
+      <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+        ${todasLasVentas.length === 0
+          ? '<p style="color:gray;">No hay ventas registradas aún.</p>'
+          : [...todasLasVentas].reverse().map(v => {
+              // Identificar vendedor: viene del Sheet como propiedad, o buscamos en state
+              const vendedor = v.vendedor || Object.keys(state.usuarios).find(u =>
+                state.usuarios[u].ventas.some(vv => vv === v)
+              ) || '—';
+              return `
+            <div style="border-bottom: 1px solid #f3f4f6; padding: 8px 0; font-size: 0.88em;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+                <span><b>👤 ${v.cliente || 'Consumidor Final'}</b>
+                  <span style="margin-left:8px; background:#ede9fe; color:#7c3aed; border-radius:6px; padding:1px 7px; font-size:0.85em;">
+                    ${vendedor}
+                  </span>
+                </span>
+                <small style="color:#64748b;">📅 ${v.fecha || ''}</small>
+              </div>
+              <div style="color:#555; margin: 3px 0;">
+                ${Object.entries(v.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', ') || '—'}
+                <b style="color:#1e40af; margin-left:6px;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0), 0)} latas)</b>
+              </div>
+              <div style="display:flex; gap:12px; flex-wrap:wrap; color:#374151;">
+                <span>💵 $${(v.totalCobrado||0).toLocaleString()}</span>
+                <span>Comisión: $${(v.comision||0).toLocaleString()}</span>
+                <span>👑 Profeta: $${(v.paraProfeta||0).toLocaleString()}</span>
+              </div>
+            </div>`;}).join("")
+        }
       </div>
     </div>`;
 }
@@ -235,12 +272,15 @@ function renderPanelUsuario() {
             </div>
             <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
               <span style="color:#78350f;">Comisión (50%):</span>
-              <b style="color:#92400e;">$${preview.comision.toLocaleString()}</b>
+              <b style="color:${preview.comision > 0 ? '#059669' : '#92400e'};">
+                ${preview.comision > 0 ? '$' + preview.comision.toLocaleString() : '— (ingresá precio)'}
+              </b>
             </div>
             <div style="display:flex; justify-content:space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f59e0b;">
               <span style="color:#78350f; font-weight:bold;">Total a Rendir:</span>
               <b style="color:#b45309; font-size:1.1em;">$${preview.paraProfeta.toLocaleString()}</b>
             </div>
+            ${preview.gananciaBruta > 0 ? `<div style="margin-top:6px; font-size:0.8em; color:#78350f; text-align:right;">Ganancia bruta: $${preview.gananciaBruta.toLocaleString()}</div>` : ''}
           </div>
 
           <!-- BOTÓN REGISTRAR -->
@@ -259,25 +299,30 @@ function renderPanelUsuario() {
       </div>
       <div id="historial-lista" style="margin-top: 15px;">
         ${usuario.ventas.length === 0 ? '<p>No hay ventas registradas</p>' :
-          usuario.ventas.map((v, i) => `
+          [...usuario.ventas].reverse().map((v, i) => `
           <div style="border-bottom:1px solid #eee; padding:10px 0; font-size: 0.9em;">
             <div class="flex space-between" style="align-items: flex-start;">
               <div style="flex:1;">
-                <div class="flex space-between"><b>👤 ${v.cliente}</b> <small>📅 ${v.fecha}</small></div>
-                <div style="color: #666; margin: 4px 0;">
-                  Pedido: ${Object.entries(v.estilos).filter(e => e[1]>0).map(e => `${e[1]} ${e[0]}`).join(", ")}
-                  <b style="color:#1e40af;">(${Object.values(v.estilos).reduce((a,b) => a+(Number(b)||0),0)} latas)</b>
+                <div class="flex space-between">
+                  <b>👤 ${v.cliente || 'Consumidor Final'}</b>
+                  <small>📅 ${v.fecha || ''}</small>
                 </div>
-                <div>
-                  Cobrado: $${v.totalCobrado.toLocaleString()} | Comisión: $${v.comision.toLocaleString()} | 👑 Profeta: $${v.paraProfeta.toLocaleString()}
+                <div style="color: #666; margin: 4px 0;">
+                  ${Object.entries(v.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(", ") || '—'}
+                  <b style="color:#1e40af;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0),0)} latas)</b>
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                  <span>💵 $${(v.totalCobrado||0).toLocaleString()}</span>
+                  <span style="color:#059669;">Comisión: $${(v.comision||0).toLocaleString()}</span>
+                  <span style="color:#b45309;">👑 Profeta: $${(v.paraProfeta||0).toLocaleString()}</span>
                 </div>
               </div>
-              <button onclick="borrarVentaIndividual(${i})" title="Borrar esta venta"
+              <button onclick="borrarVentaIndividual(${usuario.ventas.length - 1 - i})" title="Borrar esta venta"
                 style="margin-left:12px; background:#ef4444; padding:4px 10px; font-size:0.85em; border-radius:6px; flex-shrink:0; cursor:pointer;">
                 🗑️
               </button>
             </div>
-          </div>`).reverse().join("")}
+          </div>`).join("")}
       </div>
     </div>`;
 
