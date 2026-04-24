@@ -15,21 +15,43 @@ function render() {
 function renderStockGeneral() {
   const container = document.getElementById("stock-general-section");
   const stats = getEstadisticasVentas();
+  
+  // Calcular totales
+  const totalConEtiq = estilosBase.reduce((sum, e) => sum + (state.stockGeneral[e] || 0), 0);
+  const totalSinEtiq = estilosBase.reduce((sum, e) => sum + (state.stockGeneralSinEtiqueta[e] || 0), 0);
+  const granTotal = totalConEtiq + totalSinEtiq;
+  
   container.innerHTML = `
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
       <div class="card">
-        <h2>Stock General (Disponible)</h2>
-        ${estilosBase.map(e => `
-          <div class="flex space-between" style="padding: 4px 0; border-bottom: 1px solid #f3f4f6;">
-            <span>${e}</span>
-            <b style="color: ${(state.stockGeneral[e] || 0) < 0 ? '#ef4444' : '#1f2937'};">
-              ${state.stockGeneral[e] || 0} un.
-            </b>
+        <h2>📦 Stock General (Disponible)</h2>
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; font-weight: bold; padding: 8px 0; border-bottom: 2px solid #3b82f6; margin-bottom: 8px; font-size: 0.85em;">
+          <span>Estilo</span>
+          <span style="text-align: center;">Con Etiq.</span>
+          <span style="text-align: center;">Sin Etiq.</span>
+          <span style="text-align: center;">Total</span>
+        </div>
+        ${estilosBase.map(e => {
+          const conEtiq = state.stockGeneral[e] || 0;
+          const sinEtiq = state.stockGeneralSinEtiqueta[e] || 0;
+          const total = conEtiq + sinEtiq;
+          return `
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 0.9em;">
+            <span><b>${e}</b></span>
+            <span style="text-align: center; color: ${conEtiq < 0 ? '#ef4444' : '#1f2937'};">${conEtiq}</span>
+            <span style="text-align: center; color: ${sinEtiq < 0 ? '#ef4444' : '#1f2937'};">${sinEtiq}</span>
+            <span style="text-align: center; font-weight: bold; color: ${total < 0 ? '#ef4444' : '#059669'};">${total}</span>
           </div>
-        `).join("")}
+        `}).join("")}
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; padding: 10px 0; border-top: 2px solid #3b82f6; margin-top: 8px; font-weight: bold; font-size: 0.95em; background: #f8fafc;">
+          <span>TOTAL STOCK GENERAL</span>
+          <span style="text-align: center; color: #3b82f6;">${totalConEtiq}</span>
+          <span style="text-align: center; color: #3b82f6;">${totalSinEtiq}</span>
+          <span style="text-align: center; color: #059669; font-size: 1.1em;">${granTotal}</span>
+        </div>
       </div>
       <div class="card" style="background: #f8fafc; border: 1px solid #e2e8f0;">
-        <h2>Popularidad (% Ventas)</h2>
+        <h2>📊 Popularidad (% Ventas)</h2>
         ${Object.entries(stats.totalesPorEstilo).length === 0
           ? '<p style="color:gray; font-size: 0.9em;">Esperando primeras ventas...</p>'
           : Object.entries(stats.totalesPorEstilo)
@@ -92,7 +114,6 @@ function renderVentasGeneral() {
         ${todasLasVentas.length === 0
           ? '<p style="color:gray;">No hay ventas registradas aún.</p>'
           : [...todasLasVentas].reverse().map(v => {
-              // Identificar vendedor: viene del Sheet como propiedad, o buscamos en state
               const vendedor = v.vendedor || Object.keys(state.usuarios).find(u =>
                 state.usuarios[u].ventas.some(vv => vv === v)
               ) || '—';
@@ -121,34 +142,68 @@ function renderVentasGeneral() {
     </div>`;
 }
 
-// 3. CARTERA DE CLIENTES
+// 3. CARTERA DE CLIENTES CON TODAS LAS VENTAS
 function renderClientesGlobales() {
   const container = document.getElementById("clientes-section");
   if (!container) return;
+  
+  // Obtener todas las ventas registradas
+  const todasLasVentas = getVentasGenerales();
+  
+  // Agrupar ventas por cliente
+  const ventasPorCliente = {};
+  todasLasVentas.forEach(venta => {
+    const cliente = venta.cliente || 'Consumidor Final';
+    if (!ventasPorCliente[cliente]) {
+      ventasPorCliente[cliente] = [];
+    }
+    ventasPorCliente[cliente].push(venta);
+  });
+  
   const deudores = state.clientesGlobales.filter(c => (c.deuda - c.pagado) > 0);
   const deudaTotal = deudores.reduce((acc, c) => acc + (c.deuda - c.pagado), 0);
+  
   container.innerHTML = `
     <div class="card" style="border-left: 5px solid #ef4444;">
       <div class="flex space-between">
         <h2>👥 Cartera de Clientes (Deudores)</h2>
         <b style="color: #ef4444;">Deuda Total: $${deudaTotal.toLocaleString()}</b>
       </div>
-      <div style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
+      <div style="max-height: 400px; overflow-y: auto; margin-top: 10px;">
         ${deudores.length === 0 ? '<p>No hay deudas pendientes</p>' :
           deudores.map((c) => {
             const idx = state.clientesGlobales.indexOf(c);
+            const ventasCliente = ventasPorCliente[c.nombre] || [];
+            const saldoPendiente = c.deuda - c.pagado;
+            
             return `
-            <div style="padding: 8px 0; border-bottom: 1px solid #eee;">
-              <div class="flex space-between" style="flex-wrap: wrap; gap: 6px; align-items: center;">
-                <span><b>${c.nombre}</b> (Debe: $${(c.deuda - c.pagado).toLocaleString()})</span>
-                <div style="display:flex; gap:6px; align-items:center;">
-                  <select id="metodo-cobro-${idx}" style="padding:4px 8px; border-radius:8px; border:1px solid #d1d5db; width:auto; margin-bottom:0;">
-                    <option value="efectivo">💵 Efectivo</option>
-                    <option value="transferencia">🏦 Transferencia</option>
-                  </select>
-                  <button onclick="registrarPagoCliente(${idx}, document.getElementById('metodo-cobro-${idx}').value)" style="background:#059669; padding:4px 10px;">Cobrar</button>
+            <div style="padding: 12px; border: 1px solid #fee2e2; border-radius: 8px; margin-bottom: 12px; background: #fef2f2;">
+              <div class="flex space-between" style="flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px;">
+                <div>
+                  <div style="font-size: 1.1em; font-weight: bold; color: #991b1b;">${c.nombre}</div>
+                  <div style="font-size: 0.9em; color: #7f1d1d; margin-top: 4px;">
+                    Debe: <b style="font-size: 1.1em;">$${saldoPendiente.toLocaleString()}</b>
+                  </div>
                 </div>
+                <button onclick="registrarPagoCliente(${idx})" style="background:#059669; padding:8px 16px; font-weight:bold;">💰 Cobrar</button>
               </div>
+              
+              ${ventasCliente.length > 0 ? `
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #fecaca;">
+                  <div style="font-size: 0.85em; color: #7f1d1d; margin-bottom: 6px; font-weight: bold;">📋 Ventas registradas (${ventasCliente.length}):</div>
+                  <div style="max-height: 150px; overflow-y: auto;">
+                    ${ventasCliente.slice().reverse().map(v => `
+                      <div style="font-size: 0.8em; padding: 4px 0; border-bottom: 1px solid #fecaca;">
+                        <div style="color: #991b1b;">
+                          📅 ${v.fecha || '—'} | 
+                          ${Object.entries(v.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', ')}
+                          <b style="color:#dc2626; margin-left:4px;">($${(v.totalCobrado||0).toLocaleString()})</b>
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
             </div>`;
           }).join("")}
       </div>
@@ -165,6 +220,11 @@ function renderPanelUsuario() {
   const precioUnitario = state.precioUnitario || "";
   const totalCobrado = totalLatas > 0 && precioUnitario ? totalLatas * Number(precioUnitario) : 0;
 
+  // Calcular totales de stock propio
+  const totalConEtiqPropio = estilosBase.reduce((sum, e) => sum + (usuario.stock[e] || 0), 0);
+  const totalSinEtiqPropio = estilosBase.reduce((sum, e) => sum + (usuario.stockSinEtiqueta[e] || 0), 0);
+  const granTotalPropio = totalConEtiqPropio + totalSinEtiqPropio;
+
   container.innerHTML = `
     <div class="panel-usuario card">
       <h1 style="border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Panel de ${state.usuarioActivo}</h1>
@@ -172,157 +232,152 @@ function renderPanelUsuario() {
 
         <!-- STOCK PROPIO -->
         <div>
-          <h3>📦 Stock Propio</h3>
-          ${estilosBase.map(e => `
-            <div class="flex space-between" style="margin-bottom: 5px; padding: 6px 8px; background: #f8fafc; border-radius: 8px;">
-              <span>${e}</span>
-              <b style="color: ${(usuario.stock[e] || 0) < 0 ? '#ef4444' : '#1e40af'};">${usuario.stock[e] || 0} un.</b>
-            </div>`).join("")}
-        </div>
-
-        <!-- AGREGAR STOCK -->
-        <div>
-          <h3>➕ Agregar Stock</h3>
-          ${estilosBase.map(e => `
-            <div class="flex space-between" style="margin-bottom: 5px;">
-              <span>${e}</span>
-              <input type="number" data-agregar="${e}" placeholder="0" style="width: 80px;">
-            </div>`).join("")}
-          <button id="btn-agregar-stock" style="width:100%; margin-top:10px; background:#059669;">✅ Sumar al Stock</button>
-          <button id="btn-reset-stock" style="width:100%; margin-top:6px; background:#ef4444;">Reset Stock</button>
+          <h3 style="color: #3b82f6;">📦 Stock Propio</h3>
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 4px; font-weight: bold; font-size: 0.75em; padding: 4px 0; border-bottom: 2px solid #3b82f6; margin-bottom: 6px;">
+            <span>Estilo</span>
+            <span style="text-align: center;">Con Etiq.</span>
+            <span style="text-align: center;">Sin Etiq.</span>
+            <span style="text-align: center;">Total</span>
+          </div>
+          ${estilosBase.map(e => {
+            const conEtiq = usuario.stock[e] || 0;
+            const sinEtiq = usuario.stockSinEtiqueta[e] || 0;
+            const total = conEtiq + sinEtiq;
+            return `
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 4px; padding: 4px 0; border-bottom: 1px solid #f3f4f6; font-size: 0.85em;">
+              <span style="font-weight: 600;">${e}</span>
+              <span style="text-align: center;">${conEtiq}</span>
+              <span style="text-align: center;">${sinEtiq}</span>
+              <span style="text-align: center; font-weight: bold; color: #059669;">${total}</span>
+            </div>
+          `}).join("")}
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 4px; padding: 8px 0; border-top: 2px solid #3b82f6; margin-top: 6px; font-weight: bold; background: #eff6ff;">
+            <span style="font-size: 0.85em;">TOTAL STOCK</span>
+            <span style="text-align: center; color: #3b82f6; font-size: 0.9em;">${totalConEtiqPropio}</span>
+            <span style="text-align: center; color: #3b82f6; font-size: 0.9em;">${totalSinEtiqPropio}</span>
+            <span style="text-align: center; color: #059669; font-size: 1em;">${granTotalPropio}</span>
+          </div>
         </div>
 
         <!-- REGISTRAR VENTA -->
         <div>
-          <h3>🛒 Registrar Venta</h3>
-
-          <!-- CLIENTE CON AUTOCOMPLETADO -->
-          <div style="position: relative; margin-bottom: 10px;">
-            <input type="text" id="cliente-nombre" placeholder="Nombre Cliente (Opcional)"
-              value="${state.clienteNombre}" autocomplete="off" style="margin-bottom: 0; width: 100%;">
-            <div id="sugerencias-cliente" style="
-              position: absolute; top: 100%; left: 0; right: 0;
-              background: white; border: 1px solid #d1d5db; border-top: none;
-              border-radius: 0 0 8px 8px; max-height: 160px; overflow-y: auto;
-              z-index: 999; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            "></div>
+          <h3 style="color: #059669;">💵 Registrar Venta</h3>
+          <div style="position: relative; margin-bottom: 12px;">
+            <label style="font-size: 0.85em; font-weight: bold;">Nombre de Cliente:</label>
+            <input type="text" id="cliente-nombre" placeholder="Consumidor Final" value="${state.clienteNombre}" 
+              style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #d1d5db; margin-top: 4px;">
+            <div id="sugerencias-cliente" style="display:none; position:absolute; background:white; border:1px solid #d1d5db; border-radius:6px; max-height:150px; overflow-y:auto; width:100%; z-index:100; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"></div>
           </div>
 
-          <!-- ESTILOS -->
+          <label style="font-size: 0.85em; font-weight: bold; display: block; margin-bottom: 4px;">Tipo de Lata:</label>
+          <select onchange="setState(p => { p.tipoLata = this.value; return p; })" style="width: 100%; padding: 6px; border-radius: 6px; margin-bottom: 10px;">
+            <option value="conEtiqueta" ${state.tipoLata === 'conEtiqueta' ? 'selected' : ''}>Con Etiqueta</option>
+            <option value="sinEtiqueta" ${state.tipoLata === 'sinEtiqueta' ? 'selected' : ''}>Sin Etiqueta</option>
+          </select>
+
           ${estilosBase.map(e => `
-            <div class="flex space-between" style="margin-bottom: 5px;">
-              <span>${e}</span>
-              <input type="number" data-venta="${e}" value="${state.ventaActual[e] || ""}" placeholder="0" style="width: 80px;">
-            </div>`).join("")}
-
-          <!-- ALQUILER BARRIL -->
-          <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)"
-            value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
-
-          <!-- TOTAL LATAS + TIPO LATA + PRECIO UNITARIO -->
-          <div style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <span style="color: #94a3b8; font-size: 0.9em;">Total latas:</span>
-              <b style="color: #f1f5f9; font-size: 1.4em;">${totalLatas}</b>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin: 4px 0;">
+              <label style="font-size:0.85em; font-weight:500;">${e}:</label>
+              <input type="number" data-venta="${e}" value="${state.ventaActual[e] || ''}" 
+                style="width:60px; padding:4px; border-radius:4px; border:1px solid #d1d5db; text-align:center;">
             </div>
+          `).join("")}
 
-            <!-- TOGGLE TIPO LATA -->
-            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-              <button
-                onclick="setState(p => { p.tipoLata = 'conEtiqueta'; return p; })"
-                style="flex:1; padding: 8px 4px; border-radius: 8px;
-                       border: 2px solid ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#334155'};
-                       background: ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#0f172a'};
-                       color: ${state.tipoLata !== 'sinEtiqueta' ? '#1e293b' : '#64748b'};
-                       font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
-                🏷️ Con Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$1.750</span>
-              </button>
-              <button
-                onclick="setState(p => { p.tipoLata = 'sinEtiqueta'; return p; })"
-                style="flex:1; padding: 8px 4px; border-radius: 8px;
-                       border: 2px solid ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#334155'};
-                       background: ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#0f172a'};
-                       color: ${state.tipoLata === 'sinEtiqueta' ? '#1e293b' : '#64748b'};
-                       font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
-                📦 Sin Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$1.450</span>
-              </button>
+          <div style="margin-top:12px; padding:10px; background:#f8fafc; border-radius:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label style="font-size:0.85em; font-weight:bold;">Precio por lata:</label>
+              <input type="number" id="precio-unitario" value="${precioUnitario}" placeholder="0" 
+                style="width:80px; padding:4px; border-radius:4px; border:1px solid #d1d5db; text-align:center;">
             </div>
-
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-              <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap;">Precio unitario $</label>
-              <input type="number" id="precio-unitario" value="${precioUnitario}"
-                placeholder="ej: 2400"
-                style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155;
-                       border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
-            </div>
-            <div style="text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155;">
-              <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
-              <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display>
-                $${totalCobrado > 0 ? totalCobrado.toLocaleString() : "—"}
-              </b>
+            <div style="text-align:right; margin-top:8px; font-size:1.1em;">
+              <b>Total:</b> <span data-total-display style="color:#059669; font-weight:bold;">${totalCobrado > 0 ? '$' + totalCobrado.toLocaleString() : '$—'}</span>
             </div>
           </div>
 
-          <!-- PREVIEW -->
-          <div style="background:#fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-top: 10px;">
-            <h4 style="margin: 0 0 8px 0; color: #92400e;">📊 Vista Previa Profeta</h4>
-            <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
-              <span style="color:#78350f;">Costo (${state.tipoLata === 'sinEtiqueta' ? 'sin etiqueta' : 'con etiqueta'}):</span>
-              <b style="color:#92400e;">$${preview.costoTotal.toLocaleString()}</b>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
-              <span style="color:#78350f;">Comisión (50%):</span>
-              <b style="color:${preview.comision > 0 ? '#059669' : '#92400e'};">
-                ${preview.comision > 0 ? '$' + preview.comision.toLocaleString() : '— (ingresá precio)'}
-              </b>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f59e0b;">
-              <span style="color:#78350f; font-weight:bold;">Total a Rendir:</span>
-              <b style="color:#b45309; font-size:1.1em;">$${preview.paraProfeta.toLocaleString()}</b>
-            </div>
-            ${preview.gananciaBruta > 0 ? `<div style="margin-top:6px; font-size:0.8em; color:#78350f; text-align:right;">Ganancia bruta: $${preview.gananciaBruta.toLocaleString()}</div>` : ''}
-          </div>
+          <input type="text" id="alquiler-barril" placeholder="Alquiler Barril (opcional)" value="${state.alquilerBarril}" 
+            style="width:100%; padding:6px; margin-top:8px; border-radius:6px; border:1px solid #d1d5db;">
 
-          <!-- BOTÓN REGISTRAR -->
-          <button id="btn-registrar" style="width:100%; margin-top:10px; background:#1e40af;">
+          <button id="btn-registrar" style="width:100%; margin-top:12px; background:#059669; font-weight:bold;">
             ✅ Registrar Venta
           </button>
+        </div>
+
+        <!-- AGREGAR STOCK -->
+        <div>
+          <h3 style="color: #f59e0b;">➕ Agregar Stock</h3>
+          ${estilosBase.map(e => `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin:6px 0;">
+              <label style="font-size:0.85em; font-weight:500;">${e}:</label>
+              <div style="display:flex; gap:4px; align-items:center;">
+                <input type="number" data-agregar="${e}" placeholder="0" 
+                  style="width:50px; padding:4px; border-radius:4px; border:1px solid #d1d5db; text-align:center;">
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <button onclick="agregarStockDirecto('${e}', true)" 
+                    style="padding:2px 6px; font-size:0.7em; background:#3b82f6; min-width:24px;">C</button>
+                  <button onclick="agregarStockDirecto('${e}', false)" 
+                    style="padding:2px 6px; font-size:0.7em; background:#6b7280; min-width:24px;">S</button>
+                </div>
+              </div>
+            </div>
+          `).join("")}
+          <small style="display:block; margin-top:8px; color:#6b7280; font-size:0.75em;">
+            <b>C:</b> Con etiqueta | <b>S:</b> Sin etiqueta
+          </small>
+          <button id="btn-agregar-stock" style="width:100%; margin-top:10px; background:#f59e0b;">
+            ➕ Agregar desde campos
+          </button>
+          <button id="btn-reset-stock" class="danger" style="width:100%; margin-top:6px;">
+            🗑️ Resetear Stock a 0
+          </button>
+          
+          ${usuario.historialAgregarStock && usuario.historialAgregarStock.length > 0 ? `
+            <div style="margin-top:12px; padding:8px; background:#fef3c7; border-radius:6px; max-height:200px; overflow-y:auto;">
+              <div style="font-size:0.8em; font-weight:bold; margin-bottom:6px; color:#92400e;">📜 Historial Agregar Stock:</div>
+              ${usuario.historialAgregarStock.slice().reverse().map(h => `
+                <div style="font-size:0.75em; padding:3px 0; border-bottom:1px solid #fde68a; color:#78350f;">
+                  ${h.fecha} | ${h.estilo}: +${h.cantidad} ${h.conEtiqueta ? '(C)' : '(S)'}
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
         </div>
       </div>
 
       <hr>
-      <div class="flex space-between">
-        <h3>📜 Historial de Ventas</h3>
-        <div>
-          <button id="btn-guardar" style="background:#059669;">💾 Guardar en Sheet</button>
+
+      <!-- HISTORIAL DE VENTAS -->
+      <div>
+        <div class="flex space-between" style="align-items:center; margin-bottom:10px;">
+          <h3>📋 Historial de Ventas (${usuario.ventas.length})</h3>
+          <button onclick="borrarHistorialUsuario()" class="danger" style="padding:6px 12px; font-size:0.85em;">
+            🗑️ Borrar Historial
+          </button>
+        </div>
+        <div style="max-height:250px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:8px; padding:10px; background:#f9fafb;">
+          ${usuario.ventas.length === 0 ? '<p style="color:gray;">No hay ventas registradas</p>' :
+            [...usuario.ventas].reverse().map((v, i) => `
+            <div style="padding:8px; margin-bottom:8px; border-left:3px solid #3b82f6; background:white; border-radius:4px;">
+              <div class="flex space-between" style="flex-wrap:wrap; gap:6px; margin-bottom:4px;">
+                <b style="color:#1e40af;">👤 ${v.cliente || 'Consumidor Final'}</b>
+                <small style="color:#64748b;">📅 ${v.fecha || ''}</small>
+              </div>
+              <div style="font-size:0.85em; color:#374151; margin:4px 0;">
+                ${Object.entries(v.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', ')}
+                <b style="color:#1e40af; margin-left:4px;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0), 0)} latas)</b>
+              </div>
+              <div style="font-size:0.85em; color:#059669;">💵 $${(v.totalCobrado||0).toLocaleString()}</div>
+              <button onclick="borrarVentaIndividual(${i})" class="danger" style="margin-top:6px; padding:4px 10px; font-size:0.8em;">
+                🗑️ Borrar y Devolver Stock
+              </button>
+            </div>`).join("")}
         </div>
       </div>
-      <div id="historial-lista" style="margin-top: 15px;">
-        ${usuario.ventas.length === 0 ? '<p>No hay ventas registradas</p>' :
-          [...usuario.ventas].reverse().map((v, i) => `
-          <div style="border-bottom:1px solid #eee; padding:10px 0; font-size: 0.9em;">
-            <div class="flex space-between" style="align-items: flex-start;">
-              <div style="flex:1;">
-                <div class="flex space-between">
-                  <b>👤 ${v.cliente || 'Consumidor Final'}</b>
-                  <small>📅 ${v.fecha || ''}</small>
-                </div>
-                <div style="color: #666; margin: 4px 0;">
-                  ${Object.entries(v.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(", ") || '—'}
-                  <b style="color:#1e40af;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0),0)} latas)</b>
-                </div>
-                <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                  <span>💵 $${(v.totalCobrado||0).toLocaleString()}</span>
-                  <span style="color:#059669;">Comisión: $${(v.comision||0).toLocaleString()}</span>
-                  <span style="color:#b45309;">👑 Profeta: $${(v.paraProfeta||0).toLocaleString()}</span>
-                </div>
-              </div>
-              <button onclick="borrarVentaIndividual(${usuario.ventas.length - 1 - i})" title="Borrar esta venta"
-                style="margin-left:12px; background:#ef4444; padding:4px 10px; font-size:0.85em; border-radius:6px; flex-shrink:0; cursor:pointer;">
-                🗑️
-              </button>
-            </div>
-          </div>`).join("")}
+
+      <!-- BOTONES FINALES -->
+      <div class="flex" style="gap:10px; margin-top:20px; justify-content:center;">
+        <button id="btn-guardar" style="flex:1; max-width:300px; background:#7c3aed; font-size:1.1em; padding:12px;">
+          💾 Guardar en Sheet
+        </button>
       </div>
     </div>`;
 
@@ -341,7 +396,6 @@ function bindPrecioUnitario() {
     const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
     const total = totalLatas * precio;
     state.totalCobradoInput = total > 0 ? String(total) : "";
-    // Actualizar display sin re-renderizar todo
     const display = document.querySelector("[data-total-display]");
     if (display) display.textContent = total > 0 ? "$" + total.toLocaleString() : "$—";
   });
@@ -395,61 +449,102 @@ function seleccionarCliente(nombre) {
   }
 }
 
+function agregarStockDirecto(estilo, conEtiqueta) {
+  const input = document.querySelector(`[data-agregar="${estilo}"]`);
+  if (!input || !input.value || input.value.trim() === "") {
+    alert("Por favor ingrese una cantidad");
+    return;
+  }
+  
+  const cantidad = Number(input.value);
+  if (isNaN(cantidad) || cantidad === 0) {
+    alert("Cantidad inválida");
+    return;
+  }
+  
+  agregarStockConHistorial(state.usuarioActivo, estilo, cantidad, conEtiqueta);
+  input.value = "";
+}
+
 // 7. EVENTOS
 function bindPanelEventos() {
   document.querySelectorAll("[data-stock]").forEach(i =>
-    i.onchange = (e) => modificarStockDirecto(state.usuarioActivo, e.target.dataset.stock, e.target.value));
+    i.onchange = (e) => modificarStockDirecto(state.usuarioActivo, e.target.dataset.stock, e.target.value, true));
 
   document.querySelectorAll("[data-venta]").forEach(i =>
     i.onchange = (e) => {
       setState(p => { p.ventaActual[e.target.dataset.venta] = e.target.value; return p; });
     });
 
-  document.getElementById("cliente-nombre").oninput = (e) => { state.clienteNombre = e.target.value; };
-  document.getElementById("alquiler-barril").oninput = (e) => { state.alquilerBarril = e.target.value; };
+  const clienteInput = document.getElementById("cliente-nombre");
+  if (clienteInput) {
+    clienteInput.oninput = (e) => { state.clienteNombre = e.target.value; };
+  }
+  
+  const alquilerInput = document.getElementById("alquiler-barril");
+  if (alquilerInput) {
+    alquilerInput.oninput = (e) => { state.alquilerBarril = e.target.value; };
+  }
 
-  document.getElementById("btn-registrar").onclick = () => {
-    // Calcular total desde precio unitario antes de registrar
-    const precio = Number(state.precioUnitario) || 0;
-    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-    if (precio > 0 && totalLatas > 0) {
-      state.totalCobradoInput = String(totalLatas * precio);
-    }
-    registrarVentaLocal();
-    state.precioUnitario = "";
-  };
-
-  document.getElementById("btn-guardar").onclick = async function() {
-    this.disabled = true;
-    this.textContent = "⏳ Guardando...";
-    await guardarDatos();
-    await guardarEnSheets();
-    await guardarVentasPendientesEnSheet();
-    this.disabled = false;
-    this.textContent = "💾 Guardar en Sheet";
-  };
-
-  document.getElementById("btn-ver-clientes").onclick = mostrarTodosLosClientes;
-
-  document.getElementById("btn-agregar-stock").onclick = () => {
-    document.querySelectorAll("[data-agregar]").forEach(input => {
-      const estilo = input.dataset.agregar;
-      const cantidad = Number(input.value);
-      if (!isNaN(cantidad) && input.value.trim() !== "" && cantidad !== 0) {
-        modificarStockDirecto(state.usuarioActivo, estilo, (state.usuarios[state.usuarioActivo].stock[estilo] || 0) + cantidad);
-        input.value = "";
+  const btnRegistrar = document.getElementById("btn-registrar");
+  if (btnRegistrar) {
+    btnRegistrar.onclick = () => {
+      const precio = Number(state.precioUnitario) || 0;
+      const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+      if (precio > 0 && totalLatas > 0) {
+        state.totalCobradoInput = String(totalLatas * precio);
       }
-    });
-  };
+      registrarVentaLocal();
+      state.precioUnitario = "";
+    };
+  }
 
-  document.getElementById("btn-reset-stock").onclick = () => {
-    if (confirm("¿Resetear todo el stock a 0?")) {
-      setState(p => {
-        estilosBase.forEach(e => { p.usuarios[p.usuarioActivo].stock[e] = 0; });
-        return p;
+  const btnGuardar = document.getElementById("btn-guardar");
+  if (btnGuardar) {
+    btnGuardar.onclick = async function() {
+      this.disabled = true;
+      this.textContent = "⏳ Guardando...";
+      await guardarDatos();
+      await guardarEnSheets();
+      await guardarVentasPendientesEnSheet();
+      this.disabled = false;
+      this.textContent = "💾 Guardar en Sheet";
+    };
+  }
+
+  const btnVerClientes = document.getElementById("btn-ver-clientes");
+  if (btnVerClientes) {
+    btnVerClientes.onclick = mostrarTodosLosClientes;
+  }
+
+  const btnAgregarStock = document.getElementById("btn-agregar-stock");
+  if (btnAgregarStock) {
+    btnAgregarStock.onclick = () => {
+      document.querySelectorAll("[data-agregar]").forEach(input => {
+        const estilo = input.dataset.agregar;
+        const cantidad = Number(input.value);
+        if (!isNaN(cantidad) && input.value.trim() !== "" && cantidad !== 0) {
+          agregarStockConHistorial(state.usuarioActivo, estilo, cantidad, true);
+          input.value = "";
+        }
       });
-    }
-  };
+    };
+  }
+
+  const btnResetStock = document.getElementById("btn-reset-stock");
+  if (btnResetStock) {
+    btnResetStock.onclick = () => {
+      if (confirm("¿Resetear todo el stock a 0?")) {
+        setState(p => {
+          estilosBase.forEach(e => { 
+            p.usuarios[p.usuarioActivo].stock[e] = 0;
+            p.usuarios[p.usuarioActivo].stockSinEtiqueta[e] = 0;
+          });
+          return p;
+        });
+      }
+    };
+  }
 }
 
 function renderUsuarios() {
@@ -463,37 +558,103 @@ function renderUsuarios() {
 
 function renderTransferencia() {
   const container = document.getElementById("transferencia-section");
+  const historial = state.historialTransferencias || [];
+  
   container.innerHTML = `
     <div class="card">
       <h2>📦 Transferencia de Stock entre Usuarios</h2>
-      <div class="flex" style="flex-wrap: wrap;">
+      <div class="flex" style="flex-wrap: wrap; gap: 8px; align-items: center;">
         <select onchange="setState(p => { p.transferDesde = this.value; return p; })" style="width: auto;">
-          ${Object.keys(state.usuarios).map(u => `<option ${state.transferDesde === u ? 'selected' : ''} value="${u}">${u}</option>`)}
+          ${Object.keys(state.usuarios).map(u => `<option ${state.transferDesde === u ? 'selected' : ''} value="${u}">${u}</option>`).join('')}
         </select>
-        <span> → </span>
+        <span style="font-size: 1.2em;">→</span>
         <select onchange="setState(p => { p.transferHacia = this.value; return p; })" style="width: auto;">
-          ${Object.keys(state.usuarios).map(u => `<option ${state.transferHacia === u ? 'selected' : ''} value="${u}">${u}</option>`)}
+          ${Object.keys(state.usuarios).map(u => `<option ${state.transferHacia === u ? 'selected' : ''} value="${u}">${u}</option>`).join('')}
         </select>
         <select onchange="setState(p => { p.transferEstilo = this.value; return p; })" style="width: auto;">
-          ${estilosBase.map(e => `<option ${state.transferEstilo === e ? 'selected' : ''} value="${e}">${e}</option>`)}
+          ${estilosBase.map(e => `<option ${state.transferEstilo === e ? 'selected' : ''} value="${e}">${e}</option>`).join('')}
         </select>
         <input type="number" placeholder="Cant" oninput="state.transferCantidad = this.value" style="width: 70px; margin-bottom:0;">
+        <select onchange="setState(p => { p.transferConEtiqueta = this.value === 'true'; return p; })" style="width: auto;">
+          <option value="true" ${state.transferConEtiqueta ? 'selected' : ''}>Con Etiqueta</option>
+          <option value="false" ${!state.transferConEtiqueta ? 'selected' : ''}>Sin Etiqueta</option>
+        </select>
         <button onclick="transferirStock()">Pasar Stock</button>
       </div>
+      
+      ${historial.length > 0 ? `
+        <div style="margin-top: 16px; padding: 12px; background: #f8fafc; border-radius: 8px; max-height: 200px; overflow-y: auto;">
+          <h4 style="margin: 0 0 10px 0; color: #475569;">📜 Historial de Transferencias (${historial.length})</h4>
+          ${historial.slice().reverse().map(t => `
+            <div style="font-size: 0.85em; padding: 6px 0; border-bottom: 1px solid #e2e8f0; color: #334155;">
+              <b>${t.fecha}</b> | 
+              <span style="color: #3b82f6;">${t.desde}</span> → 
+              <span style="color: #059669;">${t.hacia}</span> | 
+              ${t.estilo}: <b>${t.cantidad}</b> ${t.conEtiqueta ? '✅ C/Etiq' : '❌ S/Etiq'}
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </div>`;
 }
 
 function mostrarTodosLosClientes() {
   const div = document.getElementById("lista-clientes");
-  if (!state.clientesGlobales.length) { div.innerHTML = "<p>No hay clientes registrados</p>"; return; }
-  div.innerHTML = state.clientesGlobales.map((c, i) => `
-    <div>
-      ${c.nombre} — Deuda: $${c.deuda.toLocaleString()} | Pagado: $${c.pagado.toLocaleString()}
-      <button onclick="borrarCliente(${i})" style="margin-left:10px;background:#ef4444;">Borrar</button>
-    </div>`).join("");
+  if (!state.clientesGlobales.length) { 
+    div.innerHTML = "<p>No hay clientes registrados</p>"; 
+    return; 
+  }
+  
+  div.innerHTML = `
+    <div class="card" style="margin-top: 10px;">
+      <h3>👥 Lista Completa de Clientes</h3>
+      <div style="max-height: 300px; overflow-y: auto;">
+        ${state.clientesGlobales.map((c, i) => `
+          <div style="padding: 10px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div style="flex: 1;">
+              <div style="font-weight: bold; font-size: 1.05em;">${c.nombre}</div>
+              <div style="font-size: 0.9em; color: #6b7280;">
+                Deuda: $${c.deuda.toLocaleString()} | 
+                Pagado: $${c.pagado.toLocaleString()} | 
+                Saldo: <b style="color: ${(c.deuda - c.pagado) > 0 ? '#ef4444' : '#059669'};">$${(c.deuda - c.pagado).toLocaleString()}</b>
+              </div>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button onclick="seleccionarClienteParaVenta('${c.nombre.replace(/'/g, "\\'")}');" style="background:#3b82f6; padding:6px 12px; font-size:0.9em;">
+                📝 Nueva Venta
+              </button>
+              <button onclick="borrarCliente(${i})" style="background:#ef4444; padding:6px 12px; font-size:0.9em;">
+                🗑️
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function seleccionarClienteParaVenta(nombre) {
+  if (!state.usuarioActivo) {
+    alert("Por favor seleccione un usuario primero");
+    return;
+  }
+  
+  // Seleccionar el cliente
+  seleccionarCliente(nombre);
+  
+  // Scroll al panel de usuario
+  const panelUsuario = document.querySelector('.panel-usuario');
+  if (panelUsuario) {
+    panelUsuario.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  
+  alert(`Cliente ${nombre} seleccionado. Puede registrar la venta ahora.`);
 }
 
 function borrarCliente(index) {
-  setState(p => { p.clientesGlobales.splice(index, 1); return p; });
-  mostrarTodosLosClientes();
+  if (confirm("¿Está seguro de borrar este cliente?")) {
+    setState(p => { p.clientesGlobales.splice(index, 1); return p; });
+    mostrarTodosLosClientes();
+  }
 }
