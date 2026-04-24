@@ -4,12 +4,14 @@ const costoPorLataSinEtiqueta = 1450;
 
 let state = {
   usuarios: {
-    Julian: { stock: {}, ventas: [] },
-    Matias: { stock: {}, ventas: [] },
-    Lucas: { stock: {}, ventas: [] },
+    Julian: { stock: {}, stockSinEtiqueta: {}, ventas: [], historialAgregarStock: [] },
+    Matias: { stock: {}, stockSinEtiqueta: {}, ventas: [], historialAgregarStock: [] },
+    Lucas: { stock: {}, stockSinEtiqueta: {}, ventas: [], historialAgregarStock: [] },
   },
   clientesGlobales: [], 
   stockGeneral: {},
+  stockGeneralSinEtiqueta: {},
+  historialTransferencias: [],
   usuarioActivo: null,
   ventaActual: {},
   metodoPago: "efectivo",
@@ -22,6 +24,7 @@ let state = {
   transferHacia: "Matias",
   transferEstilo: "BLONDE",
   transferCantidad: 0,
+  transferConEtiqueta: true,
 };
 
 function setState(updater) {
@@ -32,12 +35,19 @@ function setState(updater) {
 
 function actualizarStockGeneral() {
   let total = {};
+  let totalSinEtiqueta = {};
   Object.values(state.usuarios).forEach((u) => {
-    Object.entries(u.stock).forEach(([estilo, cant]) => {
+    // Stock con etiqueta
+    Object.entries(u.stock || {}).forEach(([estilo, cant]) => {
       total[estilo] = (total[estilo] || 0) + (Number(cant) || 0);
+    });
+    // Stock sin etiqueta
+    Object.entries(u.stockSinEtiqueta || {}).forEach(([estilo, cant]) => {
+      totalSinEtiqueta[estilo] = (totalSinEtiqueta[estilo] || 0) + (Number(cant) || 0);
     });
   });
   state.stockGeneral = total;
+  state.stockGeneralSinEtiqueta = totalSinEtiqueta;
 }
 
 function calcularPreview() {
@@ -106,7 +116,7 @@ function getEstadisticasVentas() {
 }
 
 function guardarDatos() {
-  const data = { usuarios: state.usuarios, clientes: state.clientesGlobales };
+  const data = { usuarios: state.usuarios, clientes: state.clientesGlobales, historialTransferencias: state.historialTransferencias };
   localStorage.setItem("elProfetaData", JSON.stringify(data));
   alert("¡Datos y Cartera de Clientes guardados!");
 }
@@ -117,9 +127,22 @@ function cargarDatos() {
     const data = JSON.parse(dataRaw);
     state.usuarios = data.usuarios || state.usuarios;
     state.clientesGlobales = data.clientes || [];
+    state.historialTransferencias = data.historialTransferencias || [];
+    
+    // Asegurar que cada usuario tenga las nuevas propiedades
+    Object.keys(state.usuarios).forEach(nombre => {
+      if (!state.usuarios[nombre].stockSinEtiqueta) {
+        state.usuarios[nombre].stockSinEtiqueta = {};
+      }
+      if (!state.usuarios[nombre].historialAgregarStock) {
+        state.usuarios[nombre].historialAgregarStock = [];
+      }
+    });
+    
     actualizarStockGeneral();
   }
 }
+
 function guardarEnSheets() {
   const SHEET_URL = "https://script.google.com/macros/s/AKfycbzsNDTHpBPGbIE8fGV9F8RJhjlKTyOB5AZEKkcm59OhTgX5ZIiw3rBFw5bZgFrBdrCG5Q/exec";
 
@@ -144,8 +167,12 @@ function guardarEnSheets() {
 
   const payload = {
     stockGeneral: state.stockGeneral,
+    stockGeneralSinEtiqueta: state.stockGeneralSinEtiqueta,
     stockIndividual: Object.fromEntries(
       Object.entries(state.usuarios).map(([nombre, u]) => [nombre, u.stock])
+    ),
+    stockIndividualSinEtiqueta: Object.fromEntries(
+      Object.entries(state.usuarios).map(([nombre, u]) => [nombre, u.stockSinEtiqueta || {}])
     ),
     popularidad: {
       totalesPorEstilo: stats.totalesPorEstilo,
@@ -158,7 +185,8 @@ function guardarEnSheets() {
       totalTransferencia: totalTransferencia,
       cantidadVentas: ventas.length
     },
-    clientes: clientes
+    clientes: clientes,
+    historialTransferencias: state.historialTransferencias
   };
 
   fetch(SHEET_URL, {
