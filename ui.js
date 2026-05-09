@@ -62,9 +62,6 @@ function getVentasGenerales() {
   return Object.values(state.usuarios).flatMap((u) => u.ventas);
 }
 
-function getTotalVentasDinero() {
-  return getTotalVentasPorMetodo("efectivo") + getTotalVentasPorMetodo("transferencia");
-}
 
 function getTotalVentasPorMetodo(metodo) {
   const nombresDeudores = new Set(
