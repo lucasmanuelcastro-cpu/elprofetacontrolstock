@@ -265,7 +265,9 @@ async function cargarDatosDesdeSheet() {
       if (datosCloud.popularidad) {
         prev.popularidadSheet = datosCloud.popularidad;
       }
-
+      if (datosCloud.totalIngresado !== undefined) {
+    prev.totalIngresadoSheet = datosCloud.totalIngresado;
+}
       // 2. STOCK GENERAL
       if (datosCloud.stockGeneral) {
         prev.stockGeneral = {
