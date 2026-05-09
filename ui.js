@@ -370,12 +370,8 @@ function registrarPagoManual(index) {
 }
 
 function registrarCargaStock(usuario, estilos, tipo) {
-  // estilos puede ser objeto { BLONDE: 6, ... } o string (compatibilidad)
   const fecha = new Date().toLocaleString('es-AR');
-  if (typeof estilos === 'string') {
-    // llamada legacy desde modificarStockDirecto - ignorar, no registrar
-    return;
-  }
+  if (typeof estilos === 'string') return; // llamada legacy - ignorar
   const entrada = { usuario, estilos, tipo, fecha };
   state.historialStock.push(entrada);
   fetch(URL_SCRIPT, {
