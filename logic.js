@@ -1,6 +1,6 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxs7rOrOj7mmyw1maTh6rtfLzb-NbSpXvkdcdXoGDhbnFb2TR9QkQMGxBMbfu9pHiSQ7w/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbwRMcV33zUgp7BoPKCnsznykoaie_n5aAenMELEJnYZ4frhUIj-8Dmh6JK3DyUhQqBN0A/exec";
 
 /** El Sheet guarda "sin"/"con"; la UI usa sinEtiqueta/conEtiqueta */
 function normalizarTipoLataDesdeSheet(raw) {
@@ -266,6 +266,11 @@ async function cargarDatosDesdeSheet() {
         prev.popularidadSheet = datosCloud.popularidad;
       }
 
+      // TOTAL INGRESADO desde celda D1 del Sheet
+      if (datosCloud.totalIngresadoSheet !== undefined && datosCloud.totalIngresadoSheet > 0) {
+        prev.totalIngresadoSheet = Number(datosCloud.totalIngresadoSheet);
+      }
+
       // 2. STOCK GENERAL
       if (datosCloud.stockGeneral) {
         prev.stockGeneral = {
@@ -346,28 +351,6 @@ async function cargarDatosDesdeSheet() {
             });
           }
         });
-      }
-
-      // 5. HISTORIAL DE STOCK desde Sheet (formato: una fila por carga con todos los estilos)
-      if (datosCloud.historialStock && Array.isArray(datosCloud.historialStock) && datosCloud.historialStock.length > 0) {
-        prev.historialStock = datosCloud.historialStock.map(h => ({
-          fecha:    h.fecha   || "",
-          usuario:  h.usuario || "",
-          tipo:     h.tipo    || "conEtiqueta",
-          estilos:  h.estilos || {}
-        }));
-      }
-
-      // 6. HISTORIAL DE TRANSFERENCIAS desde Sheet
-      if (datosCloud.historialTransferencias && Array.isArray(datosCloud.historialTransferencias) && datosCloud.historialTransferencias.length > 0) {
-        prev.historialTransferencias = datosCloud.historialTransferencias.map(h => ({
-          fecha:    h.fecha    || "",
-          desde:    h.desde    || "",
-          hacia:    h.hacia    || "",
-          estilo:   h.estilo   || "",
-          cantidad: Number(h.cantidad) || 0,
-          tipo:     h.tipo     || "conEtiqueta"
-        }));
       }
 
       console.log("📦 Datos completos del Sheet:", datosCloud);
