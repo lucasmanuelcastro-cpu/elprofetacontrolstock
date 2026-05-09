@@ -239,7 +239,8 @@ function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
     usuarioObj.stock[estilo] = cantidadNueva;
   }
 
-  registrarCargaStock(usuario, estilo, cantidadNueva - cantidadAnterior, tipo);
+  const diff = cantidadNueva - cantidadAnterior;
+  if (diff !== 0) registrarCargaStock(usuario, { [estilo]: diff }, tipo);
   encolarActualizarStockEnSheet(usuario);
   render();
 }
@@ -368,11 +369,12 @@ function registrarPagoManual(index) {
   aplicarCobroCartera(index, montoIngresado, metodo);
 }
 
-function registrarCargaStock(usuario, estilo, cantidad, tipo) {
+function registrarCargaStock(usuario, estilos, tipo) {
+  // estilos = { "BLONDE": 6, "STOUT": 27, ... } — solo los que se cargaron
   const fecha = new Date().toLocaleString('es-AR');
-  const entrada = { usuario, estilo, cantidad, tipo, fecha };
+  const entrada = { usuario, estilos, tipo, fecha };
   state.historialStock.push(entrada);
-  // Persistir en Sheet
+  // Persistir en Sheet — UNA fila con todos los estilos
   fetch(URL_SCRIPT, {
     method: "POST",
     body: JSON.stringify({ accion: "guardarHistorialStock", entrada }),
@@ -985,19 +987,26 @@ function bindPanelEventos() {
 
   const btnAgregarStock = document.getElementById("btn-agregar-stock");
   if (btnAgregarStock) btnAgregarStock.onclick = async () => {
+    const estilosCargados = {};
     document.querySelectorAll("[data-agregar]").forEach(input => {
       const estilo = input.dataset.agregar;
       const cantidad = Number(input.value);
       if (!isNaN(cantidad) && input.value.trim() !== "" && cantidad !== 0) {
         modificarStockDirecto(state.usuarioActivo, estilo, (state.usuarios[state.usuarioActivo].stock[estilo] || 0) + cantidad, 'conEtiqueta');
+        estilosCargados[estilo] = cantidad;
         input.value = "";
       }
     });
+    // Registrar UNA sola entrada con todos los estilos juntos
+    if (Object.keys(estilosCargados).length > 0) {
+      registrarCargaStock(state.usuarioActivo, estilosCargados, 'conEtiqueta');
+    }
     encolarActualizarStockEnSheet(state.usuarioActivo);
   };
 
   const btnAgregarStockSin = document.getElementById("btn-agregar-stock-sin-etiqueta");
   if (btnAgregarStockSin) btnAgregarStockSin.onclick = async () => {
+    const estilosCargados = {};
     document.querySelectorAll("[data-agregar]").forEach(input => {
       const estilo = input.dataset.agregar;
       const cantidad = Number(input.value);
@@ -1013,10 +1022,14 @@ function bindPanelEventos() {
           usuario.stockSinEtiqueta[estilo] = (usuario.stockSinEtiqueta[estilo] || 0) + cantidad;
           return prev;
         });
-        registrarCargaStock(state.usuarioActivo, estilo, cantidad, 'sinEtiqueta');
+        estilosCargados[estilo] = cantidad;
         input.value = "";
       }
     });
+    // Registrar UNA sola entrada con todos los estilos juntos
+    if (Object.keys(estilosCargados).length > 0) {
+      registrarCargaStock(state.usuarioActivo, estilosCargados, 'sinEtiqueta');
+    }
     encolarActualizarStockEnSheet(state.usuarioActivo);
   };
 
@@ -1048,8 +1061,9 @@ function bindPanelEventos() {
         u.stockSinEtiqueta[estilo] = (u.stockSinEtiqueta[estilo] || 0) + cantidad;
         return p;
       });
-      registrarCargaStock(state.usuarioActivo, estilo, -cantidad, 'conEtiqueta');
-      registrarCargaStock(state.usuarioActivo, estilo, cantidad, 'sinEtiqueta');
+      // Conversión C/E → S/E: registrar como dos entradas separadas
+      registrarCargaStock(state.usuarioActivo, { [estilo]: -cantidad }, 'conEtiqueta');
+      registrarCargaStock(state.usuarioActivo, { [estilo]: cantidad }, 'sinEtiqueta');
       document.getElementById("transfer-cantidad").value = "";
       encolarActualizarStockEnSheet(state.usuarioActivo);
     }
@@ -1067,8 +1081,9 @@ function bindPanelEventos() {
         u.stock[estilo] = (u.stock[estilo] || 0) + cantidad;
         return p;
       });
-      registrarCargaStock(state.usuarioActivo, estilo, -cantidad, 'sinEtiqueta');
-      registrarCargaStock(state.usuarioActivo, estilo, cantidad, 'conEtiqueta');
+      // Conversión S/E → C/E: registrar como dos entradas separadas
+      registrarCargaStock(state.usuarioActivo, { [estilo]: -cantidad }, 'sinEtiqueta');
+      registrarCargaStock(state.usuarioActivo, { [estilo]: cantidad }, 'conEtiqueta');
       document.getElementById("transfer-cantidad").value = "";
       encolarActualizarStockEnSheet(state.usuarioActivo);
     }
@@ -1164,19 +1179,24 @@ function mostrarHistorialStock() {
       </div>
       <div>
         ${state.historialStock.length === 0 ? '<p style="color:gray;">No hay cargas registradas</p>' :
-          [...state.historialStock].reverse().map(h => `
-          <div style="border-bottom:1px solid #e5e7eb; padding:10px 0; font-size:0.9em;">
-            <div style="display:flex; justify-content:space-between;">
-              <span><b>${h.usuario}</b> - ${h.estilo}</span>
-              <small style="color:#64748b;">${h.fecha}</small>
-            </div>
-            <div style="margin-top:4px;">
-              <span style="background:${h.cantidad > 0 ? '#dcfce7' : '#fee2e2'}; color:${h.cantidad > 0 ? '#166534' : '#991b1b'}; padding:2px 8px; border-radius:4px; font-weight:600;">
-                ${h.cantidad > 0 ? '+' : ''}${h.cantidad}
-              </span>
-              <span style="margin-left:8px; color:#6b7280;">${h.tipo === 'conEtiqueta' ? '🏷️ Con Etiqueta' : '📦 Sin Etiqueta'}</span>
-            </div>
-          </div>`).join("")}
+          [...state.historialStock].reverse().map(h => {
+            const estilos = h.estilos || {};
+            const items = Object.entries(estilos).filter(([,v]) => Number(v) !== 0);
+            if (items.length === 0) return '';
+            return `
+            <div style="border-bottom:2px solid #e5e7eb; padding:12px 0; font-size:0.9em;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                <span><b>${h.usuario}</b> &mdash; <span style="color:#6b7280;">${h.tipo === 'conEtiqueta' ? '🏷️ Con Etiqueta' : '📦 Sin Etiqueta'}</span></span>
+                <small style="color:#64748b;">${h.fecha}</small>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                ${items.map(([estilo, cant]) => `
+                  <span style="background:${Number(cant) > 0 ? '#dcfce7' : '#fee2e2'}; color:${Number(cant) > 0 ? '#166534' : '#991b1b'}; padding:3px 10px; border-radius:8px; font-weight:600;">
+                    ${estilo} ${Number(cant) > 0 ? '+' : ''}${cant}
+                  </span>`).join('')}
+              </div>
+            </div>`;
+          }).join('')}
       </div>
     </div>`;
 
