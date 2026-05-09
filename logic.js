@@ -266,11 +266,6 @@ async function cargarDatosDesdeSheet() {
         prev.popularidadSheet = datosCloud.popularidad;
       }
 
-      // TOTAL INGRESADO desde celda D1 del Sheet
-      if (datosCloud.totalIngresadoSheet !== undefined && datosCloud.totalIngresadoSheet > 0) {
-        prev.totalIngresadoSheet = Number(datosCloud.totalIngresadoSheet);
-      }
-
       // 2. STOCK GENERAL
       if (datosCloud.stockGeneral) {
         prev.stockGeneral = {
@@ -351,6 +346,16 @@ async function cargarDatosDesdeSheet() {
             });
           }
         });
+      }
+
+      // 5. HISTORIAL DE STOCK desde Sheet
+      if (datosCloud.historialStock && Array.isArray(datosCloud.historialStock) && datosCloud.historialStock.length > 0) {
+        prev.historialStock = datosCloud.historialStock.map(h => ({
+          fecha:   h.fecha   || "",
+          usuario: h.usuario || "",
+          tipo:    h.tipo    || "conEtiqueta",
+          estilos: h.estilos || {}
+        }));
       }
 
       console.log("📦 Datos completos del Sheet:", datosCloud);
