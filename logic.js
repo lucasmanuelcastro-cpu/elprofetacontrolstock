@@ -1,6 +1,6 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbzVBC_ki-7Dl9OH6HQtmVb0Ni8JaCIEJhMbG4mqgEUn7dcWz_cswEe42hahphdJXca7Gg/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxSbZGHTUMM_QvTHVlpuRUuY6rMFSSPM5eKolodb7p_gvyYvFmdC49JWtFMQ-h7YtGo0w/exec";
 
 /** El Sheet guarda "sin"/"con"; la UI usa sinEtiqueta/conEtiqueta */
 function normalizarTipoLataDesdeSheet(raw) {
@@ -266,11 +266,6 @@ async function cargarDatosDesdeSheet() {
         prev.popularidadSheet = datosCloud.popularidad;
       }
 
-      // 1b. TOTAL INGRESADO desde celda D1 del Sheet
-      if (datosCloud.totalIngresadoSheet !== undefined) {
-        prev.totalIngresadoSheet = Number(datosCloud.totalIngresadoSheet) || 0;
-      }
-
       // 2. STOCK GENERAL
       if (datosCloud.stockGeneral) {
         prev.stockGeneral = {
@@ -351,6 +346,29 @@ async function cargarDatosDesdeSheet() {
             });
           }
         });
+      }
+
+      // 5. HISTORIAL DE STOCK desde Sheet
+      if (datosCloud.historialStock && Array.isArray(datosCloud.historialStock) && datosCloud.historialStock.length > 0) {
+        prev.historialStock = datosCloud.historialStock.map(h => ({
+          fecha:    h.fecha    || "",
+          usuario:  h.usuario  || "",
+          estilo:   h.estilo   || "",
+          cantidad: Number(h.cantidad) || 0,
+          tipo:     h.tipo     || "conEtiqueta"
+        }));
+      }
+
+      // 6. HISTORIAL DE TRANSFERENCIAS desde Sheet
+      if (datosCloud.historialTransferencias && Array.isArray(datosCloud.historialTransferencias) && datosCloud.historialTransferencias.length > 0) {
+        prev.historialTransferencias = datosCloud.historialTransferencias.map(h => ({
+          fecha:    h.fecha    || "",
+          desde:    h.desde    || "",
+          hacia:    h.hacia    || "",
+          estilo:   h.estilo   || "",
+          cantidad: Number(h.cantidad) || 0,
+          tipo:     h.tipo     || "conEtiqueta"
+        }));
       }
 
       console.log("📦 Datos completos del Sheet:", datosCloud);
