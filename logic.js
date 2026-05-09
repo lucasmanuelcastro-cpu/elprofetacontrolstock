@@ -1,6 +1,6 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxSbZGHTUMM_QvTHVlpuRUuY6rMFSSPM5eKolodb7p_gvyYvFmdC49JWtFMQ-h7YtGo0w/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxKfV946p_UUTNWyM_n_IOMLheeCigMpAJdG2-X_V34UM6DPnES0tAZ7eu41ZkNHji99w/exec";
 
 /** El Sheet guarda "sin"/"con"; la UI usa sinEtiqueta/conEtiqueta */
 function normalizarTipoLataDesdeSheet(raw) {
@@ -348,14 +348,13 @@ async function cargarDatosDesdeSheet() {
         });
       }
 
-      // 5. HISTORIAL DE STOCK desde Sheet
+      // 5. HISTORIAL DE STOCK desde Sheet (formato: una fila por carga con todos los estilos)
       if (datosCloud.historialStock && Array.isArray(datosCloud.historialStock) && datosCloud.historialStock.length > 0) {
         prev.historialStock = datosCloud.historialStock.map(h => ({
-          fecha:    h.fecha    || "",
-          usuario:  h.usuario  || "",
-          estilo:   h.estilo   || "",
-          cantidad: Number(h.cantidad) || 0,
-          tipo:     h.tipo     || "conEtiqueta"
+          fecha:    h.fecha   || "",
+          usuario:  h.usuario || "",
+          tipo:     h.tipo    || "conEtiqueta",
+          estilos:  h.estilos || {}
         }));
       }
 
