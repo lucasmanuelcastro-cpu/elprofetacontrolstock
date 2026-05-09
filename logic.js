@@ -1,6 +1,6 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbyiM1XD0qi4KtkGcQmo55iF9SlbQjhCrrhsz4S5P0HITAUybytFWKG3848pl6s2L4msMg/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbz1ihOWZ05teC97frSw6co_uCOFkDlzpQpHZFMinmTzP970rZZmcr7zB_34GMxPn1aP/exec";
 
 /** El Sheet guarda "sin"/"con"; la UI usa sinEtiqueta/conEtiqueta */
 function normalizarTipoLataDesdeSheet(raw) {
