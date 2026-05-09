@@ -239,8 +239,6 @@ function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
     usuarioObj.stock[estilo] = cantidadNueva;
   }
 
-  const diff = cantidadNueva - cantidadAnterior;
-  if (diff !== 0) registrarCargaStock(usuario, { [estilo]: diff }, tipo);
   encolarActualizarStockEnSheet(usuario);
   render();
 }
