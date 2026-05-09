@@ -1,6 +1,6 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbx35G4rpXQ74jpURb6KNiees7Srg6bbJtwhUbO240BGtObZboK1C-OC85rxxmOXJdJ2MQ/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbyiM1XD0qi4KtkGcQmo55iF9SlbQjhCrrhsz4S5P0HITAUybytFWKG3848pl6s2L4msMg/exec";
 
 /** El Sheet guarda "sin"/"con"; la UI usa sinEtiqueta/conEtiqueta */
 function normalizarTipoLataDesdeSheet(raw) {
@@ -259,16 +259,18 @@ async function cargarDatosDesdeSheet() {
     const datosCloud = JSON.parse(texto.trim().replace(/^\uFEFF/, ""));
     if (datosCloud.error) throw new Error(datosCloud.error);
     if (!datosCloud.usuarios || typeof datosCloud.usuarios !== "object") return;
-    
-setState((prev) => {
-  // 1. POPULARIDAD
-  if (datosCloud.popularidad) {
-    prev.popularidadSheet = datosCloud.popularidad;
-  }
-    return prev;
-});
-  // 2. TOTAL INGRESADO SHEET (con valor por defecto 0)
-  prev.totalIngresadoSheet = datosCloud.totalIngresado || 0;
+
+    setState((prev) => {
+      // 1. POPULARIDAD
+      if (datosCloud.popularidad) {
+        prev.popularidadSheet = datosCloud.popularidad;
+      }
+
+      // TOTAL INGRESADO desde celda D1 del Sheet
+      if (datosCloud.totalIngresadoSheet !== undefined && datosCloud.totalIngresadoSheet > 0) {
+        prev.totalIngresadoSheet = Number(datosCloud.totalIngresadoSheet);
+      }
+
       // 2. STOCK GENERAL
       if (datosCloud.stockGeneral) {
         prev.stockGeneral = {
@@ -351,7 +353,7 @@ setState((prev) => {
         });
       }
 
-      // 5. HISTORIAL DE STOCK desde Sheet
+      // HISTORIAL DE STOCK desde Sheet
       if (datosCloud.historialStock && Array.isArray(datosCloud.historialStock) && datosCloud.historialStock.length > 0) {
         prev.historialStock = datosCloud.historialStock.map(h => ({
           fecha:   h.fecha   || "",
