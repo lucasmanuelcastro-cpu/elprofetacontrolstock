@@ -259,15 +259,16 @@ async function cargarDatosDesdeSheet() {
     const datosCloud = JSON.parse(texto.trim().replace(/^\uFEFF/, ""));
     if (datosCloud.error) throw new Error(datosCloud.error);
     if (!datosCloud.usuarios || typeof datosCloud.usuarios !== "object") return;
-
-    setState((prev) => {
-      // 1. POPULARIDAD
-      if (datosCloud.popularidad) {
-        prev.popularidadSheet = datosCloud.popularidad;
-      }
-      if (datosCloud.totalIngresado !== undefined) {
-    prev.totalIngresadoSheet = datosCloud.totalIngresado;
-}
+    
+setState((prev) => {
+  // 1. POPULARIDAD
+  if (datosCloud.popularidad) {
+    prev.popularidadSheet = datosCloud.popularidad;
+  }
+    return prev;
+});
+  // 2. TOTAL INGRESADO SHEET (con valor por defecto 0)
+  prev.totalIngresadoSheet = datosCloud.totalIngresado || 0;
       // 2. STOCK GENERAL
       if (datosCloud.stockGeneral) {
         prev.stockGeneral = {
