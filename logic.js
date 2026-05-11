@@ -1,6 +1,6 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbz1ihOWZ05teC97frSw6co_uCOFkDlzpQpHZFMinmTzP970rZZmcr7zB_34GMxPn1aP/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbzqlVNronyFSTCHD69DeGGzEv3_8tBz91o2t9N090dI9NAd57D_nsM-ifjr0-JMRtxG/exec";
 
 /** El Sheet guarda "sin"/"con"; la UI usa sinEtiqueta/conEtiqueta */
 function normalizarTipoLataDesdeSheet(raw) {
@@ -270,7 +270,10 @@ async function cargarDatosDesdeSheet() {
       if (datosCloud.totalIngresadoSheet !== undefined && datosCloud.totalIngresadoSheet > 0) {
         prev.totalIngresadoSheet = Number(datosCloud.totalIngresadoSheet);
       }
-
+      // 💰 Nuevos totales calculados en el Script
+if (datosCloud.efectivoSheet !== undefined) prev.efectivoSheet = Number(datosCloud.efectivoSheet) || 0;
+if (datosCloud.transferenciaSheet !== undefined) prev.transferenciaSheet = Number(datosCloud.transferenciaSheet) || 0;
+if (datosCloud.paraProfetaSheet !== undefined) prev.paraProfetaSheet = Number(datosCloud.paraProfetaSheet) || 0;
       // 2. STOCK GENERAL
       if (datosCloud.stockGeneral) {
         prev.stockGeneral = {
