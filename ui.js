@@ -586,10 +586,15 @@ function renderVentasGeneral() {
         <p class="big-number" style="color: #3b82f6;">${state.totalIngresadoSheet != null ? '$' + state.totalIngresadoSheet.toLocaleString() : '—'}</p>
         <small>${state.totalIngresadoSheet != null ? '📊 Desde hoja Venta de Latas y Barriles' : 'Sincronizando...'}</small>
       </div>
-      <div class="card">
+     <div class="card">
   <h2>👑 Para El Profeta (Total)</h2>
-  <p class="big-number" style="color: #059669;">${state.totalIngresadoSheet != null ? '$' + state.totalIngresadoSheet.toLocaleString() : '—'}</p>
-  <small>📊 Total desde hoja Venta de Latas y Barriles</small>
+  <p class="big-number" style="color: #059669;">
+    ${state.totalIngresadoSheet != null ? '$' + state.totalIngresadoSheet.toLocaleString() : '—'}
+  </p>
+  <small>📊 Total desde hoja Venta de Latas y Barriles (L1)</small>
+  <div style="margin-top: 8px; font-size: 0.8em; color: #6b7280;">
+    Cálculo local: $${totalProfeta.toLocaleString()}
+  </div>
 </div>
 
     <div class="card" style="margin-top: 20px; border-left: 4px solid #7c3aed;">
