@@ -30,7 +30,10 @@ let state = {
   transferCantidad: 0,
   historialStock: [],
   historialTransferencias: [],
-  totalIngresadoSheet: null
+  totalIngresadoSheet: null,
+  efectivoSheet: null,
+  transferenciaSheet: null,
+  paraProfetaSheet: null
 };
 
 function setState(updater) {
@@ -559,10 +562,10 @@ function renderStockGeneral() {
 function renderVentasGeneral() {
   const container = document.getElementById("ventas-general-section");
   if (!container) return;
-  const dineroEfectivo = getTotalVentasPorMetodo("efectivo");
-  const dineroTransferencia = getTotalVentasPorMetodo("transferencia");
-  const dineroTotal = getTotalVentasDinero();
-  const totalProfeta = getGananciaTotalProfeta();
+  const dineroEfectivo = state.efectivoSheet;
+  const dineroTransferencia = state.transferenciaSheet;
+  const dineroTotal = state.totalIngresadoSheet;
+  const totalProfeta = state.paraProfetaSheet;
   const todasLasVentas = getVentasGenerales().filter(
     v => (Number(v.totalCobrado) || 0) > 0 && ventaApareceEnHistorialGlobal(v)
   );
