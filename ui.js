@@ -574,24 +574,24 @@ function renderVentasGeneral() {
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
       <div class="card" style="border-left: 4px solid #059669;">
         <h2>💵 Dinero Ingresado (Efectivo)</h2>
-        <p class="big-number" style="color: #059669;">$${dineroEfectivo.toLocaleString()}</p>
+        <p class="big-number" style="color:#059669;">${dineroEfectivo != null ? '$' + dineroEfectivo.toLocaleString() : '—'}</p>
         <small>Ventas cobradas en efectivo</small>
       </div>
       <div class="card" style="border-left: 4px solid #2563eb;">
         <h2>🏦 Dinero Ingresado (Transferencia)</h2>
-        <p class="big-number" style="color: #2563eb;">$${dineroTransferencia.toLocaleString()}</p>
+        <p class="big-number" style="color:#2563eb;">${dineroTransferencia != null ? '$' + dineroTransferencia.toLocaleString() : '—'}</p>
         <small>Ventas cobradas por transferencia</small>
       </div>
     </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
       <div class="card" style="border-left: 4px solid #3b82f6;">
         <h2>💰 Total Ingresado</h2>
-        <p class="big-number" style="color: #3b82f6;">${state.totalIngresadoSheet != null ? '$' + state.totalIngresadoSheet.toLocaleString() : '—'}</p>
+        <p class="big-number" style="color:#3b82f6;">${dineroTotal != null ? '$' + dineroTotal.toLocaleString() : '—'}</p>
         <small>${state.totalIngresadoSheet != null ? '📊 Desde hoja Venta de Latas y Barriles' : 'Sincronizando...'}</small>
       </div>
       <div class="card">
         <h2>👑 Para El Profeta (Total)</h2>
-        <p class="big-number" style="color: #059669;">$${totalProfeta.toLocaleString()}</p>
+       <p class="big-number" style="color:#059669;">${totalProfeta != null ? '$' + totalProfeta.toLocaleString() : '—'}</p>
         <small>Costo + 50% Ganancia generada</small>
       </div>
     </div>
