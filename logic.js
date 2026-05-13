@@ -1,6 +1,6 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbzqlVNronyFSTCHD69DeGGzEv3_8tBz91o2t9N090dI9NAd57D_nsM-ifjr0-JMRtxG/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxT4elbh6P466182FJ3iXpg0ObhS_fiJsQ_tDw7Bi3LTzKpS3o6NEoVTZmPLX8E3zEa/exec";
 
 /** El Sheet guarda "sin"/"con"; la UI usa sinEtiqueta/conEtiqueta */
 function normalizarTipoLataDesdeSheet(raw) {
@@ -23,12 +23,7 @@ function encolarPagoParaSheet(nombreCliente, monto, metodo) {
       if (raw) pagosPendientes = JSON.parse(raw);
     } catch (e) {}
   }
-  const metodoNorm =
-    String(metodo || "")
-      .toLowerCase()
-      .trim() === "transferencia"
-      ? "transferencia"
-      : "efectivo";
+  const metodoNorm = String(metodo || "").toLowerCase().trim() === "transferencia" ? "transferencia" : "efectivo";
   pagosPendientes.push({
     cliente: nombreCliente,
     monto: Number(monto) || 0,
@@ -44,9 +39,7 @@ async function guardarPagosPendientesEnSheet() {
     const raw = localStorage.getItem("pagosPendientes");
     if (raw) pagosPendientes = JSON.parse(raw);
   }
-  if (!pagosPendientes.length) {
-    return;
-  }
+  if (!pagosPendientes.length) return;
 
   const cola = [...pagosPendientes];
   pagosPendientes = [];
@@ -84,6 +77,7 @@ function modificarStockDirecto(usuario, estilo, cantidad) {
   });
 }
 
+// REGISTRAR VENTA LOCAL (Ya corregida en ui.js, esta es la versión de lógica pura)
 function registrarVentaLocal() {
   if (!state.usuarioActivo) return;
   const preview = calcularPreview();
@@ -112,16 +106,16 @@ function registrarVentaLocal() {
 
   setState((prev) => {
     const usuario = prev.usuarios[prev.usuarioActivo];
-   usuario.ventas.push({
-  cliente: ventaDatos.cliente,
-  estilos: ventaDatos.estilos,
-  totalCobrado: totalVenta,
-  paraProfeta: preview.paraProfeta,
-  comision: preview.comision,
-  metodoPago: "",  // ✅ Vacío por defecto
-  fecha: ventaDatos.fecha,
-  tipoLata: ventaDatos.tipoLata,
-});
+    usuario.ventas.push({
+      cliente: ventaDatos.cliente,
+      estilos: ventaDatos.estilos,
+      totalCobrado: totalVenta,
+      paraProfeta: preview.paraProfeta,
+      comision: preview.comision,
+      metodoPago: "",
+      fecha: ventaDatos.fecha,
+      tipoLata: ventaDatos.tipoLata,
+    });
 
     if (prev.clienteNombre && prev.clienteNombre.trim() !== "") {
       const idx = prev.clientesGlobales.findIndex(c => c.nombre.toLowerCase() === prev.clienteNombre.toLowerCase());
@@ -132,14 +126,14 @@ function registrarVentaLocal() {
       }
     }
 
-  Object.entries(prev.ventaActual).forEach(([estilo, cant]) => {
-  if (prev.tipoLata === 'sinEtiqueta') {
-    if (!usuario.stockSinEtiqueta) usuario.stockSinEtiqueta = {};
-    usuario.stockSinEtiqueta[estilo] = (usuario.stockSinEtiqueta[estilo] || 0) - (Number(cant) || 0);
-  } else {
-    usuario.stock[estilo] = (usuario.stock[estilo] || 0) - (Number(cant) || 0);
-  }
-});
+    Object.entries(prev.ventaActual).forEach(([estilo, cant]) => {
+      if (prev.tipoLata === 'sinEtiqueta') {
+        if (!usuario.stockSinEtiqueta) usuario.stockSinEtiqueta = {};
+        usuario.stockSinEtiqueta[estilo] = (usuario.stockSinEtiqueta[estilo] || 0) - (Number(cant) || 0);
+      } else {
+        usuario.stock[estilo] = (usuario.stock[estilo] || 0) - (Number(cant) || 0);
+      }
+    });
 
     prev.ventaActual = {};
     prev.clienteNombre = "";
@@ -154,13 +148,8 @@ async function guardarVentasPendientesEnSheet() {
     const guardadas = localStorage.getItem("ventasPendientes");
     if (guardadas) ventasPendientes = JSON.parse(guardadas);
   }
-
-  console.log("📦 Ventas pendientes a enviar:", ventasPendientes.length, JSON.stringify(ventasPendientes));
-
-  if (!ventasPendientes.length) {
-    console.warn("⚠️ No hay ventas pendientes para enviar.");
-    return;
-  }
+  console.log("📦 Ventas pendientes a enviar:", ventasPendientes.length);
+  if (!ventasPendientes.length) return;
 
   const colaActual = [...ventasPendientes];
   ventasPendientes = [];
@@ -169,7 +158,6 @@ async function guardarVentasPendientesEnSheet() {
   for (const venta of colaActual) {
     try {
       const payload = { accion: "nuevaVenta", venta: venta };
-      console.log("📤 Enviando:", JSON.stringify(payload));
       const resp = await fetch(URL_SCRIPT, {
         method: "POST",
         body: JSON.stringify(payload),
@@ -201,8 +189,6 @@ async function cargarClientesHistoricos() {
   }
 }
 
-// registrarPagoCliente manejado en ui.js
-
 function borrarHistorialUsuario() {
   if (!state.usuarioActivo) return;
   if (confirm("¿Borrar ventas?")) {
@@ -215,8 +201,6 @@ function borrarHistorialUsuario() {
 
 function borrarVentaIndividual(index) {
   if (!state.usuarioActivo) return;
-  // El historial se muestra en orden inverso (.reverse()), 
-  // así que hay que convertir el índice visual al índice real del array
   const ventas = state.usuarios[state.usuarioActivo].ventas;
   const indiceReal = ventas.length - 1 - index;
   if (confirm("¿Borrar esta venta del historial?")) {
@@ -227,19 +211,6 @@ function borrarVentaIndividual(index) {
   }
 }
 
-function transferirStock() {
-  setState((prev) => {
-    const { transferDesde, transferHacia, transferEstilo, transferCantidad } = prev;
-    if (transferDesde === transferHacia) return prev;
-    const disponible = prev.usuarios[transferDesde].stock[transferEstilo] || 0;
-    if (disponible < transferCantidad) { alert("Stock insuficiente"); return prev; }
-    prev.usuarios[transferDesde].stock[transferEstilo] -= Number(transferCantidad);
-    prev.usuarios[transferHacia].stock[transferEstilo] = (prev.usuarios[transferHacia].stock[transferEstilo] || 0) + Number(transferCantidad);
-    prev.transferCantidad = 0;
-    return prev;
-  });
-}
-
 function swapMetodoPago(nombreUsuario, ventaIndex) {
   setState((prev) => {
     const venta = prev.usuarios[nombreUsuario].ventas[ventaIndex];
@@ -247,6 +218,31 @@ function swapMetodoPago(nombreUsuario, ventaIndex) {
     venta.metodoPago = (venta.metodoPago || "efectivo") === "efectivo" ? "transferencia" : "efectivo";
     return prev;
   });
+}
+
+// NUEVA FUNCIÓN: Guardar Transferencia en Sheet (Nuevo formato)
+async function guardarTransferenciaEnSheet(desde, hacia, estilos, tipo) {
+  try {
+    const entrada = {
+      fecha: new Date().toLocaleString("es-AR"),
+      desde: desde,
+      hacia: hacia,
+      estilos: estilos, // Objeto { "BLONDE": 2, "STOUT": 5 }
+      tipo: tipo
+    };
+    
+    await fetch(URL_SCRIPT, {
+      method: "POST",
+      body: JSON.stringify({ 
+        accion: "guardarTransferencia", 
+        entrada: entrada 
+      }),
+      headers: { "Content-Type": "text/plain" },
+      mode: "cors"
+    });
+  } catch (err) {
+    console.error("Error guardando transferencia en Sheet:", err);
+  }
 }
 
 async function cargarDatosDesdeSheet() {
@@ -266,14 +262,14 @@ async function cargarDatosDesdeSheet() {
         prev.popularidadSheet = datosCloud.popularidad;
       }
 
-      // TOTAL INGRESADO desde celda D1 del Sheet
+      // 💰 TOTALES FINANCIEROS (Desde Sheet v38)
       if (datosCloud.totalIngresadoSheet !== undefined && datosCloud.totalIngresadoSheet > 0) {
         prev.totalIngresadoSheet = Number(datosCloud.totalIngresadoSheet);
       }
-      // 💰 Nuevos totales calculados en el Script
-if (datosCloud.efectivoSheet !== undefined) prev.efectivoSheet = Number(datosCloud.efectivoSheet) || 0;
-if (datosCloud.transferenciaSheet !== undefined) prev.transferenciaSheet = Number(datosCloud.transferenciaSheet) || 0;
-if (datosCloud.paraProfetaSheet !== undefined) prev.paraProfetaSheet = Number(datosCloud.paraProfetaSheet) || 0;
+      if (datosCloud.efectivoSheet !== undefined) prev.efectivoSheet = Number(datosCloud.efectivoSheet) || 0;
+      if (datosCloud.transferenciaSheet !== undefined) prev.transferenciaSheet = Number(datosCloud.transferenciaSheet) || 0;
+      if (datosCloud.paraProfetaSheet !== undefined) prev.paraProfetaSheet = Number(datosCloud.paraProfetaSheet) || 0;
+
       // 2. STOCK GENERAL
       if (datosCloud.stockGeneral) {
         prev.stockGeneral = {
@@ -315,10 +311,9 @@ if (datosCloud.paraProfetaSheet !== undefined) prev.paraProfetaSheet = Number(da
               var tipo = normalizarTipoLataDesdeSheet(venta.tipoLata);
               var costo = Number(venta.costo) || 0;
               var com = Number(venta.comision) || 0;
-              var paraProfeta =
-                venta.paraProfeta != null && venta.paraProfeta !== ""
-                  ? Number(venta.paraProfeta)
-                  : costo + com;
+              var paraProfeta = venta.paraProfeta != null && venta.paraProfeta !== ""
+                ? Number(venta.paraProfeta)
+                : costo + com;
               return {
                 ...venta,
                 tipoLata: tipo,
@@ -356,28 +351,33 @@ if (datosCloud.paraProfetaSheet !== undefined) prev.paraProfetaSheet = Number(da
         });
       }
 
-      // HISTORIAL DE STOCK desde Sheet
+      // HISTORIAL DE STOCK
       if (datosCloud.historialStock && Array.isArray(datosCloud.historialStock) && datosCloud.historialStock.length > 0) {
         prev.historialStock = datosCloud.historialStock.map(h => ({
-          fecha:   h.fecha   || "",
+          fecha: h.fecha || "",
           usuario: h.usuario || "",
-          tipo:    h.tipo    || "conEtiqueta",
+          tipo: h.tipo || "conEtiqueta",
           estilos: h.estilos || {}
         }));
       }
 
-      console.log("📦 Datos completos del Sheet:", datosCloud);
-      console.log("📦 StockGeneral recibido:", datosCloud.stockGeneral);
-      
+      // HISTORIAL DE TRANSFERENCIAS (Nuevo formato: columnas por estilo)
+      if (datosCloud.historialTransferencias && Array.isArray(datosCloud.historialTransferencias) && datosCloud.historialTransferencias.length > 0) {
+        prev.historialTransferencias = datosCloud.historialTransferencias.map(t => ({
+          fecha: t.fecha || "",
+          desde: t.desde || "",
+          hacia: t.hacia || "",
+          tipo: t.tipo || "conEtiqueta",
+          estilos: t.estilos || {}
+        }));
+      }
+
       return prev;
-    }); // ✅ Cierra setState
+    });
 
     if (datosCloud.clientesHistoricos) {
       clientesHistoricos = datosCloud.clientesHistoricos;
     }
-
-    console.log("✅ Sync exitosa — stock general, individual y ventas cargados.");
-    console.log("Stock General:", datosCloud.stockGeneral);
   } catch (error) {
     console.error("❌ Error de lectura:", error);
   }
@@ -389,23 +389,19 @@ function agregarStockDirecto(estilo, conEtiqueta) {
     alert("Ingrese cantidad");
     return;
   }
-
   const cantidad = Number(input.value);
   if (isNaN(cantidad) || cantidad === 0) {
     alert("Cantidad inválida");
     return;
   }
-
   setState((prev) => {
     const target = conEtiqueta ? prev.usuarios[prev.usuarioActivo].stock : prev.usuarios[prev.usuarioActivo].stockSinEtiqueta;
     target[estilo] = (target[estilo] || 0) + cantidad;
     return prev;
   });
-
   input.value = "";
 }
 
-/** Marca que hay que subir el stock de ese usuario; se envía solo con «Guardar en Sheet». */
 function encolarActualizarStockEnSheet(usuario) {
   if (!usuario) return;
   let arr = [];
@@ -449,9 +445,7 @@ async function guardarBorrarVentasPendienteEnSheet() {
   }
   if (fallidos.length) {
     let prev = [];
-    try {
-      prev = JSON.parse(localStorage.getItem("borrarVentasPendientes") || "[]");
-    } catch (e2) {}
+    try { prev = JSON.parse(localStorage.getItem("borrarVentasPendientes") || "[]"); } catch (e2) {}
     localStorage.setItem("borrarVentasPendientes", JSON.stringify(prev.concat(fallidos)));
   }
 }
@@ -487,9 +481,7 @@ async function guardarStockPendienteEnSheet() {
   }
   if (fallidos.length) {
     let prev = [];
-    try {
-      prev = JSON.parse(localStorage.getItem("stockPendienteUsuarios") || "[]");
-    } catch (e3) {}
+    try { prev = JSON.parse(localStorage.getItem("stockPendienteUsuarios") || "[]"); } catch (e3) {}
     localStorage.setItem("stockPendienteUsuarios", JSON.stringify(prev.concat(fallidos)));
   }
 }
