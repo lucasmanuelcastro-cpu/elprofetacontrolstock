@@ -342,6 +342,80 @@
     }
   </style>
 </head>
+  <!-- ======================================================
+     PUENTE: Sincroniza state -> nuevos IDs de gastos.html
+     ========================================== -->
+<script>
+(function() {
+  // Esperar a que ui.js termine de cargar datos
+  function sincronizarGastosPage() {
+    // --- Stock General ---
+    if (typeof state !== 'undefined' && state.stockGeneral) {
+      const estilos = ["BLONDE", "IRISH RED", "STOUT", "SESSION IPA", "RED IPA", "HONEY"];
+      let totalEtiq = 0, totalSin = 0;
+      
+      estilos.forEach(estilo => {
+        const fila = document.querySelector(`#stock-body tr:nth-child(${estilos.indexOf(estilo)+2})`);
+        if (fila) {
+          const usuarios = typeof state.usuarios !== 'undefined' ? state.usuarios : {};
+          const conEtiq = Object.values(usuarios).reduce((s,u) => s + (u.stock?.[estilo]||0), 0);
+          const sinEtiq = Object.values(usuarios).reduce((s,u) => s + (u.stockSinEtiqueta?.[estilo]||0), 0);
+          
+          fila.cells[1].textContent = conEtiq || '—';
+          fila.cells[2].textContent = sinEtiq || '—';
+          fila.cells[3].textContent = (conEtiq+sinEtiq) || '—';
+          
+          totalEtiq += conEtiq;
+          totalSin += sinEtiq;
+        }
+      });
+      
+      // Totales de la tabla
+      const tEtiq = document.getElementById('stock-total-etiq');
+      const tSin = document.getElementById('stock-total-sin');
+      const tTotal = document.getElementById('stock-total');
+      if (tEtiq) tEtiq.textContent = totalEtiq;
+      if (tSin) tSin.textContent = totalSin;
+      if (tTotal) tTotal.textContent = totalEtiq + totalSin;
+    }
+
+    // --- Dinero Ingresado (desde state, que viene del Sheet) ---
+    function fmt(n) {
+      if (n === null || n === undefined || isNaN(n)) return '—';
+      return '$' + Math.round(n).toLocaleString('es-AR');
+    }
+    
+    const mappings = [
+      ['efectivoSheet', 'v-efectivo'],
+      ['transferenciaSheet', 'v-transferencia'],
+      ['totalIngresadoSheet', 'v-total'],
+      ['paraProfetaSheet', 'v-profeta']
+    ];
+    
+    mappings.forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      const val = state?.[key];
+      if (el) el.textContent = fmt(val);
+    });
+
+    // --- Punto de equilibrio (recalcular) ---
+    updateTotales(); // Tu función local ya hace esto
+  }
+
+  // Ejecutar después de que ui.js termine de cargar
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', sincronizarGastosPage);
+  } else {
+    // Pequeño delay para asegurar que state esté listo
+    setTimeout(sincronizarGastosPage, 100);
+  }
+  
+  // Re-sincronizar si se actualiza el state (opcional)
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('stateUpdated', sincronizarGastosPage);
+  }
+})();
+</script>
 <body>
 <div class="app">
 
