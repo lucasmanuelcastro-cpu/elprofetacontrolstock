@@ -4,9 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>El Profeta - Control de Gastos</title>
+  <!-- Tu hoja de estilos externa (si la tenés) -->
+  <link rel="stylesheet" href="styles.css">
+  
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+    /* =========================================
+       ESTILOS PROPIOS DE GASTOS.HTML
+       ========================================= */
     :root {
       --bg-primary: #ffffff;
       --bg-secondary: #f9fafb;
@@ -48,6 +52,7 @@
       background: var(--bg-tertiary);
       color: var(--text-primary);
       min-height: 100vh;
+      margin: 0;
     }
 
     .app {
@@ -70,6 +75,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      margin: 0;
     }
     .header-brand h1 img {
       height: 1.3em;
@@ -117,19 +123,11 @@
       border: 0.5px solid var(--border);
       border-radius: var(--radius-lg);
       padding: 1rem 1.25rem;
+      margin-bottom: 16px; /* Espacio entre cards si no están en grid */
     }
-    .card-accent-red {
-      border-left: 3px solid var(--red);
-      border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-    }
-    .card-accent-purple {
-      border-left: 3px solid var(--purple);
-      border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-    }
-    .card-accent-green {
-      border-left: 3px solid var(--green);
-      border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-    }
+    .card-accent-red { border-left: 3px solid var(--red); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
+    .card-accent-purple { border-left: 3px solid var(--purple); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
+    .card-accent-green { border-left: 3px solid var(--green); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
 
     .card-label {
       font-size: 11px;
@@ -143,6 +141,7 @@
       font-size: 22px;
       font-weight: 600;
       color: var(--text-primary);
+      margin: 5px 0;
     }
     .card-sub {
       font-size: 11px;
@@ -164,58 +163,21 @@
       gap: 6px;
     }
 
-    /* COLORS */
+    /* COLORES UTILITARIOS */
     .val-red   { color: var(--red) !important; }
     .val-green { color: var(--green) !important; }
     .val-blue  { color: var(--blue) !important; }
     .val-purple { color: var(--purple) !important; }
 
-    /* STOCK TABLE */
-    .stock-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      margin-top: 4px;
-    }
-    .stock-table th {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      padding: 5px 8px;
-      text-align: left;
-      border-bottom: 0.5px solid var(--border);
-    }
-    .stock-table td {
-      padding: 5px 8px;
-      color: var(--text-primary);
-      border-bottom: 0.5px solid var(--border);
-    }
-    .stock-table tbody tr:last-child td {
-      font-weight: 700;
-      border-bottom: none;
-      padding-top: 8px;
-    }
-    .col-etiq { color: var(--purple) !important; }
-    .col-sin  { color: var(--text-secondary) !important; }
+    /* TRUCO: Ocultar Popularidad (2da card dentro de Stock) */
+    #stock-general-section > div > div:nth-child(2) { display: none !important; }
+    /* Hacer que la tabla de stock ocupe todo el ancho disponible */
+    #stock-general-section > div { grid-template-columns: 1fr !important; }
 
-    /* HISTORIAL BUTTON */
-    .btn-historial {
-      background: var(--purple);
-      color: white;
-      border: none;
-      border-radius: var(--radius-md);
-      padding: 5px 12px;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      transition: opacity 0.15s;
-    }
-    .btn-historial:hover { opacity: 0.85; }
+    /* TRUCO: Ocultar Historial Global (última card dentro de Ventas) */
+    #ventas-general-section > div:last-child { display: none !important; }
 
-    /* HISTORIAL LISTA */
+    /* HISTORIAL DE GASTOS */
     .historial-empty {
       color: var(--text-secondary);
       font-size: 13px;
@@ -260,7 +222,7 @@
     }
     .h-item-del:hover { color: var(--red); background: var(--red-light); }
 
-    /* FORM */
+    /* FORMULARIO */
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr 2fr auto;
@@ -292,7 +254,6 @@
       border-color: var(--purple);
       box-shadow: 0 0 0 2px rgba(124,58,237,0.15);
     }
-    .form-group input::placeholder { color: var(--text-secondary); opacity: 0.7; }
 
     .btn-add {
       background: var(--green);
@@ -342,80 +303,6 @@
     }
   </style>
 </head>
-  <!-- ======================================================
-     PUENTE: Sincroniza state -> nuevos IDs de gastos.html
-     ========================================== -->
-<script>
-(function() {
-  // Esperar a que ui.js termine de cargar datos
-  function sincronizarGastosPage() {
-    // --- Stock General ---
-    if (typeof state !== 'undefined' && state.stockGeneral) {
-      const estilos = ["BLONDE", "IRISH RED", "STOUT", "SESSION IPA", "RED IPA", "HONEY"];
-      let totalEtiq = 0, totalSin = 0;
-      
-      estilos.forEach(estilo => {
-        const fila = document.querySelector(`#stock-body tr:nth-child(${estilos.indexOf(estilo)+2})`);
-        if (fila) {
-          const usuarios = typeof state.usuarios !== 'undefined' ? state.usuarios : {};
-          const conEtiq = Object.values(usuarios).reduce((s,u) => s + (u.stock?.[estilo]||0), 0);
-          const sinEtiq = Object.values(usuarios).reduce((s,u) => s + (u.stockSinEtiqueta?.[estilo]||0), 0);
-          
-          fila.cells[1].textContent = conEtiq || '—';
-          fila.cells[2].textContent = sinEtiq || '—';
-          fila.cells[3].textContent = (conEtiq+sinEtiq) || '—';
-          
-          totalEtiq += conEtiq;
-          totalSin += sinEtiq;
-        }
-      });
-      
-      // Totales de la tabla
-      const tEtiq = document.getElementById('stock-total-etiq');
-      const tSin = document.getElementById('stock-total-sin');
-      const tTotal = document.getElementById('stock-total');
-      if (tEtiq) tEtiq.textContent = totalEtiq;
-      if (tSin) tSin.textContent = totalSin;
-      if (tTotal) tTotal.textContent = totalEtiq + totalSin;
-    }
-
-    // --- Dinero Ingresado (desde state, que viene del Sheet) ---
-    function fmt(n) {
-      if (n === null || n === undefined || isNaN(n)) return '—';
-      return '$' + Math.round(n).toLocaleString('es-AR');
-    }
-    
-    const mappings = [
-      ['efectivoSheet', 'v-efectivo'],
-      ['transferenciaSheet', 'v-transferencia'],
-      ['totalIngresadoSheet', 'v-total'],
-      ['paraProfetaSheet', 'v-profeta']
-    ];
-    
-    mappings.forEach(([key, id]) => {
-      const el = document.getElementById(id);
-      const val = state?.[key];
-      if (el) el.textContent = fmt(val);
-    });
-
-    // --- Punto de equilibrio (recalcular) ---
-    updateTotales(); // Tu función local ya hace esto
-  }
-
-  // Ejecutar después de que ui.js termine de cargar
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', sincronizarGastosPage);
-  } else {
-    // Pequeño delay para asegurar que state esté listo
-    setTimeout(sincronizarGastosPage, 100);
-  }
-  
-  // Re-sincronizar si se actualiza el state (opcional)
-  if (typeof window.addEventListener === 'function') {
-    window.addEventListener('stateUpdated', sincronizarGastosPage);
-  }
-})();
-</script>
 <body>
 <div class="app">
 
@@ -431,36 +318,11 @@
     <a href="index.html" class="btn-ventas">📊 Ventas</a>
   </div>
 
-  <!-- FILA 1: STOCK + TOTALES -->
+  <!-- FILA 1: STOCK (Izquierda) + TOTALES GASTOS (Derecha) -->
   <div class="grid-2">
 
-    <!-- STOCK GENERAL -->
-    <div class="card" id="stock-card">
-      <div class="card-header">
-        <span class="card-title">📦 Stock general (disponible)</span>
-        <button class="btn-historial" onclick="verHistorialStock()">🕐 Historial</button>
-      </div>
-      <table class="stock-table">
-        <thead>
-          <tr>
-            <th>Estilo</th>
-            <th class="col-etiq">Con etiq.</th>
-            <th class="col-sin">Sin etiq.</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody id="stock-body">
-          <!-- Llenado por logic.js / ui.js -->
-          <tr><td>Blonde</td><td class="col-etiq">—</td><td class="col-sin">—</td><td>—</td></tr>
-          <tr><td>Irish Red</td><td class="col-etiq">—</td><td class="col-sin">—</td><td>—</td></tr>
-          <tr><td>Stout</td><td class="col-etiq">—</td><td class="col-sin">—</td><td>—</td></tr>
-          <tr><td>Session IPA</td><td class="col-etiq">—</td><td class="col-sin">—</td><td>—</td></tr>
-          <tr><td>Red IPA</td><td class="col-etiq">—</td><td class="col-sin">—</td><td>—</td></tr>
-          <tr><td>Honey</td><td class="col-etiq">—</td><td class="col-sin">—</td><td>—</td></tr>
-          <tr><td>Total</td><td class="col-etiq" id="stock-total-etiq">—</td><td class="col-sin" id="stock-total-sin">—</td><td id="stock-total">—</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- STOCK GENERAL (ui.js inyecta aquí la tabla) -->
+    <section id="stock-general-section" class="card-section"></section>
 
     <!-- TOTAL GASTADO + PUNTO DE EQUILIBRIO -->
     <div style="display:flex; flex-direction:column; gap:16px;">
@@ -478,32 +340,11 @@
 
   </div>
 
-  <!-- FILA 2: DINERO INGRESADO (desde ventas) -->
-  <div class="grid-4" id="ventas-cards">
-    <div class="card">
-      <div class="card-label">💵 Dinero ingresado (efectivo)</div>
-      <div class="card-value val-green" id="v-efectivo">—</div>
-      <div class="card-sub">Ventas cobradas en efectivo</div>
-    </div>
-    <div class="card">
-      <div class="card-label">🏦 Dinero ingresado (transferencia)</div>
-      <div class="card-value val-blue" id="v-transferencia">—</div>
-      <div class="card-sub">Ventas cobradas por transferencia</div>
-    </div>
-    <div class="card">
-      <div class="card-label">🪙 Total ingresado</div>
-      <div class="card-value val-green" id="v-total">—</div>
-      <div class="card-sub">Desde hoja venta de latas y barriles</div>
-    </div>
-    <div class="card">
-      <div class="card-label">🍺 Para El Profeta (total)</div>
-      <div class="card-value val-purple" id="v-profeta">—</div>
-      <div class="card-sub">Costo + 50% ganancia generada</div>
-    </div>
-  </div>
+  <!-- FILA 2: DINERO INGRESADO (ui.js inyecta aquí las 4 cards de dinero) -->
+  <section id="ventas-general-section" class="card-section"></section>
 
   <!-- HISTORIAL DE GASTOS -->
-  <div class="card card-accent-purple" style="margin-bottom:16px;">
+  <div class="card card-accent-purple">
     <div class="card-title" style="margin-bottom:12px;">📋 Historial de gastos</div>
     <div id="historial-gastos-container">
       <div class="historial-empty">No hay gastos registrados</div>
@@ -537,11 +378,10 @@
 </div>
 
 <!-- ======================================================
-     SCRIPTS
-     Mantiene compatibilidad con logic.js, ui.js, gastos.js
+     LÓGICA DE GASTOS Y SINCRONIZACIÓN
      ====================================================== -->
 <script>
-  // ── Utilidades ──────────────────────────────────────────
+  // ─ Utilidades ──────────────────────────────────────────
   function fmt(n) {
     if (isNaN(n) || n === null || n === undefined) return '—';
     return Math.round(n).toLocaleString('es-AR');
@@ -568,7 +408,7 @@
         '<span class="h-item-name">' + escHTML(g.item) + '</span>' +
         '<span class="h-item-monto">−' + fmtPesos(g.monto) + '</span>' +
         '<span class="h-item-obs">' + escHTML(g.obs || '—') + '</span>' +
-        '<button class="h-item-del" onclick="eliminarGasto(' + i + ')" title="Eliminar">✕</button>' +
+        '<button class="h-item-del" onclick="eliminarGasto(' + i + ')" title="Eliminar"></button>' +
         '</div>';
     });
     html += '</div>';
@@ -576,7 +416,7 @@
     totalRow.style.display = 'flex';
   }
 
-  // ── Actualizar totales ───────────────────────────────────
+  // ── Actualizar totales y Punto de Equilibrio ────────────
   function updateTotales() {
     var total = gastos.reduce(function(s, g) { return s + g.monto; }, 0);
 
@@ -584,22 +424,27 @@
     document.getElementById('total-gastado-display').textContent = fmtPesos(total);
     document.getElementById('total-gastado-items').textContent =
       gastos.length + (gastos.length === 1 ? ' gasto registrado' : ' gastos registrados');
-
-    // Total en fila inferior
     document.getElementById('total-row-valor').textContent = fmtPesos(total);
 
-    // Punto de equilibrio: necesita el valor de "Para El Profeta"
-    var profetaEl = document.getElementById('v-profeta');
-    var profetaText = profetaEl ? profetaEl.textContent.replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.') : '';
-    var profeta = parseFloat(profetaText) || 0;
-    var eq = profeta - total;
-    var eqEl = document.getElementById('punto-equilibrio');
-    if (profeta > 0) {
-      eqEl.textContent = (eq >= 0 ? '+' : '') + fmtPesos(eq);
-      eqEl.style.color = eq >= 0 ? 'var(--green)' : 'var(--red)';
-    } else {
-      eqEl.textContent = '—';
-      eqEl.style.color = 'var(--text-secondary)';
+    // Punto de equilibrio: Calcula (Para El Profeta - Total Gastado)
+    calcularPuntoEquilibrio(total);
+  }
+
+  function calcularPuntoEquilibrio(totalGastado) {
+    // Busca el valor de "Para El Profeta" que renderizó ui.js
+    // ui.js crea: 2 filas de grids. La 2da fila tiene 2 cards. La 2da card es "Para El Profeta".
+    var profetaEl = document.querySelector('#ventas-general-section > div:nth-child(2) > div:last-child .big-number');
+    
+    if (profetaEl) {
+      var text = profetaEl.textContent.replace('$', '').replace(/\./g, '').replace(',', '.');
+      var profeta = parseFloat(text) || 0;
+      
+      if (profeta > 0) {
+        var eq = profeta - totalGastado;
+        var eqEl = document.getElementById('punto-equilibrio');
+        eqEl.textContent = (eq >= 0 ? '+' : '') + fmtPesos(eq);
+        eqEl.style.color = eq >= 0 ? 'var(--green)' : 'var(--red)';
+      }
     }
   }
 
@@ -616,13 +461,18 @@
     var item  = document.getElementById('gasto-item').value.trim();
     var monto = parseFloat(document.getElementById('gasto-monto').value);
     var obs   = document.getElementById('gasto-obs').value.trim();
+    
     if (!item) { document.getElementById('gasto-item').focus(); return; }
     if (!monto || monto <= 0) { document.getElementById('gasto-monto').focus(); return; }
+    
     gastos.unshift({ item: item, monto: monto, obs: obs, fecha: new Date().toISOString() });
+    
+    // Limpiar inputs
     document.getElementById('gasto-item').value  = '';
     document.getElementById('gasto-monto').value = '';
     document.getElementById('gasto-obs').value   = '';
     document.getElementById('gasto-item').focus();
+    
     guardarGastos();
     renderHistorial();
     updateTotales();
@@ -651,25 +501,24 @@
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ── Historial stock (stub — conectar con logic.js) ───────
-  function verHistorialStock() {
-    if (typeof mostrarHistorialStock === 'function') {
-      mostrarHistorialStock();
-    } else {
-      alert('Función de historial de stock no disponible.');
-    }
-  }
-
   // ── Arranque ─────────────────────────────────────────────
+  // Cargamos gastos locales
   cargarGastos();
   renderHistorial();
   updateTotales();
+
+  // Esperamos a que ui.js cargue los datos del Sheet para calcular el equilibrio correctamente
+  setTimeout(function() {
+    updateTotales(); // Re-calcula el equilibrio ahora que "Para El Profeta" tiene valor real
+  }, 1500);
+
 </script>
 
-<!-- Tus scripts originales (pueden sobreescribir/extender lo de arriba) -->
+<!-- Scripts de tu aplicación (deben cargar después de la lógica visual) -->
 <script src="logic.js"></script>
 <script src="ui.js"></script>
-<script src="gastos.js"></script>
+<!-- Si tenés un gastos.js externo, descomentalo. Si no, el script de arriba hace todo. -->
+<!-- <script src="gastos.js"></script> -->
 
 </body>
 </html>
