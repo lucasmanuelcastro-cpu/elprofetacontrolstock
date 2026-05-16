@@ -4,7 +4,7 @@
  */
 
 // ⚠️ REEMPLAZÁ CON TU URL REAL DE GOOGLE APPS SCRIPT
-const URL_SCRIPT = "https://script.google.com/macros/s/TU_ID_DE_PROYECTO/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbzFaSL2UsVfYM1KHxQQE87S4nAjCmJTwTqelh8qxPqqNpxvMo6Md0a2_hPsrvvZrKHRxQ/exec";
 
 // Estado local
 let gastos = [];
