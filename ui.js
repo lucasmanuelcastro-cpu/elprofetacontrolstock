@@ -837,7 +837,7 @@ function bindAlquilerBarril() {
       }
     });
   }
-}
+}  // ← ÚNICA llave de cierre, bien puesta
 
 // Volver al automático
 if (bloqueManual) bloqueManual.style.display = 'none';
@@ -847,7 +847,7 @@ state.precioUnitario = "";
 // Recalcular automáticamente
 renderPanelUsuario();
 
-});
+);
 
 // Guardar el monto manual en el state
 if (inputTotalManual) {
