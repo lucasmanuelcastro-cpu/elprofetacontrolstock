@@ -880,8 +880,19 @@ function bindPanelEventos() {
   const clienteInput = document.getElementById("cliente-nombre");
   if (clienteInput) clienteInput.oninput = (e) => { state.clienteNombre = e.target.value; };
   
-  const barrilInput = document.getElementById("alquiler-barril");
-  if (barrilInput) barrilInput.oninput = (e) => { state.alquilerBarril = e.target.value; };
+ const barrilInput = document.getElementById("alquiler-barril");
+if (barrilInput) {
+  barrilInput.oninput = (e) => {
+    state.alquilerBarril = e.target.value;
+    // Actualizar solo la visibilidad sin re-render completo
+    const bloqueManual = document.getElementById('bloque-manual');
+    const bloqueAutomatico = document.getElementById('bloque-automatico');
+    const hayTexto = e.target.value.trim() !== '';
+    
+    if (bloqueManual) bloqueManual.style.display = hayTexto ? 'block' : 'none';
+    if (bloqueAutomatico) bloqueAutomatico.style.display = hayTexto ? 'none' : 'block';
+  };
+}
   
   const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
