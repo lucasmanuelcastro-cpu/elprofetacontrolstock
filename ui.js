@@ -671,8 +671,18 @@ function renderPanelUsuario() {
           <span>${e}</span>
           <input type="number" data-venta="${e}" value="${state.ventaActual[e] || ""}" placeholder="0" style="width: 80px;">
         </div>`).join("")}
-        <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)" value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
-        <div style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px;">
+               <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)" value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
+        
+        <!-- 🔹 Bloque Manual (solo si hay alquiler) -->
+        <div id="bloque-manual" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${state.alquilerBarril ? 'block' : 'none'}; border: 2px solid #fbbf24;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #fbbf24;">💰 Total a cobrar (manual):</span>
+            <input type="number" id="input-total-manual" value="${state.totalCobradoInput || ""}" placeholder="Ej: 3500" style="background: transparent; border: none; color: #fbbf24; font-size: 1.5em; font-weight: bold; text-align: right; width: 60%;">
+          </div>
+        </div>
+
+        <!-- 🔹 Bloque Automático (si NO hay alquiler) -->
+        <div id="bloque-automatico" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${state.alquilerBarril ? 'none' : 'block'};">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span style="color: #94a3b8; font-size: 0.9em;">Total latas:</span>
             <b style="color: #f1f5f9; font-size: 1.4em;">${totalLatas}</b>
