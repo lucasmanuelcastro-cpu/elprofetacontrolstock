@@ -4,13 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>El Profeta - Control de Gastos</title>
-  <!-- Tu hoja de estilos externa (si la tenés) -->
   <link rel="stylesheet" href="styles.css">
-  
   <style>
-    /* =========================================
-       ESTILOS PROPIOS DE GASTOS.HTML
-       ========================================= */
+    /* Estilos específicos aprobados para Gastos */
     :root {
       --bg-primary: #ffffff;
       --bg-secondary: #f9fafb;
@@ -30,7 +26,6 @@
       --blue: #3b82f6;
       --blue-light: #dbeafe;
     }
-
     @media (prefers-color-scheme: dark) {
       :root {
         --bg-primary: #1f2937;
@@ -46,285 +41,66 @@
         --blue-light: #1e3a5f;
       }
     }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      min-height: 100vh;
-      margin: 0;
-    }
-
-    .app {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 1.5rem;
-    }
-
-    /* HEADER */
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-    .header-brand h1 {
-      font-size: 20px;
-      font-weight: 600;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin: 0;
-    }
-    .header-brand h1 img {
-      height: 1.3em;
-      vertical-align: middle;
-    }
-    .header-brand p {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-top: 3px;
-    }
-    .btn-ventas {
-      background: var(--purple);
-      color: white;
-      padding: 8px 18px;
-      border-radius: var(--radius-md);
-      font-size: 13px;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: opacity 0.15s;
-    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-tertiary); color: var(--text-primary); min-height: 100vh; margin: 0; }
+    .app { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .header-brand h1 { font-size: 20px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; margin: 0; }
+    .header-brand h1 img { height: 1.3em; vertical-align: middle; }
+    .header-brand p { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+    .btn-ventas { background: var(--purple); color: white; padding: 8px 18px; border-radius: var(--radius-md); font-size: 13px; font-weight: 600; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: opacity 0.15s; }
     .btn-ventas:hover { opacity: 0.88; }
-
-    /* GRID LAYOUTS */
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-    .grid-4 {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    /* CARDS */
-    .card {
-      background: var(--bg-primary);
-      border: 0.5px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1rem 1.25rem;
-      margin-bottom: 16px; /* Espacio entre cards si no están en grid */
-    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+    .card { background: var(--bg-primary); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 16px; }
     .card-accent-red { border-left: 3px solid var(--red); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
     .card-accent-purple { border-left: 3px solid var(--purple); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
     .card-accent-green { border-left: 3px solid var(--green); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
-
-    .card-label {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-    .card-value {
-      font-size: 22px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin: 5px 0;
-    }
-    .card-sub {
-      font-size: 11px;
-      color: var(--text-secondary);
-      margin-top: 4px;
-    }
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .card-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    /* COLORES UTILITARIOS */
-    .val-red   { color: var(--red) !important; }
+    .card-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 6px; }
+    .card-value { font-size: 22px; font-weight: 600; color: var(--text-primary); margin: 5px 0; }
+    .card-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+    .card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+    .val-red { color: var(--red) !important; }
     .val-green { color: var(--green) !important; }
-    .val-blue  { color: var(--blue) !important; }
+    .val-blue { color: var(--blue) !important; }
     .val-purple { color: var(--purple) !important; }
-
-    /* TRUCO: Ocultar Popularidad (2da card dentro de Stock) */
+    /* Ocultar Popularidad y Historial Global de ui.js */
     #stock-general-section > div > div:nth-child(2) { display: none !important; }
-    /* Hacer que la tabla de stock ocupe todo el ancho disponible */
     #stock-general-section > div { grid-template-columns: 1fr !important; }
-
-    /* TRUCO: Ocultar Historial Global (última card dentro de Ventas) */
     #ventas-general-section > div:last-child { display: none !important; }
-
-    /* HISTORIAL DE GASTOS */
-    .historial-empty {
-      color: var(--text-secondary);
-      font-size: 13px;
-      text-align: center;
-      padding: 28px;
-    }
-    .historial-list {
-      max-height: 260px;
-      overflow-y: auto;
-    }
-    .historial-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 9px 0;
-      border-bottom: 0.5px solid var(--border);
-      font-size: 13px;
-    }
+    .historial-empty { color: var(--text-secondary); font-size: 13px; text-align: center; padding: 28px; }
+    .historial-list { max-height: 260px; overflow-y: auto; }
+    .historial-item { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 0.5px solid var(--border); font-size: 13px; }
     .historial-item:last-child { border-bottom: none; }
-    .h-badge {
-      background: var(--red-light);
-      color: var(--red);
-      font-size: 10px;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 20px;
-      white-space: nowrap;
-    }
-    .h-item-name  { flex: 1; color: var(--text-primary); font-weight: 600; }
+    .h-item-name { flex: 1; color: var(--text-primary); font-weight: 600; }
     .h-item-monto { color: var(--red); font-weight: 700; min-width: 90px; text-align: right; }
-    .h-item-obs   { color: var(--text-secondary); flex: 2; font-size: 12px; }
-    .h-item-del {
-      color: var(--text-secondary);
-      cursor: pointer;
-      padding: 2px 6px;
-      border-radius: var(--radius-md);
-      font-size: 16px;
-      line-height: 1;
-      transition: color 0.15s, background 0.15s;
-      border: none;
-      background: transparent;
-    }
-    .h-item-del:hover { color: var(--red); background: var(--red-light); }
-
-    /* FORMULARIO */
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 2fr auto;
-      gap: 10px;
-      align-items: end;
-      margin-top: 14px;
-    }
-    .form-group label {
-      display: block;
-      font-size: 11px;
-      color: var(--text-secondary);
-      font-weight: 600;
-      margin-bottom: 5px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    .form-group input {
-      width: 100%;
-      padding: 8px 10px;
-      font-size: 13px;
-      border: 0.5px solid var(--border-md);
-      border-radius: var(--radius-md);
-      background: var(--bg-secondary);
-      color: var(--text-primary);
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .form-group input:focus {
-      border-color: var(--purple);
-      box-shadow: 0 0 0 2px rgba(124,58,237,0.15);
-    }
-
-    .btn-add {
-      background: var(--green);
-      color: white;
-      border: none;
-      border-radius: var(--radius-md);
-      padding: 9px 16px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      white-space: nowrap;
-      height: 36px;
-      transition: opacity 0.15s;
-    }
+    .h-item-obs { color: var(--text-secondary); flex: 2; font-size: 12px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 10px; align-items: end; margin-top: 14px; }
+    .form-group label { display: block; font-size: 11px; color: var(--text-secondary); font-weight: 600; margin-bottom: 5px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .form-group input { width: 100%; padding: 8px 10px; font-size: 13px; border: 0.5px solid var(--border-md); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary); outline: none; }
+    .form-group input:focus { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(124,58,237,0.15); }
+    .btn-add { background: var(--green); color: white; border: none; border-radius: var(--radius-md); padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; height: 36px; transition: opacity 0.15s; }
     .btn-add:hover { opacity: 0.88; }
-
-    /* TOTAL PIE */
-    .total-row {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 10px;
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 0.5px solid var(--border);
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-    .total-row strong {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--red);
-    }
-
-    /* RESPONSIVE */
-    @media (max-width: 700px) {
-      .grid-2 { grid-template-columns: 1fr; }
-      .grid-4 { grid-template-columns: 1fr 1fr; }
-      .form-row { grid-template-columns: 1fr 1fr; }
-      .form-row .btn-add { grid-column: span 2; justify-content: center; }
-    }
-    @media (max-width: 420px) {
-      .grid-4 { grid-template-columns: 1fr; }
-    }
+    .total-row { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 0.5px solid var(--border); font-size: 13px; color: var(--text-secondary); }
+    .total-row strong { font-size: 16px; font-weight: 700; color: var(--red); }
+    @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } .grid-4 { grid-template-columns: 1fr 1fr; } .form-row { grid-template-columns: 1fr 1fr; } .form-row .btn-add { grid-column: span 2; justify-content: center; } }
+    @media (max-width: 420px) { .grid-4 { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
 <div class="app">
-
-  <!-- HEADER -->
   <div class="header">
     <div class="header-brand">
-      <h1>
-        <img src="EP CARA.png" alt="El Profeta" onerror="this.style.display='none'">
-        El Profeta
-      </h1>
+      <h1><img src="EP CARA.png" alt="El Profeta" onerror="this.style.display='none'"> El Profeta</h1>
       <p>Control de Gastos</p>
     </div>
     <a href="index.html" class="btn-ventas">📊 Ventas</a>
   </div>
 
-  <!-- FILA 1: STOCK (Izquierda) + TOTALES GASTOS (Derecha) -->
   <div class="grid-2">
-
-    <!-- STOCK GENERAL (ui.js inyecta aquí la tabla) -->
+    <!-- Stock General (renderizado por ui.js) -->
     <section id="stock-general-section" class="card-section"></section>
-
-    <!-- TOTAL GASTADO + PUNTO DE EQUILIBRIO -->
+    
+    <!-- Totales de Gastos -->
     <div style="display:flex; flex-direction:column; gap:16px;">
       <div class="card card-accent-red">
         <div class="card-label">💸 Total gastado</div>
@@ -337,17 +113,16 @@
         <div class="card-sub">(Para El Profeta − Total gastado)</div>
       </div>
     </div>
-
   </div>
 
-  <!-- FILA 2: DINERO INGRESADO (ui.js inyecta aquí las 4 cards de dinero) -->
+  <!-- Dinero Ingresado (renderizado por ui.js) -->
   <section id="ventas-general-section" class="card-section"></section>
 
-  <!-- HISTORIAL DE GASTOS -->
+  <!-- Historial de Gastos -->
   <div class="card card-accent-purple">
     <div class="card-title" style="margin-bottom:12px;">📋 Historial de gastos</div>
     <div id="historial-gastos-container">
-      <div class="historial-empty">No hay gastos registrados</div>
+      <div class="historial-empty">Cargando desde la nube...</div>
     </div>
     <div class="total-row" id="total-row" style="display:none;">
       <span>Total gastado:</span>
@@ -355,170 +130,116 @@
     </div>
   </div>
 
-  <!-- FORMULARIO AGREGAR GASTO -->
+  <!-- Formulario -->
   <div class="card card-accent-green">
     <div class="card-title">➕ Agregar nuevo gasto</div>
     <div class="form-row">
-      <div class="form-group">
-        <label>Item</label>
-        <input type="text" id="gasto-item" placeholder="Ej: Insumos, Luz, Gas...">
-      </div>
-      <div class="form-group">
-        <label>Total ($)</label>
-        <input type="number" id="gasto-monto" placeholder="0" min="0" step="0.01">
-      </div>
-      <div class="form-group">
-        <label>Observación</label>
-        <input type="text" id="gasto-obs" placeholder="Detalle del gasto...">
-      </div>
+      <div class="form-group"><label>Item</label><input type="text" id="gasto-item" placeholder="Ej: Insumos, Luz, Gas..."></div>
+      <div class="form-group"><label>Total ($)</label><input type="number" id="gasto-monto" placeholder="0" min="0" step="0.01"></div>
+      <div class="form-group"><label>Observación</label><input type="text" id="gasto-obs" placeholder="Detalle del gasto..."></div>
       <button class="btn-add" id="btn-agregar-gasto">✅ Agregar</button>
     </div>
   </div>
-
 </div>
 
-<!-- ======================================================
-     LÓGICA DE GASTOS Y SINCRONIZACIÓN
-     ====================================================== -->
 <script>
-  // ─ Utilidades ──────────────────────────────────────────
-  function fmt(n) {
-    if (isNaN(n) || n === null || n === undefined) return '—';
-    return Math.round(n).toLocaleString('es-AR');
-  }
-  function fmtPesos(n) { return '$' + fmt(n); }
+  // ⚠️ REEMPLAZÁ ESTO CON TU URL DE GOOGLE APPS SCRIPT
+  const URL_SCRIPT = "https://script.google.com/macros/s/TU_ID_AQUI/exec";
 
-  // ── Estado local de gastos ───────────────────────────────
   var gastos = [];
 
-  // ── Renderizado del historial ────────────────────────────
-  function renderHistorial() {
-    var c = document.getElementById('historial-gastos-container');
-    var totalRow = document.getElementById('total-row');
+  function fmt(n) { return (isNaN(n) || n === null) ? '—' : Math.round(n).toLocaleString('es-AR'); }
+  function fmtPesos(n) { return '$' + fmt(n); }
 
+  // 1. CARGAR DESDE SHEET (Sin localStorage)
+  function cargarGastos() {
+    const container = document.getElementById('historial-gastos-container');
+    fetch(URL_SCRIPT + "?accion=leerGastos")
+      .then(res => res.json())
+      .then(data => {
+        gastos = data.gastos || [];
+        renderHistorial();
+        updateTotales();
+      })
+      .catch(() => container.innerHTML = '<div class="historial-empty">Error al conectar con la BD</div>');
+  }
+
+  // 2. GUARDAR EN SHEET
+  document.getElementById('btn-agregar-gasto').addEventListener('click', function() {
+    const item = document.getElementById('gasto-item').value.trim();
+    const monto = parseFloat(document.getElementById('gasto-monto').value);
+    const obs = document.getElementById('gasto-obs').value.trim();
+    const btn = this;
+
+    if (!item || !monto || monto <= 0) { alert("Completá Item y Monto correctamente."); return; }
+
+    btn.textContent = " Guardando..."; btn.disabled = true;
+    fetch(URL_SCRIPT, {
+      method: "POST",
+      body: JSON.stringify({ accion: "guardarGasto", gasto: { item, monto, obs, fecha: new Date().toISOString() } })
+    })
+    .then(res => res.text())
+    .then(resp => {
+      if (resp === "OK_GASTO") {
+        document.getElementById('gasto-item').value = '';
+        document.getElementById('gasto-monto').value = '';
+        document.getElementById('gasto-obs').value = '';
+        cargarGastos();
+      } else alert("Error al guardar");
+    })
+    .catch(() => alert("Error de conexión"))
+    .finally(() => { btn.textContent = "✅ Agregar"; btn.disabled = false; });
+  });
+
+  // 3. RENDERIZAR Y CALCULAR
+  function renderHistorial() {
+    const c = document.getElementById('historial-gastos-container');
+    const totalRow = document.getElementById('total-row');
     if (gastos.length === 0) {
       c.innerHTML = '<div class="historial-empty">No hay gastos registrados</div>';
-      totalRow.style.display = 'none';
-      return;
+      totalRow.style.display = 'none'; return;
     }
-
-    var html = '<div class="historial-list">';
-    gastos.forEach(function(g, i) {
-      html += '<div class="historial-item">' +
-        '<span class="h-item-name">' + escHTML(g.item) + '</span>' +
-        '<span class="h-item-monto">−' + fmtPesos(g.monto) + '</span>' +
-        '<span class="h-item-obs">' + escHTML(g.obs || '—') + '</span>' +
-        '<button class="h-item-del" onclick="eliminarGasto(' + i + ')" title="Eliminar"></button>' +
-        '</div>';
+    let html = '<div class="historial-list">';
+    gastos.forEach(g => {
+      html += `<div class="historial-item">
+        <span class="h-item-name">${g.item}</span>
+        <span class="h-item-monto">−${fmtPesos(g.monto)}</span>
+        <span class="h-item-obs">${g.obs || '—'}</span>
+        <small style="color:#6b7280; font-size:11px;">${g.fecha || ''}</small>
+      </div>`;
     });
-    html += '</div>';
-    c.innerHTML = html;
+    c.innerHTML = html + '</div>';
     totalRow.style.display = 'flex';
   }
 
-  // ── Actualizar totales y Punto de Equilibrio ────────────
   function updateTotales() {
-    var total = gastos.reduce(function(s, g) { return s + g.monto; }, 0);
-
-    // Total gastado
+    const total = gastos.reduce((s, g) => s + g.monto, 0);
     document.getElementById('total-gastado-display').textContent = fmtPesos(total);
-    document.getElementById('total-gastado-items').textContent =
-      gastos.length + (gastos.length === 1 ? ' gasto registrado' : ' gastos registrados');
+    document.getElementById('total-gastado-items').textContent = gastos.length + (gastos.length === 1 ? ' gasto' : ' gastos');
     document.getElementById('total-row-valor').textContent = fmtPesos(total);
-
-    // Punto de equilibrio: Calcula (Para El Profeta - Total Gastado)
-    calcularPuntoEquilibrio(total);
+    calcularEquilibrio(total);
   }
 
-  function calcularPuntoEquilibrio(totalGastado) {
-    // Busca el valor de "Para El Profeta" que renderizó ui.js
-    // ui.js crea: 2 filas de grids. La 2da fila tiene 2 cards. La 2da card es "Para El Profeta".
-    var profetaEl = document.querySelector('#ventas-general-section > div:nth-child(2) > div:last-child .big-number');
-    
+  function calcularEquilibrio(totalGastado) {
+    const eqEl = document.getElementById('punto-equilibrio');
+    // Espera a que ui.js renderice "Para El Profeta"
+    const profetaEl = document.querySelector('#ventas-general-section .card:last-child .big-number');
     if (profetaEl) {
-      var text = profetaEl.textContent.replace('$', '').replace(/\./g, '').replace(',', '.');
-      var profeta = parseFloat(text) || 0;
-      
-      if (profeta > 0) {
-        var eq = profeta - totalGastado;
-        var eqEl = document.getElementById('punto-equilibrio');
+      const val = parseFloat(profetaEl.textContent.replace('$', '').replace(/\./g, '').replace(',', '.')) || 0;
+      if (val > 0) {
+        const eq = val - totalGastado;
         eqEl.textContent = (eq >= 0 ? '+' : '') + fmtPesos(eq);
         eqEl.style.color = eq >= 0 ? 'var(--green)' : 'var(--red)';
       }
+    } else {
+      setTimeout(() => calcularEquilibrio(totalGastado), 1200);
     }
   }
 
-  // ── Eliminar gasto ───────────────────────────────────────
-  function eliminarGasto(i) {
-    gastos.splice(i, 1);
-    guardarGastos();
-    renderHistorial();
-    updateTotales();
-  }
-
-  // ── Agregar gasto ────────────────────────────────────────
-  document.getElementById('btn-agregar-gasto').addEventListener('click', function() {
-    var item  = document.getElementById('gasto-item').value.trim();
-    var monto = parseFloat(document.getElementById('gasto-monto').value);
-    var obs   = document.getElementById('gasto-obs').value.trim();
-    
-    if (!item) { document.getElementById('gasto-item').focus(); return; }
-    if (!monto || monto <= 0) { document.getElementById('gasto-monto').focus(); return; }
-    
-    gastos.unshift({ item: item, monto: monto, obs: obs, fecha: new Date().toISOString() });
-    
-    // Limpiar inputs
-    document.getElementById('gasto-item').value  = '';
-    document.getElementById('gasto-monto').value = '';
-    document.getElementById('gasto-obs').value   = '';
-    document.getElementById('gasto-item').focus();
-    
-    guardarGastos();
-    renderHistorial();
-    updateTotales();
-  });
-
-  // Enter en monto dispara agregar
-  document.getElementById('gasto-monto').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') document.getElementById('btn-agregar-gasto').click();
-  });
-
-  // ── Persistencia local ───────────────────────────────────
-  function guardarGastos() {
-    try { localStorage.setItem('ep_gastos', JSON.stringify(gastos)); } catch(e) {}
-  }
-  function cargarGastos() {
-    try {
-      var raw = localStorage.getItem('ep_gastos');
-      if (raw) gastos = JSON.parse(raw);
-    } catch(e) { gastos = []; }
-  }
-
-  // ── Helper seguridad ─────────────────────────────────────
-  function escHTML(str) {
-    return String(str)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  // ── Arranque ─────────────────────────────────────────────
-  // Cargamos gastos locales
-  cargarGastos();
-  renderHistorial();
-  updateTotales();
-
-  // Esperamos a que ui.js cargue los datos del Sheet para calcular el equilibrio correctamente
-  setTimeout(function() {
-    updateTotales(); // Re-calcula el equilibrio ahora que "Para El Profeta" tiene valor real
-  }, 1500);
-
+  document.addEventListener('DOMContentLoaded', cargarGastos);
 </script>
 
-<!-- Scripts de tu aplicación (deben cargar después de la lógica visual) -->
 <script src="logic.js"></script>
 <script src="ui.js"></script>
-<!-- Si tenés un gastos.js externo, descomentalo. Si no, el script de arriba hace todo. -->
-<!-- <script src="gastos.js"></script> -->
-
 </body>
 </html>
