@@ -93,7 +93,7 @@
       <h1><img src="EP CARA.png" alt="El Profeta" onerror="this.style.display='none'"> El Profeta</h1>
       <p>Control de Gastos</p>
     </div>
-    <a href="index.html" class="btn-ventas">📊 Ventas</a>
+    <a href="index.html" class="btn-ventas"> Ventas</a>
   </div>
 
   <div class="grid-2">
@@ -144,14 +144,14 @@
 
 <script>
   // ⚠️ REEMPLAZÁ ESTO CON TU URL DE GOOGLE APPS SCRIPT
-  const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbygNBL4WcX9YA3_OIjGjVmNTTDpJoqR9y-ZFN1PzheV72lkaEP5_zTXAoEjjXHTmf6A3w/exec";
+  const URL_SCRIPT = "https://script.google.com/macros/s/TU_ID_AQUI/exec";
 
   var gastos = [];
 
   function fmt(n) { return (isNaN(n) || n === null) ? '—' : Math.round(n).toLocaleString('es-AR'); }
   function fmtPesos(n) { return '$' + fmt(n); }
 
-  // 1. CARGAR DESDE SHEET (Sin localStorage)
+  // 1. CARGAR DESDE SHEET
   function cargarGastos() {
     const container = document.getElementById('historial-gastos-container');
     fetch(URL_SCRIPT + "?accion=leerGastos")
@@ -173,7 +173,7 @@
 
     if (!item || !monto || monto <= 0) { alert("Completá Item y Monto correctamente."); return; }
 
-    btn.textContent = " Guardando..."; btn.disabled = true;
+    btn.textContent = "⏳ Guardando..."; btn.disabled = true;
     fetch(URL_SCRIPT, {
       method: "POST",
       body: JSON.stringify({ accion: "guardarGasto", gasto: { item, monto, obs, fecha: new Date().toISOString() } })
@@ -191,7 +191,32 @@
     .finally(() => { btn.textContent = "✅ Agregar"; btn.disabled = false; });
   });
 
-  // 3. RENDERIZAR Y CALCULAR
+  // 3. ELIMINAR GASTO (NUEVO)
+  function eliminarGasto(idFila) {
+    if (!confirm("¿Estás seguro de eliminar este gasto? Esta acción no se puede deshacer.")) return;
+
+    fetch(URL_SCRIPT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ accion: "borrarGasto", idFila: idFila })
+    })
+    .then(res => res.text())
+    .then(resp => {
+      if (resp === "OK_BORRADO") {
+        gastos = gastos.filter(g => g.idFila !== idFila);
+        renderHistorial();
+        updateTotales();
+      } else {
+        alert("❌ Error al borrar: " + resp);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert("❌ Error de conexión al borrar.");
+    });
+  }
+
+  // 4. RENDERIZAR Y CALCULAR
   function renderHistorial() {
     const c = document.getElementById('historial-gastos-container');
     const totalRow = document.getElementById('total-row');
@@ -200,16 +225,24 @@
       totalRow.style.display = 'none'; return;
     }
     let html = '<div class="historial-list">';
+    let totalSum = 0;
     gastos.forEach(g => {
-      html += `<div class="historial-item">
-        <span class="h-item-name">${g.item}</span>
-        <span class="h-item-monto">−${fmtPesos(g.monto)}</span>
-        <span class="h-item-obs">${g.obs || '—'}</span>
-        <small style="color:#6b7280; font-size:11px;">${g.fecha || ''}</small>
-      </div>`;
+      totalSum += g.monto;
+      // AGREGADO: Botón de borrar con el evento onclick pasandole el idFila
+      html += `
+        <div class="historial-item">
+          <span class="h-item-name">${g.item}</span>
+          <span class="h-item-monto">−${fmtPesos(g.monto)}</span>
+          <span class="h-item-obs">${g.obs || '—'}</span>
+          <small style="color:#6b7280; font-size:11px;">${g.fecha || ''}</small>
+          <button onclick="eliminarGasto(${g.idFila})" 
+                  style="background:none; border:none; cursor:pointer; font-size:16px; margin-left:10px; color:#ef4444;" 
+                  title="Borrar gasto">🗑️</button>
+        </div>`;
     });
     c.innerHTML = html + '</div>';
     totalRow.style.display = 'flex';
+    document.getElementById('total-row-valor').textContent = fmtPesos(totalSum);
   }
 
   function updateTotales() {
@@ -222,7 +255,6 @@
 
   function calcularEquilibrio(totalGastado) {
     const eqEl = document.getElementById('punto-equilibrio');
-    // Espera a que ui.js renderice "Para El Profeta"
     const profetaEl = document.querySelector('#ventas-general-section .card:last-child .big-number');
     if (profetaEl) {
       const val = parseFloat(profetaEl.textContent.replace('$', '').replace(/\./g, '').replace(',', '.')) || 0;
