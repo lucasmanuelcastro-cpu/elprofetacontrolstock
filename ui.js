@@ -781,50 +781,64 @@ if (display) display.textContent = total > 0 ? "$" + total.toLocaleString() : "$
 }
 
 function bindAlquilerBarril() {
-const inputAlquiler = document.getElementById('alquiler-barril');
-const bloqueManual = document.getElementById('bloque-manual');
-const bloqueAutomatico = document.getElementById('bloque-automatico');
-const inputTotalManual = document.getElementById('input-total-manual');
+  const inputAlquiler = document.getElementById('alquiler-barril');
+  const bloqueManual = document.getElementById('bloque-manual');
+  const bloqueAutomatico = document.getElementById('bloque-automatico');
+  const inputTotalManual = document.getElementById('input-total-manual');
 
-if (!inputAlquiler) return;
+  if (!inputAlquiler) return;
 
-inputAlquiler.addEventListener('input', (e) => {
-const activo = e.target.value.trim() !== '';
-state.alquilerBarril = e.target.value;
+  // 👉 Cuando escribe en "Alquiler barril"
+  inputAlquiler.addEventListener('input', (e) => {
+    const activo = e.target.value.trim() !== '';
+    state.alquilerBarril = e.target.value;
 
-if (activo) {
-// Ocultar automático, mostrar manual
-if (bloqueAutomatico) bloqueAutomatico.style.display = 'none';
-if (bloqueManual) {
-  bloqueManual.style.display = 'block';
-  // Guardar el monto manual en el state CON FORMATO
-// Guardar el monto manual en el state CON FORMATO
-if (inputTotalManual) {
-  inputTotalManual.addEventListener('input', (e) => {
-    // Guardar valor sin formato en el state
-    const valorSinFormato = e.target.value.replace(/\./g, '');
-    state.totalCobradoInput = valorSinFormato;
+    if (activo) {
+      if (bloqueAutomatico) bloqueAutomatico.style.display = 'none';
+      if (bloqueManual) {
+        bloqueManual.style.display = 'block';
+        if (inputTotalManual) {
+          inputTotalManual.focus();
+          if (!state.totalCobradoInput || state.totalCobradoInput === "0") {
+            state.totalCobradoInput = "";
+          }
+        }
+      }
+    } else {
+      if (bloqueManual) bloqueManual.style.display = 'none';
+      if (bloqueAutomatico) bloqueAutomatico.style.display = 'block';
+      state.totalCobradoInput = "";
+      state.precioUnitario = "";
+      renderPanelUsuario();
+    }
+  });
+
+  // 👉 Formato con punto de miles SOLO para el input manual
+  if (inputTotalManual) {
+    inputTotalManual.addEventListener('input', (e) => {
+      const valorSinFormato = e.target.value.replace(/\./g, '');
+      state.totalCobradoInput = valorSinFormato;
+      
+      if (valorSinFormato) {
+        const numero = Number(valorSinFormato);
+        if (!isNaN(numero)) {
+          e.target.value = numero.toLocaleString('es-AR');
+        }
+      }
+    });
     
-    // Aplicar formato con punto de miles
-    if (valorSinFormato) {
-      const numero = Number(valorSinFormato);
-      if (!isNaN(numero)) {
-        e.target.value = numero.toLocaleString('es-AR');
+    inputTotalManual.addEventListener('blur', (e) => {
+      const valor = e.target.value.replace(/\./g, '');
+      if (valor) {
+        const numero = Number(valor);
+        if (!isNaN(numero)) {
+          e.target.value = numero.toLocaleString('es-AR');
+        }
       }
-    }
-  });
-  
-  // También formatear al hacer blur (por si queda sin formato)
-  inputTotalManual.addEventListener('blur', (e) => {
-    const valor = e.target.value.replace(/\./g, '');
-    if (valor) {
-      const numero = Number(valor);
-      if (!isNaN(numero)) {
-        e.target.value = numero.toLocaleString('es-AR');
-      }
-    }
-  });
+    });
+  }
 }
+
 // Volver al automático
 if (bloqueManual) bloqueManual.style.display = 'none';
 if (bloqueAutomatico) bloqueAutomatico.style.display = 'block';
