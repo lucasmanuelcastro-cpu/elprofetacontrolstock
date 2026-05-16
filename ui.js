@@ -677,8 +677,7 @@ function renderPanelUsuario() {
         <div id="bloque-manual" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${state.alquilerBarril ? 'block' : 'none'}; border: 2px solid #fbbf24;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <span style="color: #fbbf24;">💰 Total a cobrar (manual):</span>
-            <input type="number" id="input-total-manual" value="${state.totalCobradoInput || ""}" placeholder="Ej: 3500" style="background: transparent; border: none; color: #fbbf24; font-size: 1.5em; font-weight: bold; text-align: right; width: 60%;">
-          </div>
+<input type="text" id="input-total-manual" value="${state.totalCobradoInput ? Number(state.totalCobradoInput).toLocaleString('es-AR') : ''}" placeholder="Ej: 3.500" style="background: transparent; border: none; color: #fbbf24; font-size: 1.5em; font-weight: bold; text-align: right; width: 60%;">          </div>
         </div>
 
         <!-- 🔹 Bloque Automático (si NO hay alquiler) -->
