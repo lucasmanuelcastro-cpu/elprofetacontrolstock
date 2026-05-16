@@ -759,20 +759,69 @@ function renderPanelUsuario() {
   bindPanelEventos();
   bindAutocompletadoCliente();
   bindPrecioUnitario();
+  bindAlquilerBarril();
 }
 
 function bindPrecioUnitario() {
-  const input = document.getElementById("precio-unitario");
-  if (!input) return;
-  input.addEventListener("input", () => {
-    const precio = Number(input.value) || 0;
-    state.precioUnitario = input.value;
-    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-    const total = totalLatas * precio;
-    state.totalCobradoInput = total > 0 ? String(total) : "";
-    const display = document.querySelector("[data-total-display]");
-    if (display) display.textContent = total > 0 ? "$" + total.toLocaleString() : "$—";
-  });
+const input = document.getElementById("precio-unitario");
+if (!input) return;
+
+// 🛑 Si hay alquiler de barril, NO recalcules automáticamente
+const alquilerInput = document.getElementById("alquiler-barril");
+if (alquilerInput && alquilerInput.value.trim() !== "") return;
+
+input.addEventListener("input", () => {
+const precio = Number(input.value) || 0;
+state.precioUnitario = input.value;
+const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+const total = totalLatas * precio;
+state.totalCobradoInput = total > 0 ? String(total) : "";
+const display = document.querySelector("[data-total-display]");
+if (display) display.textContent = total > 0 ? "$" + total.toLocaleString() : "$—";
+});
+}
+
+function bindAlquilerBarril() {
+const inputAlquiler = document.getElementById('alquiler-barril');
+const bloqueManual = document.getElementById('bloque-manual');
+const bloqueAutomatico = document.getElementById('bloque-automatico');
+const inputTotalManual = document.getElementById('input-total-manual');
+
+if (!inputAlquiler) return;
+
+inputAlquiler.addEventListener('input', (e) => {
+const activo = e.target.value.trim() !== '';
+state.alquilerBarril = e.target.value;
+
+if (activo) {
+// Ocultar automático, mostrar manual
+if (bloqueAutomatico) bloqueAutomatico.style.display = 'none';
+if (bloqueManual) {
+  bloqueManual.style.display = 'block';
+  if (inputTotalManual) {
+    inputTotalManual.focus();
+    if (!state.totalCobradoInput || state.totalCobradoInput === "0") {
+      state.totalCobradoInput = "";
+    }
+  }
+}
+} else {
+// Volver al automático
+if (bloqueManual) bloqueManual.style.display = 'none';
+if (bloqueAutomatico) bloqueAutomatico.style.display = 'block';
+state.totalCobradoInput = "";
+state.precioUnitario = "";
+// Recalcular automáticamente
+renderPanelUsuario();
+}
+});
+
+// Guardar el monto manual en el state
+if (inputTotalManual) {
+inputTotalManual.addEventListener('input', (e) => {
+  state.totalCobradoInput = e.target.value;
+});
+}
 }
 
 function bindAutocompletadoCliente() {
