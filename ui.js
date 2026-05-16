@@ -798,14 +798,34 @@ if (activo) {
 if (bloqueAutomatico) bloqueAutomatico.style.display = 'none';
 if (bloqueManual) {
   bloqueManual.style.display = 'block';
-  if (inputTotalManual) {
-    inputTotalManual.focus();
-    if (!state.totalCobradoInput || state.totalCobradoInput === "0") {
-      state.totalCobradoInput = "";
+  // Guardar el monto manual en el state CON FORMATO
+// Guardar el monto manual en el state CON FORMATO
+if (inputTotalManual) {
+  inputTotalManual.addEventListener('input', (e) => {
+    // Guardar valor sin formato en el state
+    const valorSinFormato = e.target.value.replace(/\./g, '');
+    state.totalCobradoInput = valorSinFormato;
+    
+    // Aplicar formato con punto de miles
+    if (valorSinFormato) {
+      const numero = Number(valorSinFormato);
+      if (!isNaN(numero)) {
+        e.target.value = numero.toLocaleString('es-AR');
+      }
     }
-  }
+  });
+  
+  // También formatear al hacer blur (por si queda sin formato)
+  inputTotalManual.addEventListener('blur', (e) => {
+    const valor = e.target.value.replace(/\./g, '');
+    if (valor) {
+      const numero = Number(valor);
+      if (!isNaN(numero)) {
+        e.target.value = numero.toLocaleString('es-AR');
+      }
+    }
+  });
 }
-} else {
 // Volver al automático
 if (bloqueManual) bloqueManual.style.display = 'none';
 if (bloqueAutomatico) bloqueAutomatico.style.display = 'block';
