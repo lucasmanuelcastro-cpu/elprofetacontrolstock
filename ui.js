@@ -846,7 +846,7 @@ state.totalCobradoInput = "";
 state.precioUnitario = "";
 // Recalcular automáticamente
 renderPanelUsuario();
-}
+
 });
 
 // Guardar el monto manual en el state
