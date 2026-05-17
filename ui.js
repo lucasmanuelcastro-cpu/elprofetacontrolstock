@@ -1,12 +1,14 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Corregida v38
+ * UI.JS - Control de la interfaz visual - Versión Final v39
+ * + Alquiler de Barril + Formato de Miles (es-AR)
  */
 
-// ===== ESTADO Y DATOS =====
+// ===== CONSTANTES Y ESTADO GLOBAL =====
 const estilosBase = ["BLONDE", "IRISH RED", "STOUT", "SESSION IPA", "RED IPA", "HONEY"];
 const costoPorLata = 1750;
 const costoPorLataSinEtiqueta = 1450;
 
+// Estado principal de la aplicación
 let state = {
   usuarios: {
     Julian: { stock: {}, stockSinEtiqueta: {}, ventas: [] },
@@ -36,6 +38,8 @@ let state = {
   paraProfetaSheet: null
 };
 
+// ===== UTILIDADES =====
+
 // Reemplazo seguro para structuredClone (soporta móviles antiguos/Safari)
 function setState(updater) {
   const estadoClonado = JSON.parse(JSON.stringify(state));
@@ -44,6 +48,7 @@ function setState(updater) {
   render();
 }
 
+// Actualiza el stock general sumando todos los usuarios
 function actualizarStockGeneral() {
   let total = {};
   Object.values(state.usuarios).forEach((u) => {
@@ -54,6 +59,7 @@ function actualizarStockGeneral() {
   state.stockGeneral = total;
 }
 
+// Calcula vista previa de costos y ganancias
 function calcularPreview() {
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
   const totalCobrado = Number(state.totalCobradoInput) || 0;
@@ -64,10 +70,12 @@ function calcularPreview() {
   return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas, gananciaBruta };
 }
 
+// Obtiene todas las ventas de todos los usuarios
 function getVentasGenerales() {
   return Object.values(state.usuarios).flatMap((u) => u.ventas);
 }
 
+// Formatea para mostrar el total "Para El Profeta"
 function paraProfetaMostrar(v) {
   const p = Number(v.paraProfeta);
   if (!isNaN(p) && p > 0) return p;
@@ -76,6 +84,7 @@ function paraProfetaMostrar(v) {
   return c + com;
 }
 
+// Determina si una venta aparece en el historial global
 function ventaApareceEnHistorialGlobal(v) {
   const est = String(v.estado || "").trim().toUpperCase();
   const mp = String(v.metodoPago || "").trim();
@@ -88,6 +97,7 @@ function ventaApareceEnHistorialGlobal(v) {
   return mp.length > 0;
 }
 
+// Estadísticas de ventas por estilo
 function getEstadisticasVentas() {
   const ventas = getVentasGenerales();
   const totalesPorEstilo = {};
@@ -104,6 +114,7 @@ function getEstadisticasVentas() {
   return { totalesPorEstilo, granTotalLatas };
 }
 
+// Marca ventas locales como cobradas si el cliente saldó
 function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
   const norm = (s) => String(s || "").toLowerCase().trim();
   const n = norm(nombreCliente);
@@ -119,6 +130,7 @@ function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
   });
 }
 
+// ===== REGISTRAR VENTA LOCAL =====
 function registrarVentaLocal() {
   const usuario = state.usuarios[state.usuarioActivo];
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
@@ -141,6 +153,8 @@ function registrarVentaLocal() {
   };
 
   usuario.ventas.push(venta);
+  
+  // Descontar stock
   Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
     const c = Number(cant) || 0;
     if (c > 0) {
@@ -153,6 +167,7 @@ function registrarVentaLocal() {
     }
   });
 
+  // Actualizar cartera de clientes
   if (state.clienteNombre && state.clienteNombre !== 'Consumidor Final') {
     let cliente = state.clientesGlobales.find(c => c.nombre === state.clienteNombre);
     if (!cliente) {
@@ -162,6 +177,7 @@ function registrarVentaLocal() {
     cliente.deuda += Number(state.totalCobradoInput) || 0;
   }
 
+  // Preparar venta para Sheet
   const ventaParaSheet = {
     cliente: venta.cliente,
     estilos: venta.estilos,
@@ -182,6 +198,7 @@ function registrarVentaLocal() {
   ventasPendientes.push(ventaParaSheet);
   localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
 
+  // Resetear formulario
   state.ventaActual = { BLONDE: "", "IRISH RED": "", STOUT: "", "SESSION IPA": "", "RED IPA": "", HONEY: "" };
   state.clienteNombre = "";
   state.alquilerBarril = "";
@@ -190,6 +207,7 @@ function registrarVentaLocal() {
   render();
 }
 
+// ===== MANEJO DE STOCK =====
 function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
   const cantidadNueva = Number(valor) || 0;
   const usuarioObj = state.usuarios[usuario];
@@ -240,6 +258,7 @@ async function borrarVentaIndividual(index) {
   encolarActualizarStockEnSheet(state.usuarioActivo);
 }
 
+// ===== COBROS Y CARTERA =====
 function normalizarMetodoPago(metodoRaw) {
   const s = String(metodoRaw || "").toLowerCase().trim();
   return s === "transferencia" ? "transferencia" : "efectivo";
@@ -271,7 +290,7 @@ function aplicarCobroCartera(index, montoPropuesto, metodoRaw) {
   encolarPagoParaSheet(cliente.nombre, monto, metodo);
   
   const metodoTexto = metodo === "efectivo" ? "💵 Efectivo" : "🏦 Transferencia";
-  alert(`✅ Registrado cobro $${monto.toLocaleString()} de ${cliente.nombre} (${metodoTexto}).` +
+  alert(`✅ Registrado cobro $${monto.toLocaleString('es-AR')} de ${cliente.nombre} (${metodoTexto}).` +
         `Para grabar ventas y cobros en Google Sheets usá «Guardar en Sheet».`);
   
   guardarDatos();
@@ -305,12 +324,13 @@ function registrarPagoManual(index) {
   if (!cliente) return;
   const deudaActual = cliente.deuda - cliente.pagado;
   if (montoIngresado > deudaActual) {
-    alert(`⚠️ El monto ($${montoIngresado.toLocaleString()}) supera la deuda ($${deudaActual.toLocaleString()}). Se cobrará solo la deuda.`);
+    alert(`⚠️ El monto ($${montoIngresado.toLocaleString('es-AR')}) supera la deuda ($${deudaActual.toLocaleString('es-AR')}). Se cobrará solo la deuda.`);
   }
   inputEl.value = "";
   aplicarCobroCartera(index, montoIngresado, metodo);
 }
 
+// ===== HISTORIALES =====
 function registrarCargaStock(usuario, estilos, tipo) {
   const fecha = new Date().toLocaleString('es-AR');
   if (typeof estilos === 'string') return; 
@@ -329,12 +349,13 @@ function registrarTransferenciaHistorial(desde, hacia, estilos, tipo) {
   state.historialTransferencias.push({
     desde,
     hacia,
-    estilos, // Objeto { "BLONDE": 2, "STOUT": 1 }
+    estilos,
     tipo,
     fecha: new Date().toLocaleString('es-AR')
   });
 }
 
+// ===== PERSISTENCIA LOCAL =====
 function guardarDatos() {
   const data = { usuarios: state.usuarios, clientes: state.clientesGlobales };
   localStorage.setItem("elProfetaData", JSON.stringify(data));
@@ -350,6 +371,7 @@ function cargarDatos() {
   }
 }
 
+// ===== SINCRONIZACIÓN CON SHEETS =====
 async function guardarEnSheets() {
   let nVentas = 0, nPagos = 0, nStock = 0, nBorrar = 0;
   try { const vRaw = localStorage.getItem("ventasPendientes"); if (vRaw) nVentas = JSON.parse(vRaw).length; } catch (e) {}
@@ -374,6 +396,7 @@ async function guardarEnSheets() {
   }
 }
 
+// ===== INICIALIZACIÓN =====
 document.addEventListener('DOMContentLoaded', async () => {
   cargarDatos();
   render();
@@ -386,6 +409,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+// ===== RENDER PRINCIPAL =====
 function render() {
   renderStockGeneral();
   renderVentasGeneral();
@@ -395,6 +419,7 @@ function render() {
   renderPanelUsuario();
 }
 
+// ===== RENDER: STOCK GENERAL =====
 function renderStockGeneral() {
   const container = document.getElementById("stock-general-section");
   if (!container) return;
@@ -476,11 +501,11 @@ ${(() => {
 </div>`;
 }
 
+// ===== RENDER: VENTAS GENERAL =====
 function renderVentasGeneral() {
   const container = document.getElementById("ventas-general-section");
   if (!container) return;
   
-  // AHORA LEEMOS DIRECTO DEL STATE (que viene del Sheet)
   const dineroEfectivo = state.efectivoSheet;
   const dineroTransferencia = state.transferenciaSheet;
   const dineroTotal = state.totalIngresadoSheet;
@@ -494,24 +519,24 @@ function renderVentasGeneral() {
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
     <div class="card" style="border-left: 4px solid #059669;">
       <h2>💵 Dinero Ingresado (Efectivo)</h2>
-      <p class="big-number" style="color:#059669;">${dineroEfectivo != null ? '$' + dineroEfectivo.toLocaleString() : '—'}</p>
+      <p class="big-number" style="color:#059669;">${dineroEfectivo != null ? '$' + dineroEfectivo.toLocaleString('es-AR') : '—'}</p>
       <small>Ventas cobradas en efectivo</small>
     </div>
     <div class="card" style="border-left: 4px solid #2563eb;">
       <h2>🏦 Dinero Ingresado (Transferencia)</h2>
-      <p class="big-number" style="color:#2563eb;">${dineroTransferencia != null ? '$' + dineroTransferencia.toLocaleString() : '—'}</p>
+      <p class="big-number" style="color:#2563eb;">${dineroTransferencia != null ? '$' + dineroTransferencia.toLocaleString('es-AR') : '—'}</p>
       <small>Ventas cobradas por transferencia</small>
     </div>
   </div>
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
     <div class="card" style="border-left: 4px solid #3b82f6;">
       <h2>💰 Total Ingresado</h2>
-      <p class="big-number" style="color:#3b82f6;">${dineroTotal != null ? '$' + dineroTotal.toLocaleString() : '—'}</p>
+      <p class="big-number" style="color:#3b82f6;">${dineroTotal != null ? '$' + dineroTotal.toLocaleString('es-AR') : '—'}</p>
       <small>${dineroTotal != null ? '📊 Desde hoja Venta de Latas y Barriles' : 'Sincronizando...'}</small>
     </div>
     <div class="card">
       <h2>👑 Para El Profeta (Total)</h2>
-      <p class="big-number" style="color:#059669;">${totalProfeta != null ? '$' + totalProfeta.toLocaleString() : '—'}</p>
+      <p class="big-number" style="color:#059669;">${totalProfeta != null ? '$' + totalProfeta.toLocaleString('es-AR') : '—'}</p>
       <small>Costo + 50% Ganancia generada</small>
     </div>
   </div>
@@ -541,7 +566,7 @@ function renderVentasGeneral() {
               </span>
             </div>
             <div style="display:flex; gap:12px; flex-wrap:wrap; color:#374151; align-items:center;">
-              <span>💵 $${(v.totalCobrado||0).toLocaleString()}</span>
+              <span>💵 $${(v.totalCobrado||0).toLocaleString('es-AR')}</span>
               ${(() => {
                 const est = String(v.estado || " ").trim().toUpperCase();
                 const mp = String(v.metodoPago || " ").trim().toLowerCase();
@@ -549,8 +574,8 @@ function renderVentasGeneral() {
                 if (mp === "transferencia") return '<span style="padding:1px 8px; border-radius:6px; font-size:0.85em; font-weight:600; background:#dbeafe; color:#1e40af;">🏦 Transferencia</span>';
                 return '<span style="padding:1px 8px; border-radius:6px; font-size:0.85em; font-weight:600; background:#dcfce7; color:#166534;">💵 Efectivo</span>';
               })()}
-              <span>Comisión: $${(v.comision||0).toLocaleString()}</span>
-              <span>👑 Profeta: $${paraProfetaMostrar(v).toLocaleString()}</span>
+              <span>Comisión: $${(v.comision||0).toLocaleString('es-AR')}</span>
+              <span>👑 Profeta: $${paraProfetaMostrar(v).toLocaleString('es-AR')}</span>
             </div>
           </div>`;
         }).join("")
@@ -559,6 +584,7 @@ function renderVentasGeneral() {
   </div>`;
 }
 
+// ===== RENDER: CLIENTES GLOBALES =====
 function renderClientesGlobales() {
   const container = document.getElementById("clientes-section");
   if (!container) return;
@@ -567,7 +593,7 @@ function renderClientesGlobales() {
   container.innerHTML = `<div class="card" style="border-left: 5px solid #ef4444;">
     <div class="flex space-between">
       <h2>👥 Cartera de Clientes (Deudores)</h2>
-      <b style="color: #ef4444;">Deuda Total: $${deudaTotal.toLocaleString()}</b>
+      <b style="color: #ef4444;">Deuda Total: $${deudaTotal.toLocaleString('es-AR')}</b>
     </div>
     <div style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
       ${deudores.length === 0 ? '<p>No hay deudas pendientes</p>' : deudores.map((c) => { 
@@ -575,7 +601,7 @@ function renderClientesGlobales() {
         const deuda = c.deuda - c.pagado; 
         return `<div style="padding: 10px 0; border-bottom: 1px solid #eee;">
           <div class="flex space-between" style="flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom:6px;">
-            <span><b>${c.nombre}</b> (Debe: $${deuda.toLocaleString()})</span>
+            <span><b>${c.nombre}</b> (Debe: $${deuda.toLocaleString('es-AR')})</span>
             <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
               <button onclick="registrarPagoCliente(${idx}, 'efectivo', '100')" style="background:#059669; padding:4px 8px; font-size:0.8em;">💵 100%</button>
               <button onclick="registrarPagoCliente(${idx}, 'efectivo', '50')" style="background:#10b981; padding:4px 8px; font-size:0.8em;">💵 50%</button>
@@ -597,19 +623,24 @@ function renderClientesGlobales() {
   </div>`;
 }
 
+// ===== RENDER: PANEL DE USUARIO (CON ALQUILER BARRIL) =====
 function renderPanelUsuario() {
   const container = document.getElementById("panel-usuario-container");
   if (!container) return;
   if (!state.usuarioActivo) { container.innerHTML = ""; return; }
+  
   const usuario = state.usuarios[state.usuarioActivo];
   const preview = calcularPreview();
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
   const precioUnitario = state.precioUnitario || "";
   const totalCobrado = totalLatas > 0 && precioUnitario ? totalLatas * Number(precioUnitario) : 0;
+  const hayAlquiler = state.alquilerBarril && state.alquilerBarril.trim() !== "";
 
   container.innerHTML = `<div class="panel-usuario card">
     <h1 style="border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Panel de ${state.usuarioActivo}</h1>
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+      
+      <!-- COLUMNA 1: STOCK PROPIO -->
       <div>
         <h3>📦 Stock Propio</h3>
         <table style="width:100%; border-collapse: collapse; margin-top:10px; background: #f8fafc; border-radius: 8px;">
@@ -638,6 +669,8 @@ function renderPanelUsuario() {
           </tr></tfoot>
         </table>
       </div>
+      
+      <!-- COLUMNA 2: AGREGAR STOCK -->
       <div>
         <h3>➕ Agregar Stock</h3>
         ${estilosBase.map(e => `<div class="flex space-between" style="margin-bottom: 5px; align-items: center;">
@@ -661,6 +694,8 @@ function renderPanelUsuario() {
           </div>
         </div>
       </div>
+      
+      <!-- COLUMNA 3: REGISTRAR VENTA -->
       <div>
         <h3>🛒 Registrar Venta</h3>
         <div style="position: relative; margin-bottom: 10px;">
@@ -671,17 +706,20 @@ function renderPanelUsuario() {
           <span>${e}</span>
           <input type="number" data-venta="${e}" value="${state.ventaActual[e] || ""}" placeholder="0" style="width: 80px;">
         </div>`).join("")}
-               <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)" value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
         
-        <!-- 🔹 Bloque Manual (solo si hay alquiler) -->
-        <div id="bloque-manual" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${state.alquilerBarril ? 'block' : 'none'}; border: 2px solid #fbbf24;">
+        <!-- INPUT ALQUILER BARRIL -->
+        <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)" value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
+        
+        <!-- 🔹 BLOQUE MANUAL (solo si hay alquiler) -->
+        <div id="bloque-manual" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${hayAlquiler ? 'block' : 'none'}; border: 2px solid #fbbf24;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <span style="color: #fbbf24;">💰 Total a cobrar (manual):</span>
-<input type="text" id="input-total-manual" value="${state.totalCobradoInput ? Number(state.totalCobradoInput).toLocaleString('es-AR') : ''}" placeholder="Ej: 3.500" style="background: transparent; border: none; color: #fbbf24; font-size: 1.5em; font-weight: bold; text-align: right; width: 60%;">          </div>
+            <input type="text" id="input-total-manual" value="${state.totalCobradoInput ? Number(state.totalCobradoInput).toLocaleString('es-AR') : ''}" placeholder="Ej: 3.500" style="background: transparent; border: none; color: #fbbf24; font-size: 1.5em; font-weight: bold; text-align: right; width: 60%;">
+          </div>
         </div>
 
-        <!-- 🔹 Bloque Automático (si NO hay alquiler) -->
-        <div id="bloque-automatico" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${state.alquilerBarril ? 'none' : 'block'};">
+        <!-- 🔹 BLOQUE AUTOMÁTICO (si NO hay alquiler) -->
+        <div id="bloque-automatico" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${hayAlquiler ? 'none' : 'block'};">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span style="color: #94a3b8; font-size: 0.9em;">Total latas:</span>
             <b style="color: #f1f5f9; font-size: 1.4em;">${totalLatas}</b>
@@ -700,28 +738,31 @@ function renderPanelUsuario() {
           </div>
           <div style="text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155;">
             <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
-            <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display> $${totalCobrado > 0 ? totalCobrado.toLocaleString() : "—"} </b>
+            <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display> $${totalCobrado > 0 ? totalCobrado.toLocaleString('es-AR') : "—"} </b>
           </div>
         </div>
+        
+        <!-- VISTA PREVIA PROFETA -->
         <div style="background:#fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-top: 10px;">
           <h4 style="margin: 0 0 8px 0; color: #92400e;">📊 Vista Previa Profeta</h4>
           <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
             <span style="color:#78350f;">Costo (${state.tipoLata === 'sinEtiqueta' ? 'sin etiqueta' : 'con etiqueta'}):</span>
-            <b style="color:#92400e;">$${preview.costoTotal.toLocaleString()}</b>
+            <b style="color:#92400e;">$${preview.costoTotal.toLocaleString('es-AR')}</b>
           </div>
           <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
             <span style="color:#78350f;">Comisión (50%):</span>
-            <b style="color:${preview.comision > 0 ? '#059669' : '#92400e'};"> ${preview.comision > 0 ? '$' + preview.comision.toLocaleString() : '— (ingresá precio)'} </b>
+            <b style="color:${preview.comision > 0 ? '#059669' : '#92400e'};"> ${preview.comision > 0 ? '$' + preview.comision.toLocaleString('es-AR') : '— (ingresá precio)'} </b>
           </div>
           <div style="display:flex; justify-content:space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f59e0b;">
             <span style="color:#78350f; font-weight:bold;">Total a Rendir:</span>
-            <b style="color:#b45309; font-size:1.1em;">$${preview.paraProfeta.toLocaleString()}</b>
+            <b style="color:#b45309; font-size:1.1em;">$${preview.paraProfeta.toLocaleString('es-AR')}</b>
           </div>
-          ${preview.gananciaBruta > 0 ? `<div style="margin-top:6px; font-size:0.8em; color:#78350f; text-align:right;">Ganancia bruta: $${preview.gananciaBruta.toLocaleString()}</div>` : ''}
+          ${preview.gananciaBruta > 0 ? `<div style="margin-top:6px; font-size:0.8em; color:#78350f; text-align:right;">Ganancia bruta: $${preview.gananciaBruta.toLocaleString('es-AR')}</div>` : ''}
         </div>
         <button id="btn-registrar" style="width:100%; margin-top:10px; background:#1e40af;"> ✅ Registrar Venta </button>
       </div>
     </div>
+    
     <hr>
     <div class="flex space-between">
       <h3>📜 Historial de Ventas</h3>
@@ -744,9 +785,9 @@ function renderPanelUsuario() {
               </span>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
-              <span>💵 $${(v.totalCobrado||0).toLocaleString()}</span>
-              <span style="color:#059669;">Comisión: $${(v.comision||0).toLocaleString()}</span>
-              <span style="color:#b45309;">👑 Profeta: $${paraProfetaMostrar(v).toLocaleString()}</span>
+              <span>💵 $${(v.totalCobrado||0).toLocaleString('es-AR')}</span>
+              <span style="color:#059669;">Comisión: $${(v.comision||0).toLocaleString('es-AR')}</span>
+              <span style="color:#b45309;">👑 Profeta: $${paraProfetaMostrar(v).toLocaleString('es-AR')}</span>
             </div>
           </div>
           <button onclick="borrarVentaIndividual(${usuario.ventas.length - 1 - i})" title="Borrar esta venta" style="margin-left:12px; background:#ef4444; padding:4px 10px; font-size:0.85em; border-radius:6px; flex-shrink:0; cursor:pointer;">🗑️</button>
@@ -755,31 +796,34 @@ function renderPanelUsuario() {
     </div>
   </div>`;
   
+  // Bind de eventos después de renderizar
   bindPanelEventos();
   bindAutocompletadoCliente();
   bindPrecioUnitario();
   bindAlquilerBarril();
 }
 
+// ===== BIND: PRECIO UNITARIO =====
 function bindPrecioUnitario() {
-const input = document.getElementById("precio-unitario");
-if (!input) return;
-
-// 🛑 Si hay alquiler de barril, NO recalcules automáticamente
-const alquilerInput = document.getElementById("alquiler-barril");
-if (alquilerInput && alquilerInput.value.trim() !== "") return;
-
-input.addEventListener("input", () => {
-const precio = Number(input.value) || 0;
-state.precioUnitario = input.value;
-const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-const total = totalLatas * precio;
-state.totalCobradoInput = total > 0 ? String(total) : "";
-const display = document.querySelector("[data-total-display]");
-if (display) display.textContent = total > 0 ? "$" + total.toLocaleString() : "$—";
-});
+  const input = document.getElementById("precio-unitario");
+  if (!input) return;
+  
+  // 🛑 Si hay alquiler de barril, NO recalcules automáticamente
+  const alquilerInput = document.getElementById("alquiler-barril");
+  if (alquilerInput && alquilerInput.value.trim() !== "") return;
+  
+  input.addEventListener("input", () => {
+    const precio = Number(input.value) || 0;
+    state.precioUnitario = input.value;
+    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+    const total = totalLatas * precio;
+    state.totalCobradoInput = total > 0 ? String(total) : "";
+    const display = document.querySelector("[data-total-display]");
+    if (display) display.textContent = total > 0 ? "$" + total.toLocaleString('es-AR') : "$—";
+  });
 }
 
+// ===== BIND: ALQUILER BARRIL (NUEVA FUNCIÓN) =====
 function bindAlquilerBarril() {
   const inputAlquiler = document.getElementById('alquiler-barril');
   const bloqueManual = document.getElementById('bloque-manual');
@@ -794,6 +838,7 @@ function bindAlquilerBarril() {
     state.alquilerBarril = e.target.value;
 
     if (activo) {
+      // Ocultar automático, mostrar manual
       if (bloqueAutomatico) bloqueAutomatico.style.display = 'none';
       if (bloqueManual) {
         bloqueManual.style.display = 'block';
@@ -805,10 +850,12 @@ function bindAlquilerBarril() {
         }
       }
     } else {
+      // Volver al automático
       if (bloqueManual) bloqueManual.style.display = 'none';
       if (bloqueAutomatico) bloqueAutomatico.style.display = 'block';
       state.totalCobradoInput = "";
       state.precioUnitario = "";
+      // Recalcular automáticamente
       renderPanelUsuario();
     }
   });
@@ -816,9 +863,11 @@ function bindAlquilerBarril() {
   // 👉 Formato con punto de miles SOLO para el input manual
   if (inputTotalManual) {
     inputTotalManual.addEventListener('input', (e) => {
+      // Guardar valor SIN formato en el state (para cálculos)
       const valorSinFormato = e.target.value.replace(/\./g, '');
       state.totalCobradoInput = valorSinFormato;
       
+      // Mostrar valor CON formato en el input (para visualización)
       if (valorSinFormato) {
         const numero = Number(valorSinFormato);
         if (!isNaN(numero)) {
@@ -827,6 +876,7 @@ function bindAlquilerBarril() {
       }
     });
     
+    // También formatear al perder el foco
     inputTotalManual.addEventListener('blur', (e) => {
       const valor = e.target.value.replace(/\./g, '');
       if (valor) {
@@ -837,26 +887,9 @@ function bindAlquilerBarril() {
       }
     });
   }
-}  // ← ÚNICA llave de cierre, bien puesta
-
-// Volver al automático
-if (bloqueManual) bloqueManual.style.display = 'none';
-if (bloqueAutomatico) bloqueAutomatico.style.display = 'block';
-state.totalCobradoInput = "";
-state.precioUnitario = "";
-// Recalcular automáticamente
-renderPanelUsuario();
-
-);
-
-// Guardar el monto manual en el state
-if (inputTotalManual) {
-inputTotalManual.addEventListener('input', (e) => {
-  state.totalCobradoInput = e.target.value;
-});
-}
 }
 
+// ===== BIND: AUTOCOMPLETADO CLIENTE =====
 function bindAutocompletadoCliente() {
   const input = document.getElementById("cliente-nombre");
   const sugerencias = document.getElementById("sugerencias-cliente");
@@ -880,7 +913,7 @@ function bindAutocompletadoCliente() {
       const cliente = state.clientesGlobales.find(c => c.nombre === nombre);
       const deuda = cliente ? (cliente.deuda - cliente.pagado) : 0;
       return `<div onclick="seleccionarCliente('${nombre.replace(/'/g, "\\'")}')" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; font-size: 0.9em;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
-        👤 ${nombre} ${deuda > 0 ? `<span style="color:#dc2626; font-size:0.8em;">(Debe $${deuda.toLocaleString()})</span>` : ''}
+        👤 ${nombre} ${deuda > 0 ? `<span style="color:#dc2626; font-size:0.8em;">(Debe $${deuda.toLocaleString('es-AR')})</span>` : ''}
       </div>`;
     }).join("");
     sugerencias.style.display = "block";
@@ -904,29 +937,35 @@ function seleccionarCliente(nombre) {
   }
 }
 
+// ===== BIND: EVENTOS DEL PANEL =====
 function bindPanelEventos() {
+  // Inputs de stock
   document.querySelectorAll("[data-stock]").forEach(i => i.onchange = (e) => modificarStockDirecto(state.usuarioActivo, e.target.dataset.stock, e.target.value));
+  
+  // Inputs de venta
   document.querySelectorAll("[data-venta]").forEach(i => i.onchange = (e) => {
     setState(p => { p.ventaActual[e.target.dataset.venta] = e.target.value; return p; });
   });
   
+  // Input cliente
   const clienteInput = document.getElementById("cliente-nombre");
   if (clienteInput) clienteInput.oninput = (e) => { state.clienteNombre = e.target.value; };
   
- const barrilInput = document.getElementById("alquiler-barril");
-if (barrilInput) {
-  barrilInput.oninput = (e) => {
-    state.alquilerBarril = e.target.value;
-    // Actualizar solo la visibilidad sin re-render completo
-    const bloqueManual = document.getElementById('bloque-manual');
-    const bloqueAutomatico = document.getElementById('bloque-automatico');
-    const hayTexto = e.target.value.trim() !== '';
-    
-    if (bloqueManual) bloqueManual.style.display = hayTexto ? 'block' : 'none';
-    if (bloqueAutomatico) bloqueAutomatico.style.display = hayTexto ? 'none' : 'block';
-  };
-}
+  // Input alquiler barril (solo guarda el valor, la lógica visual está en bindAlquilerBarril)
+  const barrilInput = document.getElementById("alquiler-barril");
+  if (barrilInput) {
+    barrilInput.oninput = (e) => { 
+      state.alquilerBarril = e.target.value;
+      // Actualizar visibilidad sin re-render completo para no perder foco
+      const bloqueManual = document.getElementById('bloque-manual');
+      const bloqueAutomatico = document.getElementById('bloque-automatico');
+      const hayTexto = e.target.value.trim() !== '';
+      if (bloqueManual) bloqueManual.style.display = hayTexto ? 'block' : 'none';
+      if (bloqueAutomatico) bloqueAutomatico.style.display = hayTexto ? 'none' : 'block';
+    };
+  }
   
+  // Botón Registrar Venta
   const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
     const precio = Number(state.precioUnitario) || 0;
@@ -938,6 +977,7 @@ if (barrilInput) {
     state.precioUnitario = "";
   };
   
+  // Botón Guardar en Sheet
   const btnGuardar = document.getElementById("btn-guardar");
   if (btnGuardar) btnGuardar.onclick = async function() {
     this.disabled = true;
@@ -948,6 +988,7 @@ if (barrilInput) {
     this.textContent = "💾 Guardar en Sheet";
   };
   
+  // Botón Agregar Stock (Con Etiqueta)
   const btnAgregarStock = document.getElementById("btn-agregar-stock");
   if (btnAgregarStock) btnAgregarStock.onclick = async () => {
     const estilosCargados = {};
@@ -966,6 +1007,7 @@ if (barrilInput) {
     encolarActualizarStockEnSheet(state.usuarioActivo);
   };
   
+  // Botón Agregar Stock (Sin Etiqueta)
   const btnAgregarStockSin = document.getElementById("btn-agregar-stock-sin-etiqueta");
   if (btnAgregarStockSin) btnAgregarStockSin.onclick = async () => {
     const estilosCargados = {};
@@ -989,6 +1031,7 @@ if (barrilInput) {
     encolarActualizarStockEnSheet(state.usuarioActivo);
   };
   
+  // Botón Reset Stock
   const btnReset = document.getElementById("btn-reset-stock");
   if (btnReset) btnReset.onclick = () => {
     if (confirm("¿Resetear todo el stock a 0?")) {
@@ -1005,6 +1048,7 @@ if (barrilInput) {
     }
   };
   
+  // Botón Convertir C/E → S/E
   const btnCeSe = document.getElementById("btn-ce-a-se");
   if (btnCeSe) btnCeSe.onclick = () => {
     const estilo = document.getElementById("transfer-estilo").value;
@@ -1024,6 +1068,7 @@ if (barrilInput) {
     }
   };
   
+  // Botón Convertir S/E → C/E
   const btnSeCe = document.getElementById("btn-se-a-ce");
   if (btnSeCe) btnSeCe.onclick = () => {
     const estilo = document.getElementById("transfer-estilo").value;
@@ -1044,12 +1089,14 @@ if (barrilInput) {
   };
 }
 
+// ===== RENDER: USUARIOS =====
 function renderUsuarios() {
   const container = document.getElementById("usuarios-section");
   if (!container) return;
   container.innerHTML = Object.keys(state.usuarios).map(u => `<button onclick="setState(p => { p.usuarioActivo = '${u}'; return p; })" style="background: ${state.usuarioActivo === u ? '#1e40af' : '#3b82f6'}; margin: 5px;">Panel ${u} </button>`).join("");
 }
 
+// ===== RENDER: TRANSFERENCIA =====
 function renderTransferencia() {
   const container = document.getElementById("transferencia-section");
   if (!container) return;
@@ -1134,6 +1181,7 @@ function renderTransferencia() {
   if (btnSin) btnSin.onclick = () => ejecutarTransferencia('sin');
 }
 
+// ===== MODALES: HISTORIAL STOCK =====
 function mostrarHistorialStock() {
   const modal = document.createElement("div");
   modal.style.cssText = "position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;";
@@ -1163,6 +1211,7 @@ function mostrarHistorialStock() {
   document.body.appendChild(modal);
 }
 
+// ===== MODALES: HISTORIAL TRANSFERENCIAS =====
 function mostrarHistorialTransferencias() {
   const modal = document.createElement("div");
   modal.style.cssText = "position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;";
@@ -1190,6 +1239,7 @@ function mostrarHistorialTransferencias() {
   document.body.appendChild(modal);
 }
 
+// ===== MODALES: TODOS LOS CLIENTES =====
 function mostrarTodosLosClientes() {
   const modal = document.createElement("div");
   modal.style.cssText = "position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;";
@@ -1204,7 +1254,7 @@ function mostrarTodosLosClientes() {
         const deuda = cliente.deuda - cliente.pagado;
         return `<div style="padding:10px; border:1px solid #e5e7eb; border-radius:8px; ${deuda > 0 ? 'background:#fef2f2; border-color:#fecaca;' : 'background:#f9fafb;'}">
           <div style="font-weight:600; font-size:0.9em;">${cliente.nombre}</div>
-          ${deuda > 0 ? `<div style="color:#dc2626; font-size:0.8em; margin-top:4px;">Debe: $${deuda.toLocaleString()}</div>` : '<div style="color:#059669; font-size:0.8em; margin-top:4px;">Sin deuda</div>'}
+          ${deuda > 0 ? `<div style="color:#dc2626; font-size:0.8em; margin-top:4px;">Debe: $${deuda.toLocaleString('es-AR')}</div>` : '<div style="color:#059669; font-size:0.8em; margin-top:4px;">Sin deuda</div>'}
         </div>`;
       }).join("")}
     </div>
@@ -1212,3 +1262,5 @@ function mostrarTodosLosClientes() {
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
   document.body.appendChild(modal);
 }
+
+// ===== FIN DE UI.JS =====
