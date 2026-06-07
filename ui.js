@@ -611,7 +611,9 @@ function renderVentasGeneral() {
 function renderClientesGlobales() {
   const container = document.getElementById("clientes-section");
   if (!container) return;
-  const deudores = state.clientesGlobales.filter(c => (c.deuda - c.pagado) > 0);
+  const deudores = state.clientesGlobales
+  .filter(c => (c.deuda - c.pagado) > 0)
+  .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   const deudaTotal = deudores.reduce((acc, c) => acc + (c.deuda - c.pagado), 0);
   container.innerHTML = `<div class="card" style="border-left: 5px solid #ef4444;">
     <div class="flex space-between">
