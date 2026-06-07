@@ -934,12 +934,12 @@ function seleccionarCliente(nombre) {
   const sugerencias = document.getElementById("sugerencias-cliente");
   if (sugerencias) sugerencias.style.display = "none";
   
-  const ventas = Object.values(state.usuarios).flatMap(u => u.ventas);
-  const ventasCliente = ventas.filter(v => v.cliente && v.cliente.toLowerCase() === nombre.toLowerCase());
-  if (ventasCliente.length > 0) {
-    const ultima = ventasCliente[ventasCliente.length - 1];
-    setState(p => { p.ventaActual = { ...ultima.estilos }; return p; });
-  }
+  // === NO recordamos el pedido anterior ===
+  // Solo ponemos el nombre, los campos de latas quedan limpios
+  setState(p => { 
+    p.ventaActual = { BLONDE: "", "IRISH RED": "", STOUT: "", "SESSION IPA": "", "RED IPA": "", HONEY: "" };
+    return p; 
+  });
 }
 
 // ===== BIND: EVENTOS DEL PANEL =====
