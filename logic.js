@@ -29,7 +29,8 @@ function encolarPagoParaSheet(nombreCliente, monto, metodo) {
     monto: Number(monto) || 0,
     metodo: metodoNorm,
     metodoPago: metodoNorm,
-    fecha: new Date().toLocaleString("es-AR"),
+    fecha: new Date().toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}),
+timestamp: Date.now(),
   });
   localStorage.setItem("pagosPendientes", JSON.stringify(pagosPendientes));
 }
