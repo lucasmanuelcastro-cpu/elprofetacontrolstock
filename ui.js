@@ -828,39 +828,34 @@ function bindPrecioUnitario() {
   });
 }
 
-// ===== BIND: ALQUILER BARRIL (MEJORADO - evita salto de cursor) =====
+// ===== BIND: ALQUILER BARRIL (VERSIÓN FUERTE - evita salto de cursor) =====
 function bindAlquilerBarril() {
   const inputAlquiler = document.getElementById('alquiler-barril');
+  if (!inputAlquiler) return;
+
   const bloqueManual = document.getElementById('bloque-manual');
   const bloqueAutomatico = document.getElementById('bloque-automatico');
   const inputTotalManual = document.getElementById('input-total-manual');
 
-  if (!inputAlquiler) return;
-
-  // 👉 Cuando escribe en "Alquiler barril"
   inputAlquiler.addEventListener('input', (e) => {
-    const valor = e.target.value;
-    state.alquilerBarril = valor;
-    const hayAlquiler = valor.trim() !== '';
+    const valor = e.target.value.trim();
+    state.alquilerBarril = e.target.value;
 
+    const hayAlquiler = valor !== '';
+
+    // Cambiar visibilidad sin hacer render completo
     if (bloqueManual) bloqueManual.style.display = hayAlquiler ? 'block' : 'none';
     if (bloqueAutomatico) bloqueAutomatico.style.display = hayAlquiler ? 'none' : 'block';
 
-    // Solo hacer render completo cuando se cambia de modo (para no perder foco)
-    if (hayAlquiler) {
-      if (inputTotalManual) {
-        setTimeout(() => {
-          inputTotalManual.focus();
-        }, 10);
-      }
-    } else {
-      state.totalCobradoInput = "";
-      state.precioUnitario = "";
-      setTimeout(() => renderPanelUsuario(), 10);
+    // Solo mover foco al campo manual si corresponde
+    if (hayAlquiler && inputTotalManual) {
+      setTimeout(() => {
+        inputTotalManual.focus();
+      }, 5);
     }
   });
 
-  // Formato con punto de miles para el input manual
+  // Formato de miles en el campo manual
   if (inputTotalManual) {
     inputTotalManual.addEventListener('input', (e) => {
       const valorSinFormato = e.target.value.replace(/\./g, '');
@@ -873,7 +868,7 @@ function bindAlquilerBarril() {
         }
       }
     });
-    
+
     inputTotalManual.addEventListener('blur', (e) => {
       const valor = e.target.value.replace(/\./g, '');
       if (valor) {
