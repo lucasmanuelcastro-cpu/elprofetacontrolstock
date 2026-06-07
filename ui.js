@@ -130,21 +130,38 @@ function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
   });
 }
 
-// ===== REGISTRAR VENTA LOCAL =====
+// ===== REGISTRAR VENTA LOCAL (CORREGIDA) =====
 function registrarVentaLocal() {
-  const usuario = state.usuarios[state.usuarioActivo];
-  const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  if (totalLatas === 0) return alert("Cargá al menos 1 lata");
+  const cliente = (state.clienteNombre || "").trim();
   
+  // === PUNTO 3: Nombre de cliente OBLIGATORIO ===
+  if (!cliente || cliente === "Consumidor Final") {
+    alert("⚠️ Debes ingresar el nombre del cliente.\n\nNo se puede registrar como 'Consumidor Final' automáticamente.");
+    const inputCliente = document.getElementById("cliente-nombre");
+    if (inputCliente) inputCliente.focus();
+    return;
+  }
+
+  const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+  const hayAlquiler = (state.alquilerBarril || "").trim() !== "";
+
+  // === PUNTO 2: Permitir solo alquiler de barril ===
+  if (totalLatas === 0 && !hayAlquiler) {
+    alert("Cargá al menos 1 lata o el alquiler de barril");
+    return;
+  }
+
   const preview = calcularPreview();
+  const totalCobrado = Number(state.totalCobradoInput) || 0;
+
   const venta = {
-    cliente: state.clienteNombre || 'Consumidor Final',
+    cliente: cliente,
     estilos: {...state.ventaActual},
-    alquilerBarril: state.alquilerBarril,
+    alquilerBarril: state.alquilerBarril || "",
     tipoLata: state.tipoLata,
     estado: "PENDIENTE",
     metodoPago: "",
-    totalCobrado: Number(state.totalCobradoInput) || 0,
+    totalCobrado: totalCobrado,
     costoTotal: preview.costoTotal,
     comision: preview.comision,
     paraProfeta: preview.paraProfeta,
@@ -152,49 +169,35 @@ function registrarVentaLocal() {
     vendedor: state.usuarioActivo
   };
 
-  usuario.ventas.push(venta);
-  
-  // Descontar stock
-  Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
-    const c = Number(cant) || 0;
-    if (c > 0) {
-      if (state.tipoLata === 'sinEtiqueta') {
-        if (!usuario.stockSinEtiqueta) usuario.stockSinEtiqueta = {};
-        usuario.stockSinEtiqueta[estilo] = (usuario.stockSinEtiqueta[estilo] || 0) - c;
-      } else {
-        usuario.stock[estilo] = (usuario.stock[estilo] || 0) - c;
-      }
-    }
-  });
+  // Guardar en usuario local
+  state.usuarios[state.usuarioActivo].ventas.push(venta);
 
-  // Actualizar cartera de clientes
-  if (state.clienteNombre && state.clienteNombre !== 'Consumidor Final') {
-    let cliente = state.clientesGlobales.find(c => c.nombre === state.clienteNombre);
-    if (!cliente) {
-      cliente = { nombre: state.clienteNombre, deuda: 0, pagado: 0, pagos: [] };
-      state.clientesGlobales.push(cliente);
-    }
-    cliente.deuda += Number(state.totalCobradoInput) || 0;
+  // Descontar stock SOLO si hay latas
+  if (totalLatas > 0) {
+    Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
+      const c = Number(cant) || 0;
+      if (c > 0) {
+        const usuario = state.usuarios[state.usuarioActivo];
+        if (state.tipoLata === 'sinEtiqueta') {
+          if (!usuario.stockSinEtiqueta) usuario.stockSinEtiqueta = {};
+          usuario.stockSinEtiqueta[estilo] = (usuario.stockSinEtiqueta[estilo] || 0) - c;
+        } else {
+          usuario.stock[estilo] = (usuario.stock[estilo] || 0) - c;
+        }
+      }
+    });
   }
 
-  // Preparar venta para Sheet
-  const ventaParaSheet = {
-    cliente: venta.cliente,
-    estilos: venta.estilos,
-    alquilerBarril: venta.alquilerBarril || "",
-    tipoLata: venta.tipoLata,
-    totalCobrado: venta.totalCobrado,
-    paraProfeta: preview.paraProfeta,
-    comision: preview.comision,
-    totalLatas: preview.totalLatas,
-    costo: preview.costoTotal,
-    ganancia: venta.totalCobrado - preview.costoTotal,
-    metodoPago: venta.metodoPago,
-    fecha: venta.fecha,
-    vendedor: venta.vendedor,
-    esCobro: false,
-  };
+  // Actualizar cliente
+  let clienteObj = state.clientesGlobales.find(c => c.nombre === cliente);
+  if (!clienteObj) {
+    clienteObj = { nombre: cliente, deuda: 0, pagado: 0, pagos: [] };
+    state.clientesGlobales.push(clienteObj);
+  }
+  clienteObj.deuda += totalCobrado;
 
+  // Preparar para Sheet
+  const ventaParaSheet = { ...venta, paraProfeta: preview.paraProfeta, totalLatas: totalLatas };
   ventasPendientes.push(ventaParaSheet);
   localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
 
@@ -202,8 +205,10 @@ function registrarVentaLocal() {
   state.ventaActual = { BLONDE: "", "IRISH RED": "", STOUT: "", "SESSION IPA": "", "RED IPA": "", HONEY: "" };
   state.clienteNombre = "";
   state.alquilerBarril = "";
-  state.precioUnitario = "";
   state.totalCobradoInput = "";
+  state.precioUnitario = "";
+
+  alert(`✅ Venta registrada correctamente para ${cliente}`);
   render();
 }
 
