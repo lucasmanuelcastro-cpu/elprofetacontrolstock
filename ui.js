@@ -849,9 +849,7 @@ function bindAlquilerBarril() {
 
     // Solo mover foco al campo manual si corresponde
     if (hayAlquiler && inputTotalManual) {
-      setTimeout(() => {
-        inputTotalManual.focus();
-      }, 5);
+      
     }
   });
 
