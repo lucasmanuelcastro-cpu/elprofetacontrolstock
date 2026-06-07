@@ -166,6 +166,7 @@ function registrarVentaLocal() {
     comision: preview.comision,
     paraProfeta: preview.paraProfeta,
     fecha: new Date().toLocaleString('es-AR'),
+    timestamp: Date.now(), // ← Agregar esta línea
     vendedor: state.usuarioActivo
   };
 
