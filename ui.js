@@ -192,7 +192,7 @@ function registrarVentaLocal() {
   // Actualizar cliente
   let clienteObj = state.clientesGlobales.find(c => c.nombre === cliente);
   if (!clienteObj) {
-    clienteObj = { nombre: cliente, deuda: 0, pagado: 0, pagos: [] };
+  clienteObj = { nombre: cliente, deuda: 0, pagado: 0, pagos: [], timestamp: Date.now() };
     state.clientesGlobales.push(clienteObj);
   }
   clienteObj.deuda += totalCobrado;
