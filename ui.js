@@ -552,7 +552,7 @@ function renderVentasGeneral() {
     <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
     ${todasLasVentas.length === 0
       ? '<p style="color:gray;">No hay ventas cobradas aún.</p>'
-      : [...todasLasVentas].reverse().map(v => {
+      : [...todasLasVentas].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).map(v => {
           const vendedor = v.vendedor || Object.keys(state.usuarios).find(u => state.usuarios[u].ventas.some(vv => vv === v)) || '—';
           return `
           <div style="border-bottom: 1px solid #f3f4f6; padding: 8px 0; font-size: 0.88em;">
