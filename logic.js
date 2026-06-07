@@ -321,7 +321,9 @@ async function cargarDatosDesdeSheet() {
                 estado: venta.estado || "PENDIENTE",
                 cobradoReal: venta.cobradoReal || 0,
                costoTotal: venta.costoTotal != null ? venta.costoTotal : costo,
-               timestamp: venta.timestamp || Date.now()
+               timestamp: venta.timestamp 
+                  ? Number(venta.timestamp) 
+                  : (new Date(venta.fecha).getTime() || 0),
               };
             });
           }
