@@ -166,8 +166,7 @@ function registrarVentaLocal() {
     comision: preview.comision,
     paraProfeta: preview.paraProfeta,
     fecha: new Date().toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}),
-timestamp: Date.now(),
-    timestamp: Date.now(), // ← Agregar esta línea
+    timestamp: Date.now(),
     vendedor: state.usuarioActivo
   };
 
@@ -251,18 +250,35 @@ async function borrarVentaIndividual(index) {
         }
       }
     });
+
+    // Reducir deuda del cliente localmente
+    const nombreCliente = String(venta.cliente || "").toLowerCase().trim();
+    const idxCliente = prev.clientesGlobales.findIndex(c =>
+      String(c.nombre || "").toLowerCase().trim() === nombreCliente
+    );
+    if (idxCliente !== -1) {
+      const monto = Number(venta.totalCobrado) || 0;
+      prev.clientesGlobales[idxCliente].deuda = Math.max(0, (prev.clientesGlobales[idxCliente].deuda || 0) - monto);
+      if (prev.clientesGlobales[idxCliente].deuda === 0) {
+        prev.clientesGlobales[idxCliente].pagado = 0;
+      }
+    }
+
     prev.usuarios[prev.usuarioActivo].ventas.splice(index, 1);
     return prev;
   });
-  
+
+  // Encolar para cuando aprieten "Guardar en Sheet"
   encolarBorrarVentaEnSheet({
     vendedor: venta.vendedor || state.usuarioActivo,
     fecha: venta.fecha,
     cliente: venta.cliente,
     estilos: venta.estilos,
     tipoLata: venta.tipoLata || "conEtiqueta",
+    totalCobrado: venta.totalCobrado || 0,
   });
   encolarActualizarStockEnSheet(state.usuarioActivo);
+  guardarDatos();
 }
 
 // ===== COBROS Y CARTERA =====
@@ -614,7 +630,6 @@ function renderClientesGlobales() {
               <button onclick="registrarPagoCliente(${idx}, 'efectivo', '50')" style="background:#10b981; padding:4px 8px; font-size:0.8em;">💵 50%</button>
               <button onclick="registrarPagoCliente(${idx}, 'transferencia', '100')" style="background:#2563eb; padding:4px 8px; font-size:0.8em;">🏦 100%</button>
               <button onclick="registrarPagoCliente(${idx}, 'transferencia', '50')" style="background:#3b82f6; padding:4px 8px; font-size:0.8em;">🏦 50%</button>
-              <button onclick="borrarDeudaCliente(${idx})" style="background:#ef4444; padding:4px 8px; font-size:0.8em;">🗑️ Borrar deuda</button>
             </div>
           </div>
           <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
