@@ -321,6 +321,7 @@ async function cargarDatosDesdeSheet() {
                 cobradoReal: venta.cobradoReal || 0,
                 paraProfeta: paraProfeta,
                 costoTotal: venta.costoTotal != null ? venta.costoTotal : costo
+                timestamp: venta.timestamp || (index * 1000) // ← Agregar fallback
               };
             });
           }
