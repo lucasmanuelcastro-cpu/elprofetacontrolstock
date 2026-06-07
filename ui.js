@@ -828,7 +828,7 @@ function bindPrecioUnitario() {
   });
 }
 
-// ===== BIND: ALQUILER BARRIL (NUEVA FUNCIÓN) =====
+// ===== BIND: ALQUILER BARRIL (MEJORADO - evita salto de cursor) =====
 function bindAlquilerBarril() {
   const inputAlquiler = document.getElementById('alquiler-barril');
   const bloqueManual = document.getElementById('bloque-manual');
@@ -839,40 +839,33 @@ function bindAlquilerBarril() {
 
   // 👉 Cuando escribe en "Alquiler barril"
   inputAlquiler.addEventListener('input', (e) => {
-    const activo = e.target.value.trim() !== '';
-    state.alquilerBarril = e.target.value;
+    const valor = e.target.value;
+    state.alquilerBarril = valor;
+    const hayAlquiler = valor.trim() !== '';
 
-    if (activo) {
-      // Ocultar automático, mostrar manual
-      if (bloqueAutomatico) bloqueAutomatico.style.display = 'none';
-      if (bloqueManual) {
-        bloqueManual.style.display = 'block';
-        if (inputTotalManual) {
+    if (bloqueManual) bloqueManual.style.display = hayAlquiler ? 'block' : 'none';
+    if (bloqueAutomatico) bloqueAutomatico.style.display = hayAlquiler ? 'none' : 'block';
+
+    // Solo hacer render completo cuando se cambia de modo (para no perder foco)
+    if (hayAlquiler) {
+      if (inputTotalManual) {
+        setTimeout(() => {
           inputTotalManual.focus();
-          if (!state.totalCobradoInput || state.totalCobradoInput === "0") {
-            state.totalCobradoInput = "";
-          }
-        }
+        }, 10);
       }
     } else {
-      // Volver al automático
-      if (bloqueManual) bloqueManual.style.display = 'none';
-      if (bloqueAutomatico) bloqueAutomatico.style.display = 'block';
       state.totalCobradoInput = "";
       state.precioUnitario = "";
-      // Recalcular automáticamente
-      renderPanelUsuario();
+      setTimeout(() => renderPanelUsuario(), 10);
     }
   });
 
-  // 👉 Formato con punto de miles SOLO para el input manual
+  // Formato con punto de miles para el input manual
   if (inputTotalManual) {
     inputTotalManual.addEventListener('input', (e) => {
-      // Guardar valor SIN formato en el state (para cálculos)
       const valorSinFormato = e.target.value.replace(/\./g, '');
       state.totalCobradoInput = valorSinFormato;
       
-      // Mostrar valor CON formato en el input (para visualización)
       if (valorSinFormato) {
         const numero = Number(valorSinFormato);
         if (!isNaN(numero)) {
@@ -881,7 +874,6 @@ function bindAlquilerBarril() {
       }
     });
     
-    // También formatear al perder el foco
     inputTotalManual.addEventListener('blur', (e) => {
       const valor = e.target.value.replace(/\./g, '');
       if (valor) {
