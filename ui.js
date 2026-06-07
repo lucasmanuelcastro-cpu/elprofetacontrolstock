@@ -614,6 +614,7 @@ function renderClientesGlobales() {
               <button onclick="registrarPagoCliente(${idx}, 'efectivo', '50')" style="background:#10b981; padding:4px 8px; font-size:0.8em;">💵 50%</button>
               <button onclick="registrarPagoCliente(${idx}, 'transferencia', '100')" style="background:#2563eb; padding:4px 8px; font-size:0.8em;">🏦 100%</button>
               <button onclick="registrarPagoCliente(${idx}, 'transferencia', '50')" style="background:#3b82f6; padding:4px 8px; font-size:0.8em;">🏦 50%</button>
+              <button onclick="borrarDeudaCliente(${idx})" style="background:#ef4444; padding:4px 8px; font-size:0.8em;">🗑️ Borrar deuda</button>
             </div>
           </div>
           <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
@@ -628,6 +629,85 @@ function renderClientesGlobales() {
       }).join("")}
     </div>
   </div>`;
+}
+
+// ===== BORRAR DEUDA CLIENTE =====
+function borrarDeudaCliente(idx) {
+  const cliente = state.clientesGlobales[idx];
+  if (!cliente) return;
+  
+  if (!confirm(`⚠️ ¿Borrar toda la deuda de ${cliente.nombre}?\nSe devolverá el stock y se precargará el formulario.`)) return;
+
+  // Buscar todas las ventas pendientes de este cliente en todos los usuarios
+  let ventasCliente = [];
+  Object.entries(state.usuarios).forEach(([nombreUsuario, u]) => {
+    u.ventas.forEach((v, i) => {
+      if (String(v.cliente || "").toLowerCase().trim() === String(cliente.nombre || "").toLowerCase().trim()) {
+        if (v.estado === "PENDIENTE" || !v.metodoPago || v.metodoPago === "") {
+          ventasCliente.push({ venta: v, usuario: nombreUsuario, index: i });
+        }
+      }
+    });
+  });
+
+  // Devolver stock por cada venta
+  setState(prev => {
+    ventasCliente.forEach(({ venta, usuario }) => {
+      const u = prev.usuarios[usuario];
+      Object.entries(venta.estilos || {}).forEach(([estilo, cant]) => {
+        const c = Number(cant) || 0;
+        if (c <= 0) return;
+        if (venta.tipoLata === 'sinEtiqueta') {
+          if (!u.stockSinEtiqueta) u.stockSinEtiqueta = {};
+          u.stockSinEtiqueta[estilo] = (u.stockSinEtiqueta[estilo] || 0) + c;
+        } else {
+          u.stock[estilo] = (u.stock[estilo] || 0) + c;
+        }
+      });
+    });
+
+    // Borrar deuda del cliente
+    prev.clientesGlobales[idx].deuda = 0;
+    prev.clientesGlobales[idx].pagado = 0;
+    prev.clientesGlobales[idx].pagos = [];
+
+    // Borrar ventas pendientes del cliente
+    Object.keys(prev.usuarios).forEach(nombreUsuario => {
+      prev.usuarios[nombreUsuario].ventas = prev.usuarios[nombreUsuario].ventas.filter(v => {
+        const esEsteCliente = String(v.cliente || "").toLowerCase().trim() === String(cliente.nombre || "").toLowerCase().trim();
+        const esPendiente = v.estado === "PENDIENTE" || !v.metodoPago || v.metodoPago === "";
+        return !(esEsteCliente && esPendiente);
+      });
+    });
+
+    return prev;
+  });
+
+  // Precargar formulario con la última venta encontrada
+  if (ventasCliente.length > 0) {
+    const ultima = ventasCliente[ventasCliente.length - 1].venta;
+    state.usuarioActivo = ventasCliente[ventasCliente.length - 1].usuario;
+    state.clienteNombre = cliente.nombre;
+    state.ventaActual = { ...ultima.estilos };
+    state.tipoLata = ultima.tipoLata || 'conEtiqueta';
+    state.alquilerBarril = ultima.alquilerBarril || "";
+    state.totalCobradoInput = String(ultima.totalCobrado || "");
+  }
+
+  // Sincronizar stock con Sheet
+  Object.keys(state.usuarios).forEach(u => encolarActualizarStockEnSheet(u));
+
+  // Borrar deuda en Sheet
+  fetch(URL_SCRIPT, {
+    method: "POST",
+    body: JSON.stringify({ accion: "borrarDeudaCliente", cliente: cliente.nombre }),
+    headers: { "Content-Type": "text/plain" },
+    mode: "cors"
+  }).catch(err => console.error("Error borrando deuda en Sheet:", err));
+
+  guardarDatos();
+  render();
+  alert(`✅ Deuda de ${cliente.nombre} borrada. Stock devuelto. Formulario precargado.`);
 }
 
 // ===== RENDER: PANEL DE USUARIO (CON ALQUILER BARRIL) =====
