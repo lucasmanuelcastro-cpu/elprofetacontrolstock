@@ -209,6 +209,9 @@ function registrarVentaLocal() {
   state.totalCobradoInput = "";
   state.precioUnitario = "";
 
+  registrarAuditoria("VENTA", state.usuarioActivo, cliente,
+  Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
+  totalCobrado);
   alert(`✅ Venta registrada correctamente para ${cliente}`);
   render();
 }
@@ -278,6 +281,9 @@ async function borrarVentaIndividual(index) {
     totalCobrado: venta.totalCobrado || 0,
   });
   encolarActualizarStockEnSheet(state.usuarioActivo);
+  registrarAuditoria("BORRADO", state.usuarioActivo, venta.cliente,
+  Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
+  venta.totalCobrado || 0);
   guardarDatos();
 }
 
@@ -311,6 +317,7 @@ function aplicarCobroCartera(index, montoPropuesto, metodoRaw) {
     marcaVentasLocalesCobradasSiSaldado(cliente.nombre, metodo);
   }
   encolarPagoParaSheet(cliente.nombre, monto, metodo);
+  registrarAuditoria("COBRO", state.usuarioActivo, cliente.nombre, metodo, monto);
   
   const metodoTexto = metodo === "efectivo" ? "💵 Efectivo" : "🏦 Transferencia";
   alert(`✅ Registrado cobro $${monto.toLocaleString('es-AR')} de ${cliente.nombre} (${metodoTexto}).` +
