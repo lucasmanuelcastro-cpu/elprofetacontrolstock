@@ -319,9 +319,8 @@ async function cargarDatosDesdeSheet() {
                 tipoLata: tipo,
                 estado: venta.estado || "PENDIENTE",
                 cobradoReal: venta.cobradoReal || 0,
-                paraProfeta: paraProfeta,
-                costoTotal: venta.costoTotal != null ? venta.costoTotal : costo
-                timestamp: venta.timestamp || (index * 1000) // ← Agregar fallback
+               costoTotal: venta.costoTotal != null ? venta.costoTotal : costo,
+               timestamp: venta.timestamp || Date.now()
               };
             });
           }
