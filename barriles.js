@@ -1,17 +1,20 @@
 /**
  * BARRILES.JS - Control de préstamos de barriles
+ * Versión limpia y funcional
  */
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbwTgEcDR_8OkM1mZaSchH7wGJjuST8lV1JMQ0sbXnH2r8rohwn7CJEZhU0Kmx-_31q3NQ/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbzFaSL2UsVfYM1KHxQQE87S4nAjCmJTwTqelh8qxPqqNpxvMo6Md0a2_hPsrvvZrKHRxQ/exec";
 
 let barriles = [];
+let historial = [];
 let filtroActual = "todos";
 
 // Inicialización
 document.addEventListener("DOMContentLoaded", () => {
   cargarBarriles();
-  bindEvents();
+  cargarHistorial();
   actualizarEstadisticas();
+  bindEvents();
 });
 
 // Cargar barriles desde Sheet
@@ -24,15 +27,50 @@ async function cargarBarriles() {
     actualizarEstadisticas();
   } catch (err) {
     console.error("Error cargando barriles:", err);
-    document.getElementById("lista-barriles").innerHTML = 
+    document.getElementById("lista-barriles").innerHTML =
       '<p style="color:#ef4444; text-align:center;">Error de conexión</p>';
+  }
+}
+
+// Cargar historial
+async function cargarHistorial() {
+  try {
+    const resp = await fetch(`${URL_SCRIPT}?accion=leerHistorialBarriles`);
+    const data = await resp.json();
+    historial = data.historial || [];
+    renderHistorial();
+  } catch (err) {
+    console.error("Error cargando historial:", err);
+    document.getElementById("historial-movimientos").innerHTML =
+      '<p style="color:#ef4444; text-align:center;">Error de conexión</p>';
+  }
+}
+
+// Actualizar estadísticas
+async function actualizarEstadisticas() {
+  try {
+    const resp = await fetch(`${URL_SCRIPT}?accion=estadisticasBarriles`);
+    const stats = await resp.json();
+
+    const elTotal = document.getElementById("total-barriles");
+    const elPrestados = document.getElementById("prestados");
+    const elDisponibles = document.getElementById("disponibles");
+    const elDepositos = document.getElementById("depositos-pendientes");
+
+    if (elTotal) elTotal.textContent = stats.total || 0;
+    if (elPrestados) elPrestados.textContent = stats.prestados || 0;
+    if (elDisponibles) elDisponibles.textContent = stats.disponibles || 0;
+    if (elDepositos) elDepositos.textContent = `$${Number(stats.depositosPendientes || 0).toLocaleString('es-AR')}`;
+  } catch (err) {
+    console.error("Error cargando estadísticas:", err);
   }
 }
 
 // Renderizar lista de barriles
 function renderListaBarriles() {
   const container = document.getElementById("lista-barriles");
-  
+  if (!container) return;
+
   let filtrados = barriles;
   if (filtroActual === "prestados") {
     filtrados = barriles.filter(b => b.estado === "prestado");
@@ -46,10 +84,10 @@ function renderListaBarriles() {
   }
 
   container.innerHTML = filtrados.map(b => `
-    <div class="barril-card" style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:15px; margin-bottom:10px;">
-      <div style="display:flex; justify-content:space-between; align-items:start;">
+    <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:15px; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:start; flex-wrap:wrap; gap:10px;">
         <div style="flex:1;">
-          <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+          <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px; flex-wrap:wrap;">
             <span style="background:${b.estado === 'prestado' ? '#fef3c7' : '#d1fae5'}; color:${b.estado === 'prestado' ? '#92400e' : '#065f46'}; padding:4px 12px; border-radius:20px; font-size:0.85em; font-weight:600;">
               ${b.estado === 'prestado' ? '📤 Prestado' : '📦 Disponible'}
             </span>
@@ -75,46 +113,133 @@ function renderListaBarriles() {
   `).join('');
 }
 
-// Actualizar estadísticas
-async function actualizarEstadisticas() {
+// Renderizar historial
+function renderHistorial() {
+  const container = document.getElementById("historial-movimientos");
+  if (!container) return;
+
+  if (historial.length === 0) {
+    container.innerHTML = '<p style="color:#666; text-align:center; padding:20px;">No hay movimientos registrados</p>';
+    return;
+  }
+
+  container.innerHTML = [...historial].reverse().map(h => `
+    <div style="border-bottom:1px solid #e5e7eb; padding:10px 0; font-size:0.9em;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px; flex-wrap:wrap; gap:4px;">
+        <span style="font-weight:600;">${h.accion === 'PRÉSTAMO' ? '📤' : ''} ${h.accion}</span>
+        <small style="color:#6b7280;">${h.fecha}</small>
+      </div>
+      <div style="color:#374151;">
+        <strong>${h.cliente}</strong> - ${h.tipo} ${h.tamano}
+        ${h.serie ? ` (Serie: ${h.serie})` : ''}
+        ${h.deposito ? ` - Depósito: $${Number(h.deposito).toLocaleString('es-AR')}` : ''}
+      </div>
+      ${h.observaciones ? `<div style="color:#6b7280; font-size:0.85em; margin-top:4px;">📝 ${h.observaciones}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// Filtrar barriles (función global para el HTML)
+window.filtrarBarriles = function(tipo) {
+  filtroActual = tipo;
+
+  // Actualizar botones activos
+  document.querySelectorAll(".filtro-btn").forEach(btn => {
+    btn.style.background = "#f3f4f6";
+    btn.style.color = "#374151";
+    btn.style.fontWeight = "normal";
+  });
+  const btnActivo = document.querySelector(`[data-filtro="${tipo}"]`);
+  if (btnActivo) {
+    btnActivo.style.background = "#1e40af";
+    btnActivo.style.color = "white";
+    btnActivo.style.fontWeight = "bold";
+  }
+
+  renderListaBarriles();
+};
+
+// Abrir modal (función global para el HTML)
+window.abrirModalPrestamo = function() {
+  const modal = document.getElementById("modal-prestar");
+  if (modal) {
+    modal.style.display = "flex";
+    setTimeout(() => {
+      const input = document.getElementById("input-cliente");
+      if (input) input.focus();
+    }, 100);
+  }
+};
+
+// Cerrar modal (función global para el HTML)
+window.cerrarModalPrestamo = function() {
+  const modal = document.getElementById("modal-prestar");
+  if (modal) modal.style.display = "none";
+  const form = document.getElementById("form-prestar-barril");
+  if (form) form.reset();
+};
+
+// Devolver barril (función global para el HTML)
+window.devolverBarril = async function(idBarril) {
+  if (!confirm("¿Confirmar devolución del barril?")) return;
+
+  const barril = barriles.find(b => b.id === idBarril);
+  if (!barril) return;
+
   try {
-    const resp = await fetch(`${URL_SCRIPT}?accion=estadisticasBarriles`);
-    const stats = await resp.json();
-    
-    document.getElementById("total-barriles").textContent = stats.total || 0;
-    document.getElementById("prestados").textContent = stats.prestados || 0;
-    document.getElementById("disponibles").textContent = stats.disponibles || 0;
-    
-    if (stats.depositosPendientes) {
-      document.getElementById("depositos-pendientes").textContent = `$${Number(stats.depositosPendientes).toLocaleString('es-AR')}`;
+    const barrilActualizado = {
+      ...barril,
+      estado: "disponible",
+      fechaDevolucion: new Date().toLocaleString("es-AR")
+    };
+
+    const resp = await fetch(URL_SCRIPT, {
+      method: "POST",
+      body: JSON.stringify({ accion: "actualizarBarril", barril: barrilActualizado }),
+      headers: { "Content-Type": "text/plain" },
+      mode: "cors"
+    });
+
+    if ((await resp.text()).includes("OK")) {
+      // Registrar en historial
+      await fetch(URL_SCRIPT, {
+        method: "POST",
+        body: JSON.stringify({
+          accion: "registrarMovimientoBarril",
+          movimiento: {
+            fecha: new Date().toLocaleString("es-AR"),
+            accion: "DEVOLUCIÓN",
+            cliente: barril.cliente,
+            tipo: barril.tipo,
+            tamano: barril.tamano,
+            serie: barril.serie || "",
+            deposito: barril.deposito || 0,
+            observaciones: barril.observaciones || ""
+          }
+        }),
+        headers: { "Content-Type": "text/plain" },
+        mode: "cors"
+      });
+
+      await cargarBarriles();
+      await cargarHistorial();
+      alert("✅ Barril devuelto correctamente");
+    } else {
+      alert("❌ Error al actualizar");
     }
   } catch (err) {
-    console.error("Error cargando estadísticas:", err);
+    console.error("Error:", err);
+    alert("❌ Error de conexión");
   }
-}
+};
 
 // Bind de eventos
 function bindEvents() {
-  // Botón abrir modal
-  const btnPrestar = document.getElementById("btn-prestar-barril");
-  if (btnPrestar) {
-    btnPrestar.addEventListener("click", () => {
-      document.getElementById("modal-prestar").classList.remove("hidden");
-      document.getElementById("input-cliente").focus();
-    });
-  }
-
-  // Botón cerrar modal
-  const btnCerrar = document.querySelector("#modal-prestar button[onclick='cerrarModal()']");
-  if (btnCerrar) {
-    btnCerrar.addEventListener("click", cerrarModal);
-  }
-
-  // Cerrar al hacer click fuera del modal
+  // Cerrar modal al hacer click fuera
   const modal = document.getElementById("modal-prestar");
   if (modal) {
     modal.addEventListener("click", (e) => {
-      if (e.target === modal) cerrarModal();
+      if (e.target === modal) cerrarModalPrestamo();
     });
   }
 
@@ -126,27 +251,6 @@ function bindEvents() {
       await prestarBarril();
     });
   }
-
-  // Filtros
-  document.querySelectorAll(".filtro-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      document.querySelectorAll(".filtro-btn").forEach(b => {
-        b.style.background = "#f3f4f6";
-        b.style.color = "#374151";
-      });
-      e.target.style.background = "#1e40af";
-      e.target.style.color = "white";
-      
-      filtroActual = e.target.dataset.filtro;
-      renderListaBarriles();
-    });
-  });
-}
-
-// Cerrar modal
-function cerrarModal() {
-  document.getElementById("modal-prestar").classList.add("hidden");
-  document.getElementById("form-prestar-barril").reset();
 }
 
 // Prestar barril
@@ -163,9 +267,11 @@ async function prestarBarril() {
     return;
   }
 
-  const btn = document.querySelector("#modal-prestar button[type='submit']");
-  btn.disabled = true;
-  btn.textContent = "⏳ Guardando...";
+  const btn = document.querySelector("#form-prestar-barril button[type='submit']");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Guardando...";
+  }
 
   try {
     const barril = {
@@ -210,8 +316,10 @@ async function prestarBarril() {
         mode: "cors"
       });
 
-      cerrarModal();
+      cerrarModalPrestamo();
       await cargarBarriles();
+      await cargarHistorial();
+      await actualizarEstadisticas();
       alert("✅ Barril prestado correctamente");
     } else {
       alert("❌ Error al guardar en Sheet");
@@ -220,64 +328,9 @@ async function prestarBarril() {
     console.error("Error:", err);
     alert("❌ Error de conexión");
   } finally {
-    btn.disabled = false;
-    btn.textContent = "Confirmar Préstamo";
-  }
-}
-
-// Devolver barril
-async function devolverBarril(idBarril) {
-  if (!confirm("¿Confirmar devolución del barril?")) return;
-
-  const barril = barriles.find(b => b.id === idBarril);
-  if (!barril) return;
-
-  try {
-    const barrilActualizado = {
-      ...barril,
-      estado: "disponible",
-      fechaDevolucion: new Date().toLocaleString("es-AR")
-    };
-
-    const resp = await fetch(URL_SCRIPT, {
-      method: "POST",
-      body: JSON.stringify({ accion: "actualizarBarril", barril: barrilActualizado }),
-      headers: { "Content-Type": "text/plain" },
-      mode: "cors"
-    });
-
-    if ((await resp.text()).includes("OK")) {
-      // Registrar en historial
-      await fetch(URL_SCRIPT, {
-        method: "POST",
-        body: JSON.stringify({
-          accion: "registrarMovimientoBarril",
-          movimiento: {
-            fecha: new Date().toLocaleString("es-AR"),
-            accion: "DEVOLUCIÓN",
-            cliente: barril.cliente,
-            tipo: barril.tipo,
-            tamano: barril.tamano,
-            serie: barril.serie || "",
-            deposito: barril.deposito || 0,
-            observaciones: barril.observaciones || ""
-          }
-        }),
-        headers: { "Content-Type": "text/plain" },
-        mode: "cors"
-      });
-
-      await cargarBarriles();
-      alert("✅ Barril devuelto correctamente");
-    } else {
-      alert("❌ Error al actualizar");
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Confirmar Préstamo";
     }
-  } catch (err) {
-    console.error("Error:", err);
-    alert("❌ Error de conexión");
   }
 }
-
-// Hacer funciones globales
-window.cerrarModal = cerrarModal;
-window.devolverBarril = devolverBarril;
