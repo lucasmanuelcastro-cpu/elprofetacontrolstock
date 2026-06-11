@@ -1,302 +1,283 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>El Profeta - Seguimiento de Barriles</title>
-  <link rel="stylesheet" href="styles.css">
-  <style>
-    .barril-card {
-      background: white;
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-    
-    .barril-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 15px;
-      margin-bottom: 25px;
-    }
-    
-    .stat-card {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 20px;
-      border-radius: 12px;
-      text-align: center;
-    }
-    
-    .stat-card.prestado { background: linear-gradient(135deg, #f59e0b, #d97706); }
-    .stat-card.disponible { background: linear-gradient(135deg, #10b981, #059669); }
-    .stat-card.total { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-    
-    .stat-number {
-      font-size: 32px;
-      font-weight: bold;
-      margin: 10px 0;
-    }
-    
-    .barril-item {
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 15px;
-      margin-bottom: 12px;
-      transition: all 0.2s;
-    }
-    
-    .barril-item:hover {
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      transform: translateY(-2px);
-    }
-    
-    .barril-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    
-    .barril-tipo {
-      font-size: 1.2em;
-      font-weight: bold;
-      color: #1e293b;
-    }
-    
-    .barril-cliente {
-      color: #7c3aed;
-      font-weight: 600;
-    }
-    
-    .barril-fecha {
-      color: #64748b;
-      font-size: 0.85em;
-    }
-    
-    .btn-devolver {
-      background: #10b981;
-      color: white;
-      border: none;
-      padding: 6px 16px;
-      border-radius: 20px;
-      cursor: pointer;
-      font-size: 0.85em;
-    }
-    
-    .btn-devolver:hover { background: #059669; }
-    
-    .btn-prestar {
-      background: #3b82f6;
-      color: white;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    
-    .filtros {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-    }
-    
-    .filtro-btn {
-      padding: 8px 16px;
-      border: 1px solid #d1d5db;
-      background: white;
-      border-radius: 20px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .filtro-btn.active {
-      background: #3b82f6;
-      color: white;
-      border-color: #3b82f6;
-    }
-    
-    .empty-state {
-      text-align: center;
-      padding: 40px;
-      color: #64748b;
-    }
-    
-    .modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-    
-    .modal-content {
-      background: white;
-      border-radius: 16px;
-      padding: 24px;
-      max-width: 500px;
-      width: 90%;
-      max-height: 80vh;
-      overflow-y: auto;
-    }
-    
-    .form-group {
-      margin-bottom: 15px;
-    }
-    
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: 600;
-      color: #374151;
-    }
-    
-    .form-group input, .form-group select {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-    }
-    
-    .historial-item {
-      padding: 12px;
-      border-bottom: 1px solid #f3f4f6;
-      font-size: 0.9em;
-    }
-    
-    .historial-fecha {
-      color: #64748b;
-      font-size: 0.8em;
-    }
-    
-    @media (max-width: 768px) {
-      .barril-stats {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="app-container">
-    <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-      <div>
-        <h1><img src="EP CARA.png" alt="El Profeta" style="height:1em; vertical-align:middle;"> El Profeta</h1>
-        <p style="color:#666; margin-top:4px;">🍺 Seguimiento de Barriles</p>
-      </div>
-      <div style="display:flex; gap:10px;">
-        <a href="index.html" style="background:#7c3aed; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:bold;">📊 VENTAS</a>
-        <a href="gastos.html" style="background:#ef4444; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:bold;">💰 GASTOS</a>
-        <a href="auditoria.html" style="background:#6b7280; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:bold;">🔍 AUDITORÍA</a>
-      </div>
-    </header>
+/**
+ * BARRILES.JS - Control de préstamos de barriles
+ */
 
-    <!-- Stats -->
-    <div class="barril-stats">
-      <div class="stat-card total">
-        <div>🍺 Total Barriles</div>
-        <div class="stat-number" id="total-barriles">0</div>
-      </div>
-      <div class="stat-card prestado">
-        <div>📤 Prestados</div>
-        <div class="stat-number" id="prestados-count">0</div>
-      </div>
-      <div class="stat-card disponible">
-        <div>📦 Disponibles</div>
-        <div class="stat-number" id="disponibles-count">0</div>
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbzFaSL2UsVfYM1KHxQQE87S4nAjCmJTwTqelh8qxPqqNpxvMo6Md0a2_hPsrvvZrKHRxQ/exec";
+
+let barriles = [];
+let filtroActual = "todos";
+
+// Inicialización
+document.addEventListener("DOMContentLoaded", () => {
+  cargarBarriles();
+  bindEvents();
+  actualizarEstadisticas();
+});
+
+// Cargar barriles desde Sheet
+async function cargarBarriles() {
+  try {
+    const resp = await fetch(`${URL_SCRIPT}?accion=leerBarriles`);
+    const data = await resp.json();
+    barriles = data.barriles || [];
+    renderListaBarriles();
+    actualizarEstadisticas();
+  } catch (err) {
+    console.error("Error cargando barriles:", err);
+    document.getElementById("lista-barriles").innerHTML = 
+      '<p style="color:#ef4444; text-align:center;">Error de conexión</p>';
+  }
+}
+
+// Renderizar lista de barriles
+function renderListaBarriles() {
+  const container = document.getElementById("lista-barriles");
+  
+  let filtrados = barriles;
+  if (filtroActual === "prestados") {
+    filtrados = barriles.filter(b => b.estado === "prestado");
+  } else if (filtroActual === "disponibles") {
+    filtrados = barriles.filter(b => b.estado === "disponible");
+  }
+
+  if (filtrados.length === 0) {
+    container.innerHTML = '<p style="color:#666; text-align:center; padding:20px;">No hay barriles registrados</p>';
+    return;
+  }
+
+  container.innerHTML = filtrados.map(b => `
+    <div class="barril-card" style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:15px; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:start;">
+        <div style="flex:1;">
+          <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+            <span style="background:${b.estado === 'prestado' ? '#fef3c7' : '#d1fae5'}; color:${b.estado === 'prestado' ? '#92400e' : '#065f46'}; padding:4px 12px; border-radius:20px; font-size:0.85em; font-weight:600;">
+              ${b.estado === 'prestado' ? '📤 Prestado' : '📦 Disponible'}
+            </span>
+            <span style="background:#e0e7ff; color:#3730a3; padding:4px 10px; border-radius:6px; font-size:0.85em;">
+              ${b.tipo} - ${b.tamano}
+            </span>
+          </div>
+          <div style="margin:8px 0;">
+            <p style="margin:4px 0; color:#374151;"><strong>Cliente:</strong> ${b.cliente || '—'}</p>
+            ${b.serie ? `<p style="margin:4px 0; color:#6b7280;"><strong>Serie:</strong> ${b.serie}</p>` : ''}
+            ${b.deposito ? `<p style="margin:4px 0; color:#059669;"><strong>Depósito:</strong> $${Number(b.deposito).toLocaleString('es-AR')}</p>` : ''}
+            ${b.fechaPrestamo ? `<p style="margin:4px 0; color:#6b7280; font-size:0.9em;"><strong>Fecha:</strong> ${b.fechaPrestamo}</p>` : ''}
+            ${b.observaciones ? `<p style="margin:8px 0; color:#6b7280; font-size:0.9em; font-style:italic;">📝 ${b.observaciones}</p>` : ''}
+          </div>
+        </div>
+        ${b.estado === 'prestado' ? `
+          <button onclick="devolverBarril('${b.id}')" style="background:#059669; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:0.9em;">
+            ✅ Devolver
+          </button>
+        ` : ''}
       </div>
     </div>
+  `).join('');
+}
 
-    <!-- Botón Prestar -->
-    <div class="barril-card">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-        <h2 style="margin:0;">📋 Gestión de Barriles</h2>
-        <button class="btn-prestar" onclick="abrirModalPrestamo()">➕ Prestar Barril</button>
-      </div>
-    </div>
+// Actualizar estadísticas
+async function actualizarEstadisticas() {
+  try {
+    const resp = await fetch(`${URL_SCRIPT}?accion=estadisticasBarriles`);
+    const stats = await resp.json();
+    
+    document.getElementById("total-barriles").textContent = stats.total || 0;
+    document.getElementById("prestados").textContent = stats.prestados || 0;
+    document.getElementById("disponibles").textContent = stats.disponibles || 0;
+    
+    if (stats.depositosPendientes) {
+      document.getElementById("depositos-pendientes").textContent = `$${Number(stats.depositosPendientes).toLocaleString('es-AR')}`;
+    }
+  } catch (err) {
+    console.error("Error cargando estadísticas:", err);
+  }
+}
 
-    <!-- Filtros -->
-    <div class="barril-card">
-      <div class="filtros">
-        <button class="filtro-btn active" data-filtro="todos" onclick="filtrarBarriles('todos')">Todos</button>
-        <button class="filtro-btn" data-filtro="prestado" onclick="filtrarBarriles('prestado')">📤 Prestados</button>
-        <button class="filtro-btn" data-filtro="disponible" onclick="filtrarBarriles('disponible')">📦 Disponibles</button>
-      </div>
+// Bind de eventos
+function bindEvents() {
+  // Botón abrir modal
+  const btnPrestar = document.getElementById("btn-prestar-barril");
+  if (btnPrestar) {
+    btnPrestar.addEventListener("click", () => {
+      document.getElementById("modal-prestar").classList.remove("hidden");
+      document.getElementById("input-cliente").focus();
+    });
+  }
+
+  // Botón cerrar modal
+  const btnCerrar = document.querySelector("#modal-prestar button[onclick='cerrarModal()']");
+  if (btnCerrar) {
+    btnCerrar.addEventListener("click", cerrarModal);
+  }
+
+  // Cerrar al hacer click fuera del modal
+  const modal = document.getElementById("modal-prestar");
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) cerrarModal();
+    });
+  }
+
+  // Formulario
+  const form = document.getElementById("form-prestar-barril");
+  if (form) {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      await prestarBarril();
+    });
+  }
+
+  // Filtros
+  document.querySelectorAll(".filtro-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      document.querySelectorAll(".filtro-btn").forEach(b => {
+        b.style.background = "#f3f4f6";
+        b.style.color = "#374151";
+      });
+      e.target.style.background = "#1e40af";
+      e.target.style.color = "white";
       
-      <div id="lista-barriles">
-        <p style="text-align:center; padding:20px;">Cargando barriles...</p>
-      </div>
-    </div>
+      filtroActual = e.target.dataset.filtro;
+      renderListaBarriles();
+    });
+  });
+}
 
-    <!-- Historial -->
-    <div class="barril-card">
-      <h2>📜 Historial de Movimientos</h2>
-      <div id="historial-barriles" style="max-height: 300px; overflow-y: auto;">
-        <p style="text-align:center; padding:20px;">Cargando historial...</p>
-      </div>
-    </div>
-  </div>
+// Cerrar modal
+function cerrarModal() {
+  document.getElementById("modal-prestar").classList.add("hidden");
+  document.getElementById("form-prestar-barril").reset();
+}
 
-  <!-- Modal Préstamo -->
-  <div id="modal-prestamo" style="display:none;" class="modal">
-    <div class="modal-content">
-      <h2>🍺 Prestar Barril</h2>
-      <form id="form-prestamo">
-        <div class="form-group">
-          <label>Cliente *</label>
-          <input type="text" id="cliente-barril" required placeholder="Nombre del cliente" list="clientes-lista">
-          <datalist id="clientes-lista"></datalist>
-        </div>
-        <div class="form-group">
-          <label>Tipo de Cerveza *</label>
-          <select id="tipo-barril" required>
-            <option value="">Seleccionar...</option>
-            <option value="BLONDE">Blonde</option>
-            <option value="IRISH RED">Irish Red</option>
-            <option value="STOUT">Stout</option>
-            <option value="SESSION IPA">Session IPA</option>
-            <option value="RED IPA">Red IPA</option>
-            <option value="HONEY">Honey</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Tamaño *</label>
-          <select id="tamano-barril" required>
-            <option value="">Seleccionar...</option>
-            <option value="20L">20 Litros</option>
-            <option value="30L">30 Litros</option>
-            <option value="50L">50 Litros</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Número de Serie (opcional)</label>
-          <input type="text" id="serie-barril" placeholder="Ej: B-001">
-        </div>
-        <div class="form-group">
-          <label>Depósito (Seña) $</label>
-          <input type="number" id="deposito-barril" value="0" step="1000">
-        </div>
-        <div class="form-group">
-          <label>Observaciones</label>
-          <textarea id="obs-barril" rows="2" placeholder="Observaciones..."></textarea>
-        </div>
-        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-          <button type="button" onclick="cerrarModalPrestamo()" style="background:#6b7280;">Cancelar</button>
-          <button type="submit" style="background:#3b82f6;">Confirmar Préstamo</button>
-        </div>
-      </form>
-    </div>
-  </div>
+// Prestar barril
+async function prestarBarril() {
+  const cliente = document.getElementById("input-cliente").value.trim();
+  const tipo = document.getElementById("select-tipo").value;
+  const tamano = document.getElementById("select-tamano").value;
+  const serie = document.getElementById("input-serie").value.trim();
+  const deposito = document.getElementById("input-deposito").value;
+  const observaciones = document.getElementById("input-observaciones").value.trim();
 
-  <script src="barriles.js"></script>
-</body>
-</html>
+  if (!cliente || !tipo || !tamano) {
+    alert("⚠️ Completá los campos obligatorios (Cliente, Tipo y Tamaño)");
+    return;
+  }
+
+  const btn = document.querySelector("#modal-prestar button[type='submit']");
+  btn.disabled = true;
+  btn.textContent = "⏳ Guardando...";
+
+  try {
+    const barril = {
+      id: Date.now().toString(),
+      cliente,
+      tipo,
+      tamano,
+      serie: serie || null,
+      deposito: Number(deposito) || 0,
+      observaciones,
+      estado: "prestado",
+      fechaPrestamo: new Date().toLocaleString("es-AR"),
+      fechaDevolucion: "",
+      timestamp: Date.now()
+    };
+
+    const resp = await fetch(URL_SCRIPT, {
+      method: "POST",
+      body: JSON.stringify({ accion: "guardarBarril", barril }),
+      headers: { "Content-Type": "text/plain" },
+      mode: "cors"
+    });
+
+    if ((await resp.text()).includes("OK")) {
+      // Registrar en historial
+      await fetch(URL_SCRIPT, {
+        method: "POST",
+        body: JSON.stringify({
+          accion: "registrarMovimientoBarril",
+          movimiento: {
+            fecha: new Date().toLocaleString("es-AR"),
+            accion: "PRÉSTAMO",
+            cliente,
+            tipo,
+            tamano,
+            serie: serie || "",
+            deposito: Number(deposito) || 0,
+            observaciones
+          }
+        }),
+        headers: { "Content-Type": "text/plain" },
+        mode: "cors"
+      });
+
+      cerrarModal();
+      await cargarBarriles();
+      alert("✅ Barril prestado correctamente");
+    } else {
+      alert("❌ Error al guardar en Sheet");
+    }
+  } catch (err) {
+    console.error("Error:", err);
+    alert("❌ Error de conexión");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Confirmar Préstamo";
+  }
+}
+
+// Devolver barril
+async function devolverBarril(idBarril) {
+  if (!confirm("¿Confirmar devolución del barril?")) return;
+
+  const barril = barriles.find(b => b.id === idBarril);
+  if (!barril) return;
+
+  try {
+    const barrilActualizado = {
+      ...barril,
+      estado: "disponible",
+      fechaDevolucion: new Date().toLocaleString("es-AR")
+    };
+
+    const resp = await fetch(URL_SCRIPT, {
+      method: "POST",
+      body: JSON.stringify({ accion: "actualizarBarril", barril: barrilActualizado }),
+      headers: { "Content-Type": "text/plain" },
+      mode: "cors"
+    });
+
+    if ((await resp.text()).includes("OK")) {
+      // Registrar en historial
+      await fetch(URL_SCRIPT, {
+        method: "POST",
+        body: JSON.stringify({
+          accion: "registrarMovimientoBarril",
+          movimiento: {
+            fecha: new Date().toLocaleString("es-AR"),
+            accion: "DEVOLUCIÓN",
+            cliente: barril.cliente,
+            tipo: barril.tipo,
+            tamano: barril.tamano,
+            serie: barril.serie || "",
+            deposito: barril.deposito || 0,
+            observaciones: barril.observaciones || ""
+          }
+        }),
+        headers: { "Content-Type": "text/plain" },
+        mode: "cors"
+      });
+
+      await cargarBarriles();
+      alert("✅ Barril devuelto correctamente");
+    } else {
+      alert("❌ Error al actualizar");
+    }
+  } catch (err) {
+    console.error("Error:", err);
+    alert("❌ Error de conexión");
+  }
+}
+
+// Hacer funciones globales
+window.cerrarModal = cerrarModal;
+window.devolverBarril = devolverBarril;
