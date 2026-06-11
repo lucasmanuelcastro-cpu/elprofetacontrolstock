@@ -1,6 +1,6 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbz-o3k7xsI2krnInTzImNuc-uP9V6zSeBMaMB0xBu9f19BC54OvxIS8NVBTYqvSAqlwtQ/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbzFaSL2UsVfYM1KHxQQE87S4nAjCmJTwTqelh8qxPqqNpxvMo6Md0a2_hPsrvvZrKHRxQ/exec";
 
 /** El Sheet guarda "sin"/"con"; la UI usa sinEtiqueta/conEtiqueta */
 function normalizarTipoLataDesdeSheet(raw) {
@@ -30,7 +30,7 @@ function encolarPagoParaSheet(nombreCliente, monto, metodo) {
     metodo: metodoNorm,
     metodoPago: metodoNorm,
     fecha: new Date().toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}),
-timestamp: Date.now(),
+    timestamp: Date.now(),
   });
   localStorage.setItem("pagosPendientes", JSON.stringify(pagosPendientes));
 }
@@ -78,7 +78,7 @@ function modificarStockDirecto(usuario, estilo, cantidad) {
   });
 }
 
-// REGISTRAR VENTA LOCAL (Ya corregida en ui.js, esta es la versión de lógica pura)
+// REGISTRAR VENTA LOCAL
 function registrarVentaLocal() {
   if (!state.usuarioActivo) return;
   const preview = calcularPreview();
@@ -221,14 +221,14 @@ function swapMetodoPago(nombreUsuario, ventaIndex) {
   });
 }
 
-// NUEVA FUNCIÓN: Guardar Transferencia en Sheet (Nuevo formato)
+// Guardar Transferencia en Sheet
 async function guardarTransferenciaEnSheet(desde, hacia, estilos, tipo) {
   try {
     const entrada = {
       fecha: new Date().toLocaleString("es-AR"),
       desde: desde,
       hacia: hacia,
-      estilos: estilos, // Objeto { "BLONDE": 2, "STOUT": 5 }
+      estilos: estilos,
       tipo: tipo
     };
     
@@ -246,6 +246,9 @@ async function guardarTransferenciaEnSheet(desde, hacia, estilos, tipo) {
   }
 }
 
+// ============================================================
+// CARGA DE DATOS DESDE SHEET (VERSIÓN CORREGIDA)
+// ============================================================
 async function cargarDatosDesdeSheet() {
   try {
     const url = URL_SCRIPT + "?v=" + Date.now();
@@ -263,15 +266,13 @@ async function cargarDatosDesdeSheet() {
         prev.popularidadSheet = datosCloud.popularidad;
       }
 
-      // 💰 TOTALES FINANCIEROS (Desde Sheet v38)
-      if (datosCloud.totalIngresadoSheet !== undefined && datosCloud.totalIngresadoSheet > 0) {
-        prev.totalIngresadoSheet = Number(datosCloud.totalIngresadoSheet);
-      }
+      // 2. TOTALES FINANCIEROS
+      if (datosCloud.totalIngresadoSheet !== undefined) prev.totalIngresadoSheet = Number(datosCloud.totalIngresadoSheet) || 0;
       if (datosCloud.efectivoSheet !== undefined) prev.efectivoSheet = Number(datosCloud.efectivoSheet) || 0;
       if (datosCloud.transferenciaSheet !== undefined) prev.transferenciaSheet = Number(datosCloud.transferenciaSheet) || 0;
       if (datosCloud.paraProfetaSheet !== undefined) prev.paraProfetaSheet = Number(datosCloud.paraProfetaSheet) || 0;
 
-      // 2. STOCK GENERAL
+      // 3. STOCK GENERAL
       if (datosCloud.stockGeneral) {
         prev.stockGeneral = {
           "BLONDE": Number(datosCloud.stockGeneral["BLONDE"]) || 0,
@@ -284,9 +285,10 @@ async function cargarDatosDesdeSheet() {
         };
       }
 
-      // 3. SINCRONIZAR STOCK POR USUARIO
+      // 4. SINCRONIZAR STOCK Y VENTAS POR USUARIO
       Object.entries(datosCloud.usuarios).forEach(([nombre, datos]) => {
         if (prev.usuarios[nombre]) {
+          // Stock con etiqueta
           if (datos.stock) {
             prev.usuarios[nombre].stock = {
               "BLONDE": Number(datos.stock["BLONDE"]) || 0,
@@ -297,6 +299,8 @@ async function cargarDatosDesdeSheet() {
               "HONEY": Number(datos.stock["HONEY"]) || 0,
             };
           }
+          
+          // Stock sin etiqueta
           if (datos.stockSinEtiqueta) {
             prev.usuarios[nombre].stockSinEtiqueta = {
               "BLONDE": Number(datos.stockSinEtiqueta["BLONDE"]) || 0,
@@ -307,37 +311,48 @@ async function cargarDatosDesdeSheet() {
               "HONEY": Number(datos.stockSinEtiqueta["HONEY"]) || 0,
             };
           }
-          if (datos.ventas && Array.isArray(datos.ventas) && datos.ventas.length > 0) {
+          
+          // ⭐ VENTAS - Sincronización completa desde el Sheet ⭐
+          if (datos.ventas && Array.isArray(datos.ventas)) {
             prev.usuarios[nombre].ventas = datos.ventas.map(venta => {
-              var tipo = normalizarTipoLataDesdeSheet(venta.tipoLata);
-              var costo = Number(venta.costo) || 0;
-              var com = Number(venta.comision) || 0;
-              var paraProfeta = venta.paraProfeta != null && venta.paraProfeta !== ""
+              const tipo = normalizarTipoLataDesdeSheet(venta.tipoLata);
+              const costo = Number(venta.costo) || 0;
+              const com = Number(venta.comision) || 0;
+              const paraProfeta = venta.paraProfeta != null && venta.paraProfeta !== ""
                 ? Number(venta.paraProfeta)
                 : costo + com;
+              
               return {
-                ...venta,
+                cliente: venta.cliente || "Consumidor Final",
+                estilos: venta.estilos || {},
+                alquilerBarril: venta.alquilerBarril || "",
                 tipoLata: tipo,
                 estado: venta.estado || "PENDIENTE",
-                cobradoReal: venta.cobradoReal || 0,
-               costoTotal: venta.costoTotal != null ? venta.costoTotal : costo,
-               timestamp: venta.timestamp 
+                metodoPago: venta.metodoPago || "",
+                totalCobrado: Number(venta.totalCobrado) || 0,
+                costoTotal: Number(venta.costoTotal) || costo,
+                comision: com,
+                paraProfeta: paraProfeta,
+                fecha: venta.fecha || "",
+                timestamp: venta.timestamp 
                   ? Number(venta.timestamp) 
                   : (new Date(venta.fecha).getTime() || 0),
+                vendedor: venta.vendedor || nombre,
+                cobradoReal: Number(venta.cobradoReal) || 0
               };
             });
           }
         }
       });
 
-      // 4. SINCRONIZAR CLIENTES
+      // 5. SINCRONIZAR CLIENTES
       if (datosCloud.clientes && Array.isArray(datosCloud.clientes) && datosCloud.clientes.length > 0) {
         datosCloud.clientes.forEach(clienteCloud => {
           if (!clienteCloud.nombre || typeof clienteCloud.nombre !== 'string') return;
           const idx = prev.clientesGlobales.findIndex(c => c.nombre && c.nombre.toLowerCase() === clienteCloud.nombre.toLowerCase());
           if (idx !== -1) {
-            prev.clientesGlobales[idx].deuda = clienteCloud.deuda;
-            prev.clientesGlobales[idx].saldo = clienteCloud.saldo;
+            prev.clientesGlobales[idx].deuda = Number(clienteCloud.deuda) || 0;
+            prev.clientesGlobales[idx].saldo = Number(clienteCloud.saldo) || 0;
             const cloudPagado = Number(clienteCloud.pagado);
             const localPagado = Number(prev.clientesGlobales[idx].pagado) || 0;
             if (clienteCloud.pagado !== undefined && clienteCloud.pagado !== null && !isNaN(cloudPagado)) {
@@ -346,15 +361,15 @@ async function cargarDatosDesdeSheet() {
           } else {
             prev.clientesGlobales.push({
               nombre: clienteCloud.nombre,
-              deuda: clienteCloud.deuda || 0,
-              pagado: clienteCloud.pagado || 0,
+              deuda: Number(clienteCloud.deuda) || 0,
+              pagado: Number(clienteCloud.pagado) || 0,
               pagos: []
             });
           }
         });
       }
 
-      // HISTORIAL DE STOCK
+      // 6. HISTORIAL DE STOCK
       if (datosCloud.historialStock && Array.isArray(datosCloud.historialStock) && datosCloud.historialStock.length > 0) {
         prev.historialStock = datosCloud.historialStock.map(h => ({
           fecha: h.fecha || "",
@@ -364,7 +379,7 @@ async function cargarDatosDesdeSheet() {
         }));
       }
 
-      // HISTORIAL DE TRANSFERENCIAS (Nuevo formato: columnas por estilo)
+      // 7. HISTORIAL DE TRANSFERENCIAS
       if (datosCloud.historialTransferencias && Array.isArray(datosCloud.historialTransferencias) && datosCloud.historialTransferencias.length > 0) {
         prev.historialTransferencias = datosCloud.historialTransferencias.map(t => ({
           fecha: t.fecha || "",
@@ -381,6 +396,9 @@ async function cargarDatosDesdeSheet() {
     if (datosCloud.clientesHistoricos) {
       clientesHistoricos = datosCloud.clientesHistoricos;
     }
+    
+    console.log("✅ Datos sincronizados desde Sheet correctamente");
+    
   } catch (error) {
     console.error("❌ Error de lectura:", error);
   }
@@ -488,6 +506,7 @@ async function guardarStockPendienteEnSheet() {
     localStorage.setItem("stockPendienteUsuarios", JSON.stringify(prev.concat(fallidos)));
   }
 }
+
 // ===== AUDITORÍA =====
 function registrarAuditoria(accion, usuario, cliente, detalle, monto) {
   const registro = {
