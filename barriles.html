@@ -250,50 +250,41 @@
   <div id="modal-prestamo" style="display:none;" class="modal">
     <div class="modal-content">
       <h2>🍺 Prestar Barril</h2>
-      <form id="form-prestamo">
-        <div class="form-group">
-          <label>Cliente *</label>
-          <input type="text" id="cliente-barril" required placeholder="Nombre del cliente" list="clientes-lista">
-          <datalist id="clientes-lista"></datalist>
-        </div>
-        <div class="form-group">
-          <label>Tipo de Cerveza *</label>
-          <select id="tipo-barril" required>
-            <option value="">Seleccionar...</option>
-            <option value="BLONDE">Blonde</option>
-            <option value="IRISH RED">Irish Red</option>
-            <option value="STOUT">Stout</option>
-            <option value="SESSION IPA">Session IPA</option>
-            <option value="RED IPA">Red IPA</option>
-            <option value="HONEY">Honey</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Tamaño *</label>
-          <select id="tamano-barril" required>
-            <option value="">Seleccionar...</option>
-            <option value="20L">20 Litros</option>
-            <option value="30L">30 Litros</option>
-            <option value="50L">50 Litros</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Número de Serie (opcional)</label>
-          <input type="text" id="serie-barril" placeholder="Ej: B-001">
-        </div>
-        <div class="form-group">
-          <label>Depósito (Seña) $</label>
-          <input type="number" id="deposito-barril" value="0" step="1000">
-        </div>
-        <div class="form-group">
-          <label>Observaciones</label>
-          <textarea id="obs-barril" rows="2" placeholder="Observaciones..."></textarea>
-        </div>
-        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-          <button type="button" onclick="cerrarModalPrestamo()" style="background:#6b7280;">Cancelar</button>
-          <button type="submit" style="background:#3b82f6;">Confirmar Préstamo</button>
-        </div>
-      </form>
+     <form id="form-prestamo">
+  <div class="form-group">
+    <label>Cliente (Opcional)</label>
+    <input type="text" id="cliente-barril" placeholder="Nombre del cliente">
+  </div>
+  <div class="form-group">
+    <label>Tipo de Cerveza (Opcional)</label>
+    <input type="text" id="tipo-barril" placeholder="Ej: BLONDE, STOUT, etc.">
+  </div>
+  <div class="form-group">
+    <label>Tamaño *</label>
+    <select id="tamano-barril" required>
+      <option value="">Seleccionar...</option>
+      <option value="20L">20 Litros</option>
+      <option value="30L">30 Litros</option>
+      <option value="50L">50 Litros</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Número de Serie / ID Barril (Opcional)</label>
+    <input type="text" id="serie-barril" placeholder="Ej: B-001">
+  </div>
+  <div class="form-group">
+    <label>Depósito (Seña) $</label>
+    <input type="number" id="deposito-barril" value="0" step="1000">
+  </div>
+  <div class="form-group">
+    <label>Observaciones</label>
+    <textarea id="obs-barril" rows="2" placeholder="Observaciones..."></textarea>
+  </div>
+  <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+    <button type="button" onclick="cerrarModalPrestamo()" style="background:#6b7280;">Cancelar</button>
+    <button type="submit" style="background:#3b82f6;">Confirmar Préstamo</button>
+  </div>
+</form>
     </div>
   </div>
 
