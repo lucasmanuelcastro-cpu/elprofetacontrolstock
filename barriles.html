@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>El Profeta - Seguimiento de Barriles</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .barril-card {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .barril-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+    
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    
+    .stat-card.prestado { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .stat-card.disponible { background: linear-gradient(135deg, #10b981, #059669); }
+    .stat-card.total { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+    
+    .stat-number {
+      font-size: 32px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    
+    .barril-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+    
+    .barril-item:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      transform: translateY(-2px);
+    }
+    
+    .barril-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    
+    .barril-tipo {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #1e293b;
+    }
+    
+    .barril-cliente {
+      color: #7c3aed;
+      font-weight: 600;
+    }
+    
+    .barril-fecha {
+      color: #64748b;
+      font-size: 0.85em;
+    }
+    
+    .btn-devolver {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.85em;
+    }
+    
+    .btn-devolver:hover { background: #059669; }
+    
+    .btn-prestar {
+      background: #3b82f6;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    
+    .filtros {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .filtro-btn {
+      padding: 8px 16px;
+      border: 1px solid #d1d5db;
+      background: white;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .filtro-btn.active {
+      background: #3b82f6;
+      color: white;
+      border-color: #3b82f6;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #64748b;
+    }
+    
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #374151;
+    }
+    
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+    }
+    
+    .historial-item {
+      padding: 12px;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 0.9em;
+    }
+    
+    .historial-fecha {
+      color: #64748b;
+      font-size: 0.8em;
+    }
+    
+    @media (max-width: 768px) {
+      .barril-stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+      <div>
+        <h1><img src="EP CARA.png" alt="El Profeta" style="height:1em; vertical-align:middle;"> El Profeta</h1>
+        <p style="color:#666; margin-top:4px;">🍺 Seguimiento de Barriles</p>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <a href="index.html" style="background:#7c3aed; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:bold;">📊 VENTAS</a>
+        <a href="gastos.html" style="background:#ef4444; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:bold;">💰 GASTOS</a>
+        <a href="auditoria.html" style="background:#6b7280; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:bold;">🔍 AUDITORÍA</a>
+      </div>
+    </header>
+
+    <!-- Stats -->
+    <div class="barril-stats">
+      <div class="stat-card total">
+        <div>🍺 Total Barriles</div>
+        <div class="stat-number" id="total-barriles">0</div>
+      </div>
+      <div class="stat-card prestado">
+        <div>📤 Prestados</div>
+        <div class="stat-number" id="prestados-count">0</div>
+      </div>
+      <div class="stat-card disponible">
+        <div>📦 Disponibles</div>
+        <div class="stat-number" id="disponibles-count">0</div>
+      </div>
+    </div>
+
+    <!-- Botón Prestar -->
+    <div class="barril-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <h2 style="margin:0;">📋 Gestión de Barriles</h2>
+        <button class="btn-prestar" onclick="abrirModalPrestamo()">➕ Prestar Barril</button>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="barril-card">
+      <div class="filtros">
+        <button class="filtro-btn active" data-filtro="todos" onclick="filtrarBarriles('todos')">Todos</button>
+        <button class="filtro-btn" data-filtro="prestado" onclick="filtrarBarriles('prestado')">📤 Prestados</button>
+        <button class="filtro-btn" data-filtro="disponible" onclick="filtrarBarriles('disponible')">📦 Disponibles</button>
+      </div>
+      
+      <div id="lista-barriles">
+        <p style="text-align:center; padding:20px;">Cargando barriles...</p>
+      </div>
+    </div>
+
+    <!-- Historial -->
+    <div class="barril-card">
+      <h2>📜 Historial de Movimientos</h2>
+      <div id="historial-barriles" style="max-height: 300px; overflow-y: auto;">
+        <p style="text-align:center; padding:20px;">Cargando historial...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Préstamo -->
+  <div id="modal-prestamo" style="display:none;" class="modal">
+    <div class="modal-content">
+      <h2>🍺 Prestar Barril</h2>
+     <form id="form-prestamo">
+  <div class="form-group">
+    <label>Cliente (Opcional)</label>
+    <input type="text" id="cliente-barril" placeholder="Nombre del cliente">
+  </div>
+  <div class="form-group">
+    <label>Tipo de Cerveza (Opcional)</label>
+    <input type="text" id="tipo-barril" placeholder="Ej: BLONDE, STOUT, etc.">
+  </div>
+  <div class="form-group">
+    <label>Tamaño *</label>
+    <select id="tamano-barril" required>
+      <option value="">Seleccionar...</option>
+      <option value="20L">20 Litros</option>
+      <option value="30L">30 Litros</option>
+      <option value="50L">50 Litros</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Número de Serie / ID Barril (Opcional)</label>
+    <input type="text" id="serie-barril" placeholder="Ej: B-001">
+  </div>
+  <div class="form-group">
+    <label>Depósito (Seña) $</label>
+    <input type="number" id="deposito-barril" value="0" step="1000">
+  </div>
+  <div class="form-group">
+    <label>Observaciones</label>
+    <textarea id="obs-barril" rows="2" placeholder="Observaciones..."></textarea>
+  </div>
+  <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+    <button type="button" onclick="cerrarModalPrestamo()" style="background:#6b7280;">Cancelar</button>
+    <button type="submit" style="background:#3b82f6;">Confirmar Préstamo</button>
+  </div>
+</form>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="barriles.js"></script>
+</body>
+</html>

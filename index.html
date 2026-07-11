@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Profeta - Control de Stock y Ventas</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Estilos específicos para el header con botones */
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-title h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .header-title p {
+            margin: 4px 0 0 0;
+            color: #6b7280;
+            font-size: 0.9em;
+        }
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .btn-nav {
+            background: #7c3aed;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95em;
+            transition: opacity 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-nav:hover { opacity: 0.9; }
+        
+        /* Responsive */
+        @media (max-width: 600px) {
+            .header-content { flex-direction: column; align-items: flex-start; }
+            .header-actions { width: 100%; justify-content: flex-end; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        
+        <!-- HEADER CON BOTÓN GASTOS -->
+        <header class="main-header">
+            <div class="header-content">
+                <div class="header-title">
+                    <h1><img src="EP CARA.png" alt="El Profeta" style="height:1em; vertical-align:middle;"> El Profeta</h1>
+                    <p>Sistema Integral de Gestión de Stock</p>
+                </div>
+                <div class="header-actions">
+                    <a href="barriles.html" class="btn-nav barriles">🍺 BARRILES</a>
+                     <a href="gastos.html" class="btn-nav">💰 GASTOS</a>
+                    <div id="usuarios-section"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- SECCIONES PRINCIPALES (renderizadas por ui.js) -->
+        <div id="aviso-sync" style="display:none;"></div>
+        
+        <section id="stock-general-section" class="card-section"></section>
+        <section id="ventas-general-section" class="card-section"></section>
+        <section id="clientes-section" class="card-section"></section>
+        <section id="transferencia-section" class="card-section"></section>
+        
+        <div id="panel-usuario-container"></div>
+
+    </div>
+
+    <!-- SCRIPTS EN ORDEN CORRECTO: PRIMERO LÓGICA, LUEGO UI -->
+    <script src="config.js"></script>
+    <script src="logic.js"></script>
+    <script src="ui.js"></script>
+    
+</body>
+</html>
+
