@@ -314,3 +314,4 @@ window.devolverBarril = async function(idBarril) {
     alert("Error procesando la devolución.");
   }
 };
+
