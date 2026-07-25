@@ -541,6 +541,7 @@ function renderStockGeneral() {
 </div>`;
 }
 
+
 // ===== RENDER: VENTAS GENERAL =====
 function renderVentasGeneral() {
   const container = document.getElementById("ventas-general-section");
@@ -588,6 +589,20 @@ function renderVentasGeneral() {
       ? '<p style="color:gray;">No hay ventas cobradas aún.</p>'
       : [...todasLasVentas].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).map(v => {
           const vendedor = v.vendedor || Object.keys(state.usuarios).find(u => state.usuarios[u].ventas.some(vv => vv === v)) || '—';
+          
+          // --- INICIO LÓGICA BARRILES ---
+          const barrilesData = v.barriles || v.barrilesVendidos || [];
+          let barrilesHtml = '';
+          
+          if (Array.isArray(barrilesData) && barrilesData.length > 0) {
+            // Si los barriles vienen en un Array de objetos
+            barrilesHtml = barrilesData.map(b => `🍺 ${b.cantidad || 1}x Barril ${b.estilo || ''} ${b.tamano || ''}`).join('<br>');
+          } else if (typeof barrilesData === 'object' && Object.keys(barrilesData).length > 0) {
+            // Si los barriles vienen en un Objeto/Mapa
+            barrilesHtml = Object.entries(barrilesData).map(([nombre, cant]) => `🍺 ${cant}x Barril ${nombre}`).join('<br>');
+          }
+          // --- FIN LÓGICA BARRILES ---
+          
           return `
           <div style="border-bottom: 1px solid #f3f4f6; padding: 8px 0; font-size: 0.88em;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
@@ -604,6 +619,7 @@ function renderVentasGeneral() {
               <span style="margin-left:6px; padding:1px 8px; border-radius:10px; font-size:0.82em; font-weight:600; background:${v.tipoLata === 'sinEtiqueta' ? '#dbeafe' : '#fef9c3'}; color:${v.tipoLata === 'sinEtiqueta' ? '#1e40af' : '#92400e'};">
                 ${v.tipoLata === 'sinEtiqueta' ? '📦 Sin etiqueta' : '🏷️ Con etiqueta'}
               </span>
+              ${barrilesHtml ? `<div style="margin-top: 4px; color: #7c3aed; font-weight: 600;">${barrilesHtml}</div>` : ''}
             </div>
             <div style="display:flex; gap:12px; flex-wrap:wrap; color:#374151; align-items:center;">
               <span>💵 $${(v.totalCobrado||0).toLocaleString('es-AR')}</span>
