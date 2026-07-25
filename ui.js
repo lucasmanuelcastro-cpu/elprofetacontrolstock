@@ -942,7 +942,7 @@ function renderPanelUsuario() {
   bindPanelEventos();
   bindAutocompletadoCliente();
   bindPrecioUnitario();
-  bindAlquilerBarril();
+
 }
 
 // ===== BIND: PRECIO UNITARIO =====
