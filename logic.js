@@ -240,7 +240,7 @@ async function cargarClientesHistoricos() {
     const url = URL_SCRIPT + "?accion=clientesTodos&v=" + Date.now();
     const resp = await fetch(url, { method: "GET", mode: "cors", cache: "no-cache" });
     const texto = await resp.text();
-    const datos = JSON.parse(texto.trim().replace(/^\uFEFF/, ""));
+    const datos = JSON.parse(texto.trim().replace(/^﻿/, ""));
     if (datos.clientesTodos && Array.isArray(datos.clientesTodos)) {
       clientesHistoricos = datos.clientesTodos.filter(c => c && c.nombre);
       console.log("✅ Clientes históricos desde ventas:", clientesHistoricos.length);
@@ -316,7 +316,7 @@ async function cargarDatosDesdeSheet() {
     if (!respuesta.ok) throw new Error("HTTP " + respuesta.status);
 
     const texto = await respuesta.text();
-    const datosCloud = JSON.parse(texto.trim().replace(/^\uFEFF/, ""));
+    const datosCloud = JSON.parse(texto.trim().replace(/^﻿/, ""));
     if (datosCloud.error) throw new Error(datosCloud.error);
     if (!datosCloud.usuarios || typeof datosCloud.usuarios !== "object") return;
 
@@ -593,3 +593,4 @@ function registrarAuditoria(accion, usuario, cliente, detalle, monto) {
     mode: "cors"
   }).catch(err => console.error("Error auditoría:", err));
 }
+
