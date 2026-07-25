@@ -1,13 +1,13 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Final v40
+ * UI.JS - Control de la interfaz visual - Versión Final v41 (Fixes aplicados)
  * + Alquiler de Barril + Formato de Miles (es-AR)
  * + Precios dinámicos desde Sheets + Barriles en venta
+ * + FIX: registrarCargaStock argumentos, sync barriles, bloque manual, doble binding.
  */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
 const estilosBase = ["BLONDE", "IRISH RED", "STOUT", "SESSION IPA", "RED IPA", "HONEY"];
 
-// Estado principal de la aplicación
 let state = {
   usuarios: {
     Julian: { stock: {}, stockSinEtiqueta: {}, ventas: [] },
@@ -19,9 +19,9 @@ let state = {
   popularidadSheet: {},
   usuarioActivo: "Julian",
   ventaActual: { BLONDE: "", "IRISH RED": "", STOUT: "", "SESSION IPA": "", "RED IPA": "", HONEY: "" },
-  ventaActualBarriles: [], // 🟢 NUEVO
-  configuracion: {}, // 🟢 NUEVO
-  barrilesDisponibles: [], // 🟢 NUEVO
+  ventaActualBarriles: [],
+  configuracion: {},
+  barrilesDisponibles: [],
   metodoPago: "efectivo",
   clienteNombre: "",
   totalCobradoInput: "",
@@ -41,8 +41,6 @@ let state = {
 };
 
 // ===== UTILIDADES =====
-
-// Reemplazo seguro para structuredClone (soporta móviles antiguos/Safari)
 function setState(updater) {
   const estadoClonado = JSON.parse(JSON.stringify(state));
   state = typeof updater === "function" ? updater(estadoClonado) : updater;
@@ -50,7 +48,6 @@ function setState(updater) {
   render();
 }
 
-// Actualiza el stock general sumando todos los usuarios
 function actualizarStockGeneral() {
   let total = {};
   Object.values(state.usuarios).forEach((u) => {
@@ -61,7 +58,6 @@ function actualizarStockGeneral() {
   state.stockGeneral = total;
 }
 
-// Calcula vista previa de costos y ganancias
 function calcularPreview() {
   const config = state.configuracion || {};
   const costoConEtiqNormal = Number(config.costoConEtiquetaNormal) || 1850;
@@ -87,7 +83,6 @@ function calcularPreview() {
     }
   });
 
-  // Calcular barriles
   let costoTotalBarriles = 0;
   (state.ventaActualBarriles || []).forEach(b => {
     const litros = parseInt(b.tamano) || 0;
@@ -103,12 +98,10 @@ function calcularPreview() {
   return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas, gananciaBruta, costoTotalBarriles };
 }
 
-// Obtiene todas las ventas de todos los usuarios
 function getVentasGenerales() {
   return Object.values(state.usuarios).flatMap((u) => u.ventas);
 }
 
-// Formatea para mostrar el total "Para El Profeta"
 function paraProfetaMostrar(v) {
   const p = Number(v.paraProfeta);
   if (!isNaN(p) && p > 0) return p;
@@ -152,7 +145,7 @@ function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
   });
 }
 
-// ===== REGISTRAR VENTA LOCAL (CORREGIDA) =====
+// ===== REGISTRAR VENTA LOCAL =====
 function registrarVentaLocal() {
   const cliente = (state.clienteNombre || "").trim();
   
@@ -174,6 +167,11 @@ function registrarVentaLocal() {
 
   const preview = calcularPreview();
   const totalCobrado = Number(state.totalCobradoInput) || 0;
+
+  if (totalCobrado <= 0) {
+    alert("⚠️ El total a cobrar no puede ser $0. Cargá un precio o un monto manual.");
+    return;
+  }
 
   const venta = {
     cliente: cliente,
@@ -220,6 +218,22 @@ function registrarVentaLocal() {
   ventasPendientes.push(ventaParaSheet);
   localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
 
+  // FIX 3: Encolar barriles pendientes al vender
+  const barrilesVendidos = state.ventaActualBarriles || [];
+  if (barrilesVendidos.length > 0) {
+    let barrilesPendientes = [];
+    try { barrilesPendientes = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]"); } catch(e) {}
+    barrilesVendidos.forEach(b => {
+      barrilesPendientes.push({
+        id: b.id,
+        cliente: cliente,
+        estado: "prestado",
+        fechaPrestamo: new Date().toLocaleString("es-AR")
+      });
+    });
+    localStorage.setItem("barrilesPendientes", JSON.stringify(barrilesPendientes));
+  }
+
   state.ventaActual = { BLONDE: "", "IRISH RED": "", STOUT: "", "SESSION IPA": "", "RED IPA": "", HONEY: "" };
   state.ventaActualBarriles = [];
   state.clienteNombre = "";
@@ -248,7 +262,8 @@ function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
   } else {
     usuarioObj.stock[estilo] = cantidadNueva;
   }
-  registrarCargaStock(usuario, estilo, cantidadNueva - cantidadAnterior, tipo);
+  // FIX 1: Pasar objeto de estilos en vez de string suelto
+  registrarCargaStock(usuario, { [estilo]: cantidadNueva - cantidadAnterior }, tipo);
   encolarActualizarStockEnSheet(usuario);
   render();
 }
@@ -432,7 +447,7 @@ async function guardarEnSheets() {
     await guardarPagosPendientesEnSheet();
     await guardarBorrarVentasPendienteEnSheet();
     await guardarStockPendienteEnSheet();
-    await guardarBarrilesPendientesEnSheet(); // 🟢 NUEVO
+    await guardarBarrilesPendientesEnSheet(); 
     await cargarDatosDesdeSheet();
     alert("✅ Todo pendiente se envió a Google Sheets.");
   } catch (err) {
@@ -663,7 +678,6 @@ function renderClientesGlobales() {
   </div>`;
 }
 
-// ===== BORRAR DEUDA CLIENTE =====
 function borrarDeudaCliente(idx) {
   const cliente = state.clientesGlobales[idx];
   if (!cliente) return;
@@ -735,7 +749,7 @@ function borrarDeudaCliente(idx) {
   alert(`✅ Deuda de ${cliente.nombre} borrada. Stock devuelto. Formulario precargado.`);
 }
 
-// ===== RENDER: PANEL DE USUARIO (CON BARRILES Y BOTONES) =====
+// ===== RENDER: PANEL DE USUARIO =====
 function renderPanelUsuario() {
   const container = document.getElementById("panel-usuario-container");
   if (!container) return;
@@ -821,6 +835,14 @@ function renderPanelUsuario() {
         
         <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)" value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
         
+        <!-- FIX 4: BLOQUE MANUAL VUELTO -->
+        <div id="bloque-manual" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${hayAlquiler ? 'block' : 'none'}; border: 2px solid #fbbf24;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #fbbf24;">💰 Total a cobrar (manual):</span>
+            <input type="text" id="input-total-manual" value="${state.totalCobradoInput ? Number(state.totalCobradoInput).toLocaleString('es-AR') : ''}" placeholder="Ej: 3.500" style="background: transparent; border: none; color: #fbbf24; font-size: 1.5em; font-weight: bold; text-align: right; width: 60%;">
+          </div>
+        </div>
+
         <div id="bloque-automatico" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${hayAlquiler ? 'none' : 'block'};">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span style="color: #94a3b8; font-size: 0.9em;">Total latas:</span>
@@ -844,14 +866,12 @@ function renderPanelUsuario() {
           </div>
         </div>
         
-        <!-- 🟢 NUEVO: BOTONES DE VENTA RÁPIDA -->
         <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-top:10px;">
           <button onclick="setPrecioVenta('mayorista')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">Mayorista</button>
           <button onclick="setPrecioVenta('six')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">Six Pack</button>
           <button onclick="setPrecioVenta('doce')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">12 Pack</button>
         </div>
 
-        <!-- 🟢 NUEVO: SECCIÓN BARRILES EN VENTA -->
         <div style="margin-top:15px; border-top:2px solid #e5e7eb; padding-top:10px;">
           <h4 style="margin:0 0 8px 0;">🍺 Barriles Disponibles</h4>
           <div style="display:flex; gap:6px; margin-bottom:8px;">
@@ -872,7 +892,6 @@ function renderPanelUsuario() {
           <button onclick="aplicarDescuento()" style="width:100%; margin-top:5px; background:#f59e0b; color:white; padding:8px; border-radius:6px; font-size:0.85em; cursor:pointer;">% Aplicar Descuento</button>
         </div>
 
-        <!-- VISTA PREVIA PROFETA -->
         <div style="background:#fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-top: 10px;">
           <h4 style="margin: 0 0 8px 0; color: #92400e;">📊 Vista Previa Profeta</h4>
           <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
@@ -951,19 +970,48 @@ function bindPrecioUnitario() {
   });
 }
 
-// ===== BIND: ALQUILER BARRIL =====
+// ===== BIND: ALQUILER BARRIL Y TOTAL MANUAL =====
 function bindAlquilerBarril() {
   const inputAlquiler = document.getElementById('alquiler-barril');
   if (!inputAlquiler) return;
 
   const bloqueAutomatico = document.getElementById('bloque-automatico');
+  const bloqueManual = document.getElementById('bloque-manual');
+  const inputTotalManual = document.getElementById('input-total-manual');
 
-  inputAlquiler.addEventListener('input', (e) => {
+  // FIX 5: Solo un listener para el input de alquiler
+  inputAlquiler.oninput = (e) => {
     const valor = e.target.value.trim();
     state.alquilerBarril = e.target.value;
     const hayAlquiler = valor !== '';
     if (bloqueAutomatico) bloqueAutomatico.style.display = hayAlquiler ? 'none' : 'block';
-  });
+    if (bloqueManual) bloqueManual.style.display = hayAlquiler ? 'block' : 'none';
+  };
+
+  // Binding para el total manual
+  if (inputTotalManual) {
+    inputTotalManual.addEventListener('input', (e) => {
+      const valorSinFormato = e.target.value.replace(/\./g, '');
+      state.totalCobradoInput = valorSinFormato;
+      
+      if (valorSinFormato) {
+        const numero = Number(valorSinFormato);
+        if (!isNaN(numero)) {
+          e.target.value = numero.toLocaleString('es-AR');
+        }
+      }
+    });
+
+    inputTotalManual.addEventListener('blur', (e) => {
+      const valor = e.target.value.replace(/\./g, '');
+      if (valor) {
+        const numero = Number(valor);
+        if (!isNaN(numero)) {
+          e.target.value = numero.toLocaleString('es-AR');
+        }
+      }
+    });
+  }
 }
 
 // ===== BIND: AUTOCOMPLETADO CLIENTE =====
@@ -1020,15 +1068,7 @@ function bindPanelEventos() {
   const clienteInput = document.getElementById("cliente-nombre");
   if (clienteInput) clienteInput.oninput = (e) => { state.clienteNombre = e.target.value; };
   
-  const barrilInput = document.getElementById("alquiler-barril");
-  if (barrilInput) {
-    barrilInput.oninput = (e) => { 
-      state.alquilerBarril = e.target.value;
-      const bloqueAutomatico = document.getElementById('bloque-automatico');
-      const hayTexto = e.target.value.trim() !== '';
-      if (bloqueAutomatico) bloqueAutomatico.style.display = hayTexto ? 'none' : 'block';
-    };
-  }
+  // FIX 5: Removido el binding duplicado de alquiler-barril de acá
   
   const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
@@ -1120,8 +1160,9 @@ function bindPanelEventos() {
         u.stockSinEtiqueta[estilo] = (u.stockSinEtiqueta[estilo] || 0) + cantidad;
         return p;
       });
-      registrarCargaStock(state.usuarioActivo, estilo, -cantidad, 'conEtiqueta');
-      registrarCargaStock(state.usuarioActivo, estilo, cantidad, 'sinEtiqueta');
+      // FIX 1: Pasar objeto a registrarCargaStock
+      registrarCargaStock(state.usuarioActivo, { [estilo]: -cantidad }, 'conEtiqueta');
+      registrarCargaStock(state.usuarioActivo, { [estilo]: cantidad }, 'sinEtiqueta');
       document.getElementById("transfer-cantidad").value = "";
       encolarActualizarStockEnSheet(state.usuarioActivo);
     }
@@ -1139,8 +1180,9 @@ function bindPanelEventos() {
         u.stock[estilo] = (u.stock[estilo] || 0) + cantidad;
         return p;
       });
-      registrarCargaStock(state.usuarioActivo, estilo, -cantidad, 'sinEtiqueta');
-      registrarCargaStock(state.usuarioActivo, estilo, cantidad, 'conEtiqueta');
+      // FIX 1: Pasar objeto a registrarCargaStock
+      registrarCargaStock(state.usuarioActivo, { [estilo]: -cantidad }, 'sinEtiqueta');
+      registrarCargaStock(state.usuarioActivo, { [estilo]: cantidad }, 'conEtiqueta');
       document.getElementById("transfer-cantidad").value = "";
       encolarActualizarStockEnSheet(state.usuarioActivo);
     }
@@ -1294,7 +1336,7 @@ function mostrarHistorialTransferencias() {
   document.body.appendChild(modal);
 }
 
-// ===== NUEVAS FUNCIONES PARA BARRILES Y PRECIOS =====
+// ===== FUNCIONES PARA BARRILES Y PRECIOS =====
 function setPrecioVenta(tipo) {
   const config = state.configuracion || {};
   const estilosLupulados = ["SESSION IPA", "RED IPA"];
@@ -1324,6 +1366,9 @@ function agregarBarrilAVenta() {
   if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
   state.ventaActualBarriles.push(barril);
   
+  // FIX 2: Sacar de disponibles
+  state.barrilesDisponibles = state.barrilesDisponibles.filter(b => b.id !== barril.id);
+  
   const config = state.configuracion || {};
   const litros = parseInt(barril.tamano) || 0;
   const costoLitro = Number(config["costoLitro_" + barril.tipo]) || 0;
@@ -1338,7 +1383,13 @@ function agregarBarrilAVenta() {
 
 function quitarBarrilDeVenta(index) {
   if (!state.ventaActualBarriles) return;
-  state.ventaActualBarriles.splice(index, 1);
+  const barrilQuitado = state.ventaActualBarriles.splice(index, 1)[0];
+  
+  // FIX 2: Devolverlo a disponibles si se quita de la venta
+  if (barrilQuitado && !state.barrilesDisponibles.some(b => b.id === barrilQuitado.id)) {
+    state.barrilesDisponibles.push(barrilQuitado);
+  }
+  
   render();
 }
 
@@ -1352,5 +1403,4 @@ function aplicarDescuento() {
   state.totalCobradoInput = String(nuevoTotal);
   render();
 }
-
 // ===== FIN DE UI.JS =====
