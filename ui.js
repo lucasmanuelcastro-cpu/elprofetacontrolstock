@@ -1,7 +1,7 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Final v43 (Limpieza Alquiler)
+ * UI.JS - Control de la interfaz visual - Versión Final v44 (Lógica Mayorista Corregida)
  * + Precios dinámicos desde Sheets + Barriles en venta
- * + FIX: Alquiler de barril removido, bloque manual removido.
+ * + FIX: Botones de venta rápida y ocultamiento de precio unitario.
  */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
@@ -750,8 +750,13 @@ function renderPanelUsuario() {
   const usuario = state.usuarios[state.usuarioActivo];
   const preview = calcularPreview();
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  const precioSugerido = state.precioUnitario || (Number(state.configuracion?.precioMinorista) || 3500);
-  const totalCobrado = totalLatas > 0 && precioSugerido ? totalLatas * Number(precioSugerido) : (Number(state.totalCobradoInput) || 0);
+  
+  // Lógica corregida para el Total a Cobrar
+  let totalCobrado = Number(state.totalCobradoInput) || 0;
+  if (totalCobrado === 0 && totalLatas > 0) {
+    const precioMinorista = Number(state.configuracion?.precioMinorista) || 3500;
+    totalCobrado = totalLatas * precioMinorista;
+  }
 
   container.innerHTML = `<div class="panel-usuario card">
     <h1 style="border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Panel de ${state.usuarioActivo}</h1>
@@ -830,17 +835,19 @@ function renderPanelUsuario() {
             <b style="color: #f1f5f9; font-size: 1.4em;">${totalLatas}</b>
           </div>
           <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-           <button onclick="setState(p => { p.tipoLata = 'conEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#334155'}; background: ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#0f172a'}; color: ${state.tipoLata !== 'sinEtiqueta' ? '#1e293b' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
-  🏷️ Con Etiqueta
-</button>
-<button onclick="setState(p => { p.tipoLata = 'sinEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#334155'}; background: ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#0f172a'}; color: ${state.tipoLata === 'sinEtiqueta' ? '#1e293b' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
-  📦 Sin Etiqueta
-</button>
+            <button onclick="setState(p => { p.tipoLata = 'conEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#334155'}; background: ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#0f172a'}; color: ${state.tipoLata !== 'sinEtiqueta' ? '#1e293b' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
+              🏷️ Con Etiqueta
+            </button>
+            <button onclick="setState(p => { p.tipoLata = 'sinEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#334155'}; background: ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#0f172a'}; color: ${state.tipoLata === 'sinEtiqueta' ? '#1e293b' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
+              📦 Sin Etiqueta
+            </button>
           </div>
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          
+          <div style="display: ${state.precioUnitario ? 'flex' : 'none'}; align-items: center; gap: 8px; margin-bottom: 4px;">
             <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap;">Precio unitario $</label>
-            <input type="number" id="precio-unitario" value="${precioSugerido}" placeholder="ej: 3500" style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
+            <input type="number" id="precio-unitario" value="${state.precioUnitario || ""}" placeholder="ej: 3500" style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
           </div>
+          
           <div style="text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155;">
             <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
             <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display> $${totalCobrado > 0 ? totalCobrado.toLocaleString('es-AR') : "—"} </b>
@@ -1005,9 +1012,15 @@ function bindPanelEventos() {
   if (btnRegistrar) btnRegistrar.onclick = () => {
     const precio = Number(state.precioUnitario) || 0;
     const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-    if (precio > 0 && totalLatas > 0) {
+    
+    // Si no hay precio unitario pero hay latas, usar el precio minorista por defecto
+    if (precio === 0 && totalLatas > 0 && Number(state.totalCobradoInput) === 0) {
+      const precioMinorista = Number(state.configuracion?.precioMinorista) || 3500;
+      state.totalCobradoInput = String(totalLatas * precioMinorista);
+    } else if (precio > 0 && totalLatas > 0) {
       state.totalCobradoInput = String(totalLatas * precio);
     }
+    
     registrarVentaLocal();
     state.precioUnitario = "";
   };
@@ -1217,7 +1230,7 @@ function mostrarHistorialStock() {
       <button onclick="this.closest('div[style*=fixed]').remove()" style="background:#ef4444; padding:8px 16px;">✕ Cerrar</button>
     </div>
     <div>
-      ${state.historialStock.length === 0 ? '<p style="color:gray;">No hay cargas registradas</p>' : [...state.historialStock].reverse().map(h => {
+      ${state.historialStock.length === 0 ? '<p style="color:gray;">No hay cargas registrados</p>' : [...state.historialStock].reverse().map(h => {
         const estilos = h.estilos || (h.estilo ? { [h.estilo]: h.cantidad } : {});
         const items = Object.entries(estilos).filter(([,v]) => Number(v) !== 0);
         if (items.length === 0) return '';
@@ -1271,7 +1284,6 @@ function setPrecioVenta(tipo) {
   const estilosLupulados = ["SESSION IPA", "RED IPA"];
   
   if (tipo === 'mayorista') {
-    // Lógica corregida para Mayorista (precios mixtos)
     const precioNormal = Number(config.precioMayoristaNormal) || 2400;
     const precioLupulada = Number(config.precioMayoristaLupulada) || 2500;
     let totalCalculado = 0;
@@ -1279,12 +1291,10 @@ function setPrecioVenta(tipo) {
     Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
       const c = Number(cant) || 0;
       if (c > 0) {
-        // Sumamos el precio que corresponda según el estilo
         totalCalculado += c * (estilosLupulados.includes(estilo) ? precioLupulada : precioNormal);
       }
     });
 
-    // Vaciamos el precio unitario para que no se confunda, y ponemos el total directo
     state.precioUnitario = ""; 
     state.totalCobradoInput = totalCalculado > 0 ? String(totalCalculado) : "";
 
@@ -1313,7 +1323,6 @@ function agregarBarrilAVenta() {
   if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
   state.ventaActualBarriles.push(barril);
   
-  // FIX: Sacar de disponibles
   state.barrilesDisponibles = state.barrilesDisponibles.filter(b => b.id !== barril.id);
   
   const config = state.configuracion || {};
@@ -1332,7 +1341,6 @@ function quitarBarrilDeVenta(index) {
   if (!state.ventaActualBarriles) return;
   const barrilQuitado = state.ventaActualBarriles.splice(index, 1)[0];
   
-  // FIX: Devolverlo a disponibles si se quita de la venta
   if (barrilQuitado && !state.barrilesDisponibles.some(b => b.id === barrilQuitado.id)) {
     state.barrilesDisponibles.push(barrilQuitado);
   }
