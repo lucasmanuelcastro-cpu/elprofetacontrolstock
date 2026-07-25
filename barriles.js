@@ -1,4 +1,3 @@
-
 let barriles = [];
 let historial = [];
 let filtroActual = "todos";
@@ -424,6 +423,3 @@ window.borrarBarrilDefinitivo = async function(idBarril, tipo, tamano, serie) {
     alert("Error al borrar el barril.");
   }
 };
-
-
-
