@@ -1,7 +1,7 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Final v45
- * + Precios dinámicos + Barriles en venta + Restricciones Pack
- * + Fix: Botón añadir barril, ocultar VACIO, lógica Mayorista.
+ * UI.JS - Control de la interfaz visual - Versión Final v46
+ * + Total a cobrar manual habilitado siempre.
+ * + Alerta si el barril no tiene costo cargado en Sheets.
  */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
@@ -842,14 +842,14 @@ function renderPanelUsuario() {
             </button>
           </div>
           
-          <div style="display: ${state.precioUnitario ? 'flex' : 'none'}; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
             <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap;">Precio unitario $</label>
             <input type="number" id="precio-unitario" value="${state.precioUnitario || ""}" placeholder="ej: 3500" style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
           </div>
           
-          <div style="text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155;">
-            <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
-            <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display> $${totalCobrado > 0 ? totalCobrado.toLocaleString('es-AR') : "—"} </b>
+          <div style="text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #94a3b8; font-size: 0.9em; white-space: nowrap;">Total a cobrar $</span>
+            <input type="text" id="input-total-manual" value="${totalCobrado > 0 ? totalCobrado.toLocaleString('es-AR') : ''}" placeholder="Ej: 3.500" style="flex:1; background: transparent; border: none; color: #34d399; font-size: 1.3em; font-weight: bold; text-align: right; width: 60%; margin-left: 10px;">
           </div>
         </div>
         
@@ -934,23 +934,42 @@ function renderPanelUsuario() {
   
   bindPanelEventos();
   bindAutocompletadoCliente();
-  bindPrecioUnitario();
+  bindPrecios();
 }
 
-// ===== BIND: PRECIO UNITARIO =====
-function bindPrecioUnitario() {
-  const input = document.getElementById("precio-unitario");
-  if (!input) return;
-  
-  input.addEventListener("input", () => {
-    const precio = Number(input.value) || 0;
-    state.precioUnitario = input.value;
-    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-    const total = totalLatas * precio;
-    state.totalCobradoInput = total > 0 ? String(total) : "";
-    const display = document.querySelector("[data-total-display]");
-    if (display) display.textContent = total > 0 ? "$" + total.toLocaleString('es-AR') : "$—";
-  });
+// ===== BIND: PRECIOS (UNITARIO Y TOTAL MANUAL) =====
+function bindPrecios() {
+  const inputPrecio = document.getElementById("precio-unitario");
+  if (inputPrecio) {
+    inputPrecio.addEventListener("input", () => {
+      const precio = Number(inputPrecio.value) || 0;
+      state.precioUnitario = inputPrecio.value;
+      const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+      const total = totalLatas * precio;
+      state.totalCobradoInput = total > 0 ? String(total) : "";
+      const inputTotal = document.getElementById("input-total-manual");
+      if (inputTotal) inputTotal.value = total > 0 ? total.toLocaleString('es-AR') : "";
+    });
+  }
+
+  const inputTotalManual = document.getElementById("input-total-manual");
+  if (inputTotalManual) {
+    inputTotalManual.addEventListener('input', (e) => {
+      const valorSinFormato = e.target.value.replace(/\./g, '');
+      state.totalCobradoInput = valorSinFormato;
+      state.precioUnitario = ""; // Si edita manual, pisamos el precio unitario
+      
+      if (valorSinFormato) {
+        const numero = Number(valorSinFormato);
+        if (!isNaN(numero)) {
+          const formatted = numero.toLocaleString('es-AR');
+          if (e.target.value !== formatted) {
+            e.target.value = formatted;
+          }
+        }
+      }
+    });
+  }
 }
 
 // ===== BIND: AUTOCOMPLETADO CLIENTE =====
@@ -1334,8 +1353,12 @@ function agregarBarrilAVenta() {
   const config = state.configuracion || {};
   const litros = parseInt(barril.tamano) || 0;
   const costoLitro = Number(config["costoLitro_" + barril.tipo]) || 0;
-  const costoBarril = litros * costoLitro;
   
+  if (costoLitro === 0) {
+    alert("⚠️ Aviso: El costo por litro para '" + barril.tipo + "' no está configurado en la hoja 'Configuracion' de Google Sheets. El costo de este barril será $0.");
+  }
+  
+  const costoBarril = litros * costoLitro;
   const precioSugeridoBarril = Math.round(costoBarril * 1.5); 
   const totalActual = Number(state.totalCobradoInput) || 0;
   state.totalCobradoInput = String(totalActual + precioSugeridoBarril);
