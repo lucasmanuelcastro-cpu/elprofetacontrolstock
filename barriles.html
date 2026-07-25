@@ -21,6 +21,8 @@
     .barril-fecha { color: #64748b; font-size: 0.85em; }
     .btn-devolver { background: #10b981; color: white; border: none; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85em; }
     .btn-devolver:hover { background: #059669; }
+    .btn-borrar { background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85em; margin-left: 8px; }
+    .btn-borrar:hover { background: #dc2626; }
     .btn-prestar, .btn-agregar { color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
     .btn-prestar { background: #3b82f6; }
     .btn-agregar { background: #10b981; }
@@ -88,8 +90,37 @@
     <div class="modal-content">
       <h2>🍺 Agregar Barril a Stock</h2>
       <form id="form-agregar">
-        <div class="form-group"><label>Tipo de Cerveza (Opcional)</label><input type="text" id="add-tipo-barril" placeholder="Ej: BLONDE, STOUT, etc."></div>
-        <div class="form-group"><label>Tamaño *</label><select id="add-tamano-barril" required><option value="">Seleccionar...</option><option value="20L">20 Litros</option><option value="30L">30 Litros</option><option value="50L">50 Litros</option></select></div>
+        <div class="form-group">
+          <label>Tipo de Cerveza *</label>
+          <select id="add-tipo-barril" required>
+            <option value="VACIO">VACIO</option>
+            <option value="HONEY">HONEY</option>
+            <option value="RED IRISH">RED IRISH</option>
+            <option value="RED HONEY">RED HONEY</option>
+            <option value="STOUT">STOUT</option>
+            <option value="HAZELNUT STOUT">HAZELNUT STOUT</option>
+            <option value="SESSION IPA">SESSION IPA</option>
+            <option value="RED IPA">RED IPA</option>
+            <option value="APA">APA</option>
+            <option value="JAMESON ALE">JAMESON ALE</option>
+            <option value="SCOTH MALT">SCOTH MALT</option>
+            <option value="JAMESON IPA">JAMESON IPA</option>
+            <option value="AMERICAN IPA">AMERICAN IPA</option>
+            <option value="NEIPA">NEIPA</option>
+            <option value="GIN TONIC">GIN TONIC</option>
+            <option value="VERMOUTH">VERMOUTH</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tamaño *</label>
+          <select id="add-tamano-barril" required>
+            <option value="">Seleccionar...</option>
+            <option value="20 SLIM">20 SLIM</option>
+            <option value="20 CHATO">20 CHATO</option>
+            <option value="30 SLIM">30 SLIM</option>
+            <option value="30 CHATO">30 CHATO</option>
+          </select>
+        </div>
         <div class="form-group"><label>Número de Serie / ID (Opcional)</label><input type="text" id="add-serie-barril" placeholder="Ej: B-001"></div>
         <div class="form-group"><label>Observaciones</label><textarea id="add-obs-barril" rows="2" placeholder="Observaciones..."></textarea></div>
         <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
@@ -107,8 +138,37 @@
       <form id="form-prestamo">
         <input type="hidden" id="id-barril-prestamo">
         <div class="form-group"><label>Cliente (Opcional)</label><input type="text" id="cliente-barril" placeholder="Nombre del cliente"></div>
-        <div class="form-group"><label>Tipo de Cerveza (Opcional)</label><input type="text" id="tipo-barril" placeholder="Ej: BLONDE, STOUT, etc."></div>
-        <div class="form-group"><label>Tamaño *</label><select id="tamano-barril" required><option value="">Seleccionar...</option><option value="20L">20 Litros</option><option value="30L">30 Litros</option><option value="50L">50 Litros</option></select></div>
+        <div class="form-group">
+          <label>Tipo de Cerveza (Opcional)</label>
+          <select id="tipo-barril">
+            <option value="VACIO">VACIO</option>
+            <option value="HONEY">HONEY</option>
+            <option value="RED IRISH">RED IRISH</option>
+            <option value="RED HONEY">RED HONEY</option>
+            <option value="STOUT">STOUT</option>
+            <option value="HAZELNUT STOUT">HAZELNUT STOUT</option>
+            <option value="SESSION IPA">SESSION IPA</option>
+            <option value="RED IPA">RED IPA</option>
+            <option value="APA">APA</option>
+            <option value="JAMESON ALE">JAMESON ALE</option>
+            <option value="SCOTH MALT">SCOTH MALT</option>
+            <option value="JAMESON IPA">JAMESON IPA</option>
+            <option value="AMERICAN IPA">AMERICAN IPA</option>
+            <option value="NEIPA">NEIPA</option>
+            <option value="GIN TONIC">GIN TONIC</option>
+            <option value="VERMOUTH">VERMOUTH</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tamaño *</label>
+          <select id="tamano-barril" required>
+            <option value="">Seleccionar...</option>
+            <option value="20 SLIM">20 SLIM</option>
+            <option value="20 CHATO">20 CHATO</option>
+            <option value="30 SLIM">30 SLIM</option>
+            <option value="30 CHATO">30 CHATO</option>
+          </select>
+        </div>
         <div class="form-group"><label>Número de Serie / ID Barril (Opcional)</label><input type="text" id="serie-barril" placeholder="Ej: B-001"></div>
         <div class="form-group"><label>Depósito (Seña) $</label><input type="number" id="deposito-barril" value="0" step="1000"></div>
         <div class="form-group"><label>Observaciones</label><textarea id="obs-barril" rows="2" placeholder="Observaciones..."></textarea></div>
