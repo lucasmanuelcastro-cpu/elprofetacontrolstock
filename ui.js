@@ -1,7 +1,7 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Final v44 (Lógica Mayorista Corregida)
- * + Precios dinámicos desde Sheets + Barriles en venta
- * + FIX: Botones de venta rápida y ocultamiento de precio unitario.
+ * UI.JS - Control de la interfaz visual - Versión Final v45
+ * + Precios dinámicos + Barriles en venta + Restricciones Pack
+ * + Fix: Botón añadir barril, ocultar VACIO, lógica Mayorista.
  */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
@@ -751,7 +751,6 @@ function renderPanelUsuario() {
   const preview = calcularPreview();
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
   
-  // Lógica corregida para el Total a Cobrar
   let totalCobrado = Number(state.totalCobradoInput) || 0;
   if (totalCobrado === 0 && totalLatas > 0) {
     const precioMinorista = Number(state.configuracion?.precioMinorista) || 3500;
@@ -865,7 +864,7 @@ function renderPanelUsuario() {
           <div style="display:flex; gap:6px; margin-bottom:8px;">
             <select id="select-barril-venta" style="flex:1; padding:8px; border-radius:6px; border:1px solid #d1d5db;">
               <option value="">Seleccionar barril...</option>
-              ${(state.barrilesDisponibles || []).map(b => `<option value="${b.id}">${b.serie || b.id} - ${b.tipo} (${b.tamano})</option>`).join("")}
+              ${(state.barrilesDisponibles || []).filter(b => b.tipo !== "VACIO").map(b => `<option value="${b.id}">${b.serie || b.id} - ${b.tipo} (${b.tamano})</option>`).join("")}
             </select>
             <button onclick="agregarBarrilAVenta()" style="background:#3b82f6; color:white; padding:8px 12px; border-radius:6px; cursor:pointer;">➕</button>
           </div>
@@ -1013,7 +1012,6 @@ function bindPanelEventos() {
     const precio = Number(state.precioUnitario) || 0;
     const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
     
-    // Si no hay precio unitario pero hay latas, usar el precio minorista por defecto
     if (precio === 0 && totalLatas > 0 && Number(state.totalCobradoInput) === 0) {
       const precioMinorista = Number(state.configuracion?.precioMinorista) || 3500;
       state.totalCobradoInput = String(totalLatas * precioMinorista);
@@ -1230,7 +1228,7 @@ function mostrarHistorialStock() {
       <button onclick="this.closest('div[style*=fixed]').remove()" style="background:#ef4444; padding:8px 16px;">✕ Cerrar</button>
     </div>
     <div>
-      ${state.historialStock.length === 0 ? '<p style="color:gray;">No hay cargas registrados</p>' : [...state.historialStock].reverse().map(h => {
+      ${state.historialStock.length === 0 ? '<p style="color:gray;">No hay cargas registradas</p>' : [...state.historialStock].reverse().map(h => {
         const estilos = h.estilos || (h.estilo ? { [h.estilo]: h.cantidad } : {});
         const items = Object.entries(estilos).filter(([,v]) => Number(v) !== 0);
         if (items.length === 0) return '';
@@ -1282,6 +1280,7 @@ function mostrarHistorialTransferencias() {
 function setPrecioVenta(tipo) {
   const config = state.configuracion || {};
   const estilosLupulados = ["SESSION IPA", "RED IPA"];
+  const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
   
   if (tipo === 'mayorista') {
     const precioNormal = Number(config.precioMayoristaNormal) || 2400;
@@ -1299,16 +1298,22 @@ function setPrecioVenta(tipo) {
     state.totalCobradoInput = totalCalculado > 0 ? String(totalCalculado) : "";
 
   } else if (tipo === 'six') {
+    if (totalLatas !== 6) {
+      alert("⚠️ Para aplicar el precio de Six Pack, debés cargar exactamente 6 latas en total.\nActualmente tenés " + totalLatas + " lata(s).");
+      return; 
+    }
     const precio = Number(config.precioSixPack) || 3250;
     state.precioUnitario = String(precio);
-    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-    state.totalCobradoInput = totalLatas > 0 ? String(totalLatas * precio) : "";
+    state.totalCobradoInput = String(totalLatas * precio);
 
   } else if (tipo === 'doce') {
+    if (totalLatas !== 12) {
+      alert("⚠️ Para aplicar el precio de 12 Pack, debés cargar exactamente 12 latas en total.\nActualmente tenés " + totalLatas + " lata(s).");
+      return; 
+    }
     const precio = Number(config.precioDocePack) || 3000;
     state.precioUnitario = String(precio);
-    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-    state.totalCobradoInput = totalLatas > 0 ? String(totalLatas * precio) : "";
+    state.totalCobradoInput = String(totalLatas * precio);
   }
   
   render();
@@ -1317,13 +1322,14 @@ function setPrecioVenta(tipo) {
 function agregarBarrilAVenta() {
   const select = document.getElementById("select-barril-venta");
   if (!select || !select.value) return alert("Seleccioná un barril primero.");
-  const barril = state.barrilesDisponibles.find(b => b.id === select.value);
-  if (!barril) return;
+  
+  const barril = state.barrilesDisponibles.find(b => String(b.id) === String(select.value));
+  if (!barril) return alert("Error: No se encontró el barril seleccionado.");
 
   if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
   state.ventaActualBarriles.push(barril);
   
-  state.barrilesDisponibles = state.barrilesDisponibles.filter(b => b.id !== barril.id);
+  state.barrilesDisponibles = state.barrilesDisponibles.filter(b => String(b.id) !== String(barril.id));
   
   const config = state.configuracion || {};
   const litros = parseInt(barril.tamano) || 0;
