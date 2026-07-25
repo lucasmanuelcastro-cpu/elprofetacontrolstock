@@ -1405,9 +1405,16 @@ function aplicarDescuento() {
   if (!descStr) return;
   const pct = Number(descStr) / 100;
   if (isNaN(pct)) return alert("Porcentaje inválido.");
+  
   const totalActual = Number(state.totalCobradoInput) || 0;
+  if (totalActual <= 0) {
+    alert("No hay un total cargado para aplicarle el descuento. Cargá las latas y un precio primero.");
+    return;
+  }
+  
   const nuevoTotal = Math.round(totalActual - (totalActual * pct));
   state.totalCobradoInput = String(nuevoTotal);
+  state.precioUnitario = ""; // 👈 ESTA LÍNEA ES LA QUE ARREGLA EL BUG
   render();
 }
 // ===== FIN DE UI.JS =====
