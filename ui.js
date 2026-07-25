@@ -1,8 +1,9 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Final v48
- * + Precio Lata y Precio Litro separados.
+ * UI.JS - Control de la interfaz visual - Versión Final v49
+ * + Barriles piden su precio individual al agregarlos.
  * + Historial Global muestra Barriles.
  * + Fix bug de descuento al registrar.
+ * + Precio Lata y Precio Litro separados.
  */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
@@ -891,8 +892,8 @@ function renderPanelUsuario() {
           </div>
           <div id="lista-barriles-venta" style="font-size:0.85em; color:#374151;">
             ${(state.ventaActualBarriles || []).map((b, i) => `
-              <div style="display:flex; justify-content:space-between; background:#eff6ff; padding:4px 8px; border-radius:4px; margin-bottom:4px;">
-                <span>${b.tipo} (${b.tamano})</span>
+              <div style="display:flex; justify-content:space-between; background:#eff6ff; padding:4px 8px; border-radius:4px; margin-bottom:4px; font-size:0.9em;">
+                <span>🍺 ${b.tipo} (${b.tamano}L) <b>$${(b.precioTotal || 0).toLocaleString('es-AR')}</b></span>
                 <button onclick="quitarBarrilDeVenta(${i})" style="background:#ef4444; color:white; border:none; border-radius:4px; padding:2px 6px; cursor:pointer;">X</button>
               </div>
             `).join("")}
@@ -974,7 +975,6 @@ function bindPrecios() {
   if (inputPrecioLitro) {
     inputPrecioLitro.addEventListener("input", () => {
       state.precioLitro = inputPrecioLitro.value;
-      recalcularTotalDinamico();
       const inputTotal = document.getElementById("input-total-manual");
       if (inputTotal) inputTotal.value = state.totalCobradoInput ? Number(state.totalCobradoInput).toLocaleString('es-AR') : "";
     });
@@ -1001,19 +1001,17 @@ function bindPrecios() {
   }
 }
 
-// 🟢 FUNCIÓN: Calcula (Latas * Precio Lata) + (Litros * Precio Litro)
+// 🟢 FUNCIÓN: Calcula (Latas * Precio Lata) + (Precio Total de cada Barril)
 function recalcularTotalDinamico() {
   const precioLata = Number(state.precioUnitario) || 0;
-  const precioLitro = Number(state.precioLitro) || 0;
-  
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  const totalLitrosBarriles = (state.ventaActualBarriles || []).reduce((sum, b) => sum + (parseInt(b.tamano) || 0), 0);
+  const totalBarriles = (state.ventaActualBarriles || []).reduce((sum, b) => sum + (Number(b.precioTotal) || 0), 0);
   
-  const totalCalculado = (totalLatas * precioLata) + (totalLitrosBarriles * precioLitro);
+  const totalCalculado = (totalLatas * precioLata) + totalBarriles;
   
   if (totalCalculado > 0) {
     state.totalCobradoInput = String(totalCalculado);
-  } else if (totalLatas === 0 && totalLitrosBarriles === 0) {
+  } else if (totalLatas === 0 && (state.ventaActualBarriles || []).length === 0) {
     state.totalCobradoInput = ""; // Limpiar si no hay nada
   }
 }
@@ -1393,21 +1391,26 @@ function agregarBarrilAVenta() {
   const barril = state.barrilesDisponibles.find(b => String(b.id) === String(select.value));
   if (!barril) return alert("Error: No se encontró el barril seleccionado.");
 
-  const precioLitro = Number(state.precioLitro) || 0;
-  if (precioLitro <= 0) {
-    alert("⚠️ Para calcular el barril, primero ingresá un valor en 'Precio Litro $'.");
-    return;
-  }
+  const litros = parseInt(barril.tamano) || 0;
+  const precioSugerido = state.precioLitro || "";
+  
+  // Pedir el precio por litro para ESTE barril específico
+  const precioStr = prompt(`Ingresá el precio por litro para el barril de ${barril.tipo} (${litros}L):`, precioSugerido);
+  if (!precioStr) return; // Si cancela, no hace nada
+  
+  const precioLitro = Number(precioStr) || 0;
+  if (precioLitro <= 0) return alert("⚠️ Precio inválido. El barril no se agregó.");
+
+  const precioTotalBarril = litros * precioLitro;
 
   if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
-  state.ventaActualBarriles.push(barril);
+  state.ventaActualBarriles.push({ ...barril, precioLitro: precioLitro, precioTotal: precioTotalBarril });
   
   // Sacar de la lista de disponibles
   state.barrilesDisponibles = state.barrilesDisponibles.filter(b => String(b.id) !== String(barril.id));
+  state.precioLitro = String(precioLitro); // Lo guardamos como sugerencia para el próximo
   
-  // Recalcular el total dinámico
   recalcularTotalDinamico();
-  
   render();
 }
 
