@@ -1,12 +1,11 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Final v39
+ * UI.JS - Control de la interfaz visual - Versión Final v40
  * + Alquiler de Barril + Formato de Miles (es-AR)
+ * + Precios dinámicos desde Sheets + Barriles en venta
  */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
 const estilosBase = ["BLONDE", "IRISH RED", "STOUT", "SESSION IPA", "RED IPA", "HONEY"];
-const costoPorLata = 1750;
-const costoPorLataSinEtiqueta = 1450;
 
 // Estado principal de la aplicación
 let state = {
@@ -20,6 +19,9 @@ let state = {
   popularidadSheet: {},
   usuarioActivo: "Julian",
   ventaActual: { BLONDE: "", "IRISH RED": "", STOUT: "", "SESSION IPA": "", "RED IPA": "", HONEY: "" },
+  ventaActualBarriles: [], // 🟢 NUEVO
+  configuracion: {}, // 🟢 NUEVO
+  barrilesDisponibles: [], // 🟢 NUEVO
   metodoPago: "efectivo",
   clienteNombre: "",
   totalCobradoInput: "",
@@ -61,13 +63,44 @@ function actualizarStockGeneral() {
 
 // Calcula vista previa de costos y ganancias
 function calcularPreview() {
+  const config = state.configuracion || {};
+  const costoConEtiqNormal = Number(config.costoConEtiquetaNormal) || 1850;
+  const costoSinEtiqNormal = Number(config.costoSinEtiquetaNormal) || 1510;
+  const costoConEtiqLup = Number(config.costoConEtiquetaLupulada) || 1950;
+  const costoSinEtiqLup = Number(config.costoSinEtiquetaLupulada) || 1610;
+  const estilosLupulados = ["SESSION IPA", "RED IPA"];
+
+  let costoTotalLatas = 0;
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+  
+  Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
+    const c = Number(cant) || 0;
+    if (c > 0) {
+      const esLupulada = estilosLupulados.includes(estilo);
+      let costoUnitario = 0;
+      if (state.tipoLata === "sinEtiqueta") {
+        costoUnitario = esLupulada ? costoSinEtiqLup : costoSinEtiqNormal;
+      } else {
+        costoUnitario = esLupulada ? costoConEtiqLup : costoConEtiqNormal;
+      }
+      costoTotalLatas += c * costoUnitario;
+    }
+  });
+
+  // Calcular barriles
+  let costoTotalBarriles = 0;
+  (state.ventaActualBarriles || []).forEach(b => {
+    const litros = parseInt(b.tamano) || 0;
+    const costoLitro = Number(config["costoLitro_" + b.tipo]) || 0;
+    costoTotalBarriles += litros * costoLitro;
+  });
+
+  const costoTotal = costoTotalLatas + costoTotalBarriles;
   const totalCobrado = Number(state.totalCobradoInput) || 0;
-  const costo = state.tipoLata === "sinEtiqueta" ? costoPorLataSinEtiqueta : costoPorLata;
-  const costoTotal = totalLatas * costo;
   const gananciaBruta = totalCobrado > costoTotal ? totalCobrado - costoTotal : 0;
   const comision = gananciaBruta * 0.5;
-  return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas, gananciaBruta };
+  
+  return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas, gananciaBruta, costoTotalBarriles };
 }
 
 // Obtiene todas las ventas de todos los usuarios
@@ -84,16 +117,10 @@ function paraProfetaMostrar(v) {
   return c + com;
 }
 
-// Determina si una venta aparece en el historial global
-// Antes esta función ocultaba por completo las ventas "fiado" (PENDIENTE)
-// de clientes con nombre propio. Pero el render de más abajo ya sabe
-// mostrar la etiqueta "⏳ Fiado (pendiente)" para esos casos, así que
-// no hace falta esconder la venta: alcanza con que tenga un monto cargado.
 function ventaApareceEnHistorialGlobal(v) {
   return (Number(v.totalCobrado) || 0) > 0;
 }
 
-// Estadísticas de ventas por estilo
 function getEstadisticasVentas() {
   const ventas = getVentasGenerales();
   const totalesPorEstilo = {};
@@ -110,7 +137,6 @@ function getEstadisticasVentas() {
   return { totalesPorEstilo, granTotalLatas };
 }
 
-// Marca ventas locales como cobradas si el cliente saldó
 function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
   const norm = (s) => String(s || "").toLowerCase().trim();
   const n = norm(nombreCliente);
@@ -130,7 +156,6 @@ function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
 function registrarVentaLocal() {
   const cliente = (state.clienteNombre || "").trim();
   
-  // === PUNTO 3: Nombre de cliente OBLIGATORIO ===
   if (!cliente || cliente === "Consumidor Final") {
     alert("⚠️ Debes ingresar el nombre del cliente.\n\nNo se puede registrar como 'Consumidor Final' automáticamente.");
     const inputCliente = document.getElementById("cliente-nombre");
@@ -140,10 +165,10 @@ function registrarVentaLocal() {
 
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
   const hayAlquiler = (state.alquilerBarril || "").trim() !== "";
+  const hayBarriles = (state.ventaActualBarriles || []).length > 0;
 
-  // === PUNTO 2: Permitir solo alquiler de barril ===
-  if (totalLatas === 0 && !hayAlquiler) {
-    alert("Cargá al menos 1 lata o el alquiler de barril");
+  if (totalLatas === 0 && !hayAlquiler && !hayBarriles) {
+    alert("Cargá al menos 1 lata, un barril o el alquiler de barril");
     return;
   }
 
@@ -154,6 +179,7 @@ function registrarVentaLocal() {
     cliente: cliente,
     estilos: {...state.ventaActual},
     alquilerBarril: state.alquilerBarril || "",
+    barriles: state.ventaActualBarriles || [],
     tipoLata: state.tipoLata,
     estado: "PENDIENTE",
     metodoPago: "",
@@ -166,10 +192,8 @@ function registrarVentaLocal() {
     vendedor: state.usuarioActivo
   };
 
-  // Guardar en usuario local
   state.usuarios[state.usuarioActivo].ventas.push(venta);
 
-  // Descontar stock SOLO si hay latas
   if (totalLatas > 0) {
     Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
       const c = Number(cant) || 0;
@@ -185,29 +209,27 @@ function registrarVentaLocal() {
     });
   }
 
-  // Actualizar cliente
   let clienteObj = state.clientesGlobales.find(c => c.nombre === cliente);
   if (!clienteObj) {
-  clienteObj = { nombre: cliente, deuda: 0, pagado: 0, pagos: [], timestamp: Date.now() };
+    clienteObj = { nombre: cliente, deuda: 0, pagado: 0, pagos: [], timestamp: Date.now() };
     state.clientesGlobales.push(clienteObj);
   }
   clienteObj.deuda += totalCobrado;
 
-  // Preparar para Sheet
   const ventaParaSheet = { ...venta, paraProfeta: preview.paraProfeta, totalLatas: totalLatas };
   ventasPendientes.push(ventaParaSheet);
   localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
 
-  // Resetear formulario
   state.ventaActual = { BLONDE: "", "IRISH RED": "", STOUT: "", "SESSION IPA": "", "RED IPA": "", HONEY: "" };
+  state.ventaActualBarriles = [];
   state.clienteNombre = "";
   state.alquilerBarril = "";
   state.totalCobradoInput = "";
   state.precioUnitario = "";
 
   registrarAuditoria("VENTA", state.usuarioActivo, cliente,
-  Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
-  totalCobrado);
+    Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
+    totalCobrado);
   alert(`✅ Venta registrada correctamente para ${cliente}`);
   render();
 }
@@ -250,7 +272,6 @@ async function borrarVentaIndividual(index) {
       }
     });
 
-    // Reducir deuda del cliente localmente
     const nombreCliente = String(venta.cliente || "").toLowerCase().trim();
     const idxCliente = prev.clientesGlobales.findIndex(c =>
       String(c.nombre || "").toLowerCase().trim() === nombreCliente
@@ -267,7 +288,6 @@ async function borrarVentaIndividual(index) {
     return prev;
   });
 
-  // Encolar para cuando aprieten "Guardar en Sheet"
   encolarBorrarVentaEnSheet({
     vendedor: venta.vendedor || state.usuarioActivo,
     fecha: venta.fecha,
@@ -278,8 +298,8 @@ async function borrarVentaIndividual(index) {
   });
   encolarActualizarStockEnSheet(state.usuarioActivo);
   registrarAuditoria("BORRADO", state.usuarioActivo, venta.cliente,
-  Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
-  venta.totalCobrado || 0);
+    Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
+    venta.totalCobrado || 0);
   guardarDatos();
 }
 
@@ -292,10 +312,7 @@ function normalizarMetodoPago(metodoRaw) {
 function aplicarCobroCartera(index, montoPropuesto, metodoRaw) {
   const metodo = normalizarMetodoPago(metodoRaw);
   const cliente = state.clientesGlobales[index];
-  if (!cliente) {
-    console.error("❌ Cliente no encontrado en índice:", index);
-    return;
-  }
+  if (!cliente) return;
   const deudaAntes = cliente.deuda - cliente.pagado;
   if (deudaAntes <= 0) {
     alert(`✅ ${cliente.nombre} no tiene deuda pendiente.`);
@@ -306,7 +323,6 @@ function aplicarCobroCartera(index, montoPropuesto, metodoRaw) {
 
   cliente.pagado += monto;
   if (!cliente.pagos) cliente.pagos = [];
-  // _pendiente = true hasta que se confirme en Sheet
   cliente.pagos.push({ monto: monto, metodo: metodo, fecha: new Date().toLocaleString("es-AR"), _pendiente: true });
 
   const deudaRestante = Math.max(0, cliente.deuda - cliente.pagado);
@@ -317,8 +333,7 @@ function aplicarCobroCartera(index, montoPropuesto, metodoRaw) {
   registrarAuditoria("COBRO", state.usuarioActivo, cliente.nombre, metodo, monto);
   
   const metodoTexto = metodo === "efectivo" ? "💵 Efectivo" : "🏦 Transferencia";
-  alert(`✅ Registrado cobro $${monto.toLocaleString('es-AR')} de ${cliente.nombre} (${metodoTexto}).` +
-        `Para grabar ventas y cobros en Google Sheets usá «Guardar en Sheet».`);
+  alert(`✅ Registrado cobro $${monto.toLocaleString('es-AR')} de ${cliente.nombre} (${metodoTexto}).\nPara grabar ventas y cobros en Google Sheets usá «Guardar en Sheet».`);
   
   guardarDatos();
   render();
@@ -400,13 +415,14 @@ function cargarDatos() {
 
 // ===== SINCRONIZACIÓN CON SHEETS =====
 async function guardarEnSheets() {
-  let nVentas = 0, nPagos = 0, nStock = 0, nBorrar = 0;
+  let nVentas = 0, nPagos = 0, nStock = 0, nBorrar = 0, nBarriles = 0;
   try { const vRaw = localStorage.getItem("ventasPendientes"); if (vRaw) nVentas = JSON.parse(vRaw).length; } catch (e) {}
   try { const pRaw = localStorage.getItem("pagosPendientes"); if (pRaw) nPagos = JSON.parse(pRaw).length; } catch (e) {}
   try { const sRaw = localStorage.getItem("stockPendienteUsuarios"); if (sRaw) nStock = JSON.parse(sRaw).length; } catch (e) {}
   try { const bRaw = localStorage.getItem("borrarVentasPendientes"); if (bRaw) nBorrar = JSON.parse(bRaw).length; } catch (e) {}
+  try { const blRaw = localStorage.getItem("barrilesPendientes"); if (blRaw) nBarriles = JSON.parse(blRaw).length; } catch (e) {}
 
-  if (nVentas === 0 && nPagos === 0 && nStock === 0 && nBorrar === 0) {
+  if (nVentas === 0 && nPagos === 0 && nStock === 0 && nBorrar === 0 && nBarriles === 0) {
     alert("No hay nada pendiente de enviar al Sheet.");
     return;
   }
@@ -416,6 +432,7 @@ async function guardarEnSheets() {
     await guardarPagosPendientesEnSheet();
     await guardarBorrarVentasPendienteEnSheet();
     await guardarStockPendienteEnSheet();
+    await guardarBarrilesPendientesEnSheet(); // 🟢 NUEVO
     await cargarDatosDesdeSheet();
     alert("✅ Todo pendiente se envió a Google Sheets.");
   } catch (err) {
@@ -466,7 +483,7 @@ function renderStockGeneral() {
         <th style="padding: 8px 4px; text-align: center; font-size: 0.9em;">Total</th>
       </tr></thead>
       <tbody>
-${estilosBase.map(e => {
+ ${estilosBase.map(e => {
   const conEtiq = Object.values(state.usuarios).reduce((sum, u) => sum + (u.stock[e] || 0), 0);
   const sinEtiq = Object.values(state.usuarios).reduce((sum, u) => sum + ((u.stockSinEtiqueta && u.stockSinEtiqueta[e]) || 0), 0);
   const total = conEtiq + sinEtiq;
@@ -482,26 +499,20 @@ ${estilosBase.map(e => {
       <tfoot><tr style="border-top: 2px solid #3b82f6; background: #eff6ff;">
         <td style="padding: 8px 4px; font-weight: bold;">TOTAL</td>
         <td style="padding: 8px 4px; text-align: center; font-weight: bold; color: #3b82f6;">
-${estilosBase.reduce((sum, e) => sum + Object.values(state.usuarios).reduce((s, u) => s + (u.stock[e] || 0), 0), 0)}
+ ${estilosBase.reduce((sum, e) => sum + Object.values(state.usuarios).reduce((s, u) => s + (u.stock[e] || 0), 0), 0)}
         </td>
         <td style="padding: 8px 4px; text-align: center; font-weight: bold; color: #6b7280;">
-${estilosBase.reduce((sum, e) => sum + Object.values(state.usuarios).reduce((s, u) => s + ((u.stockSinEtiqueta && u.stockSinEtiqueta[e]) || 0), 0), 0)}
+ ${estilosBase.reduce((sum, e) => sum + Object.values(state.usuarios).reduce((s, u) => s + ((u.stockSinEtiqueta && u.stockSinEtiqueta[e]) || 0), 0), 0)}
         </td>
         <td style="padding: 8px 4px; text-align: center; font-weight: bold; color: #1e40af;">
-${estilosBase.reduce((sum, e) => sum + Object.values(state.usuarios).reduce((s, u) => s + (u.stock[e] || 0) + ((u.stockSinEtiqueta && u.stockSinEtiqueta[e]) || 0), 0), 0)}
+ ${estilosBase.reduce((sum, e) => sum + Object.values(state.usuarios).reduce((s, u) => s + (u.stock[e] || 0) + ((u.stockSinEtiqueta && u.stockSinEtiqueta[e]) || 0), 0), 0)}
         </td>
       </tr></tfoot>
     </table>
   </div>
   <div class="card" style="background: #f8fafc; border: 1px solid #e2e8f0;">
     <h2>Popularidad (% Ventas)</h2>
-${(() => {
-  // Usamos SIEMPRE el cálculo local (getEstadisticasVentas), porque se
-  // recalcula en cada render y ya incluye tanto las ventas sincronizadas
-  // desde el Sheet como las recién registradas que todavía no se
-  // guardaron con «Guardar en Sheet». state.popularidadSheet solo se
-  // actualiza al sincronizar, así que quedaba desactualizado apenas se
-  // cargaba una venta nueva.
+ ${(() => {
   if (Object.entries(stats.totalesPorEstilo).length === 0)
     return '<p style="color:gray; font-size: 0.9em;">Esperando primeras ventas...</p>';
   return Object.entries(stats.totalesPorEstilo).sort((a, b) => b[1] - a[1]).map(([estilo, cant]) => {
@@ -593,11 +604,6 @@ function renderVentasGeneral() {
                 const mp = String(v.metodoPago || "").trim().toLowerCase();
                 if (mp === "transferencia") return '<span style="padding:1px 8px; border-radius:6px; font-size:0.85em; font-weight:600; background:#dbeafe; color:#1e40af;">🏦 Transferencia</span>';
                 if (mp === "efectivo") return '<span style="padding:1px 8px; border-radius:6px; font-size:0.85em; font-weight:600; background:#dcfce7; color:#166534;">💵 Efectivo</span>';
-                // Esta venta no tiene método de pago propio cargado (nació fiada).
-                // Cobrar desde «Cartera de Clientes» actualiza la deuda del cliente
-                // pero nunca vuelve a tocar esta fila puntual, así que en vez de
-                // mirar el campo (que queda desactualizado para siempre), miramos
-                // si el cliente, en total, ya no tiene deuda pendiente.
                 const nombreCliente = String(v.cliente || "").toLowerCase().trim();
                 const clienteObj = state.clientesGlobales.find(c => String(c.nombre || "").toLowerCase().trim() === nombreCliente);
                 const deudaPendiente = clienteObj ? Math.max(0, (Number(clienteObj.deuda) || 0) - (Number(clienteObj.pagado) || 0)) : 0;
@@ -664,7 +670,6 @@ function borrarDeudaCliente(idx) {
   
   if (!confirm(`⚠️ ¿Borrar toda la deuda de ${cliente.nombre}?\nSe devolverá el stock y se precargará el formulario.`)) return;
 
-  // Buscar todas las ventas pendientes de este cliente en todos los usuarios
   let ventasCliente = [];
   Object.entries(state.usuarios).forEach(([nombreUsuario, u]) => {
     u.ventas.forEach((v, i) => {
@@ -676,7 +681,6 @@ function borrarDeudaCliente(idx) {
     });
   });
 
-  // Devolver stock por cada venta
   setState(prev => {
     ventasCliente.forEach(({ venta, usuario }) => {
       const u = prev.usuarios[usuario];
@@ -692,12 +696,10 @@ function borrarDeudaCliente(idx) {
       });
     });
 
-    // Borrar deuda del cliente
     prev.clientesGlobales[idx].deuda = 0;
     prev.clientesGlobales[idx].pagado = 0;
     prev.clientesGlobales[idx].pagos = [];
 
-    // Borrar ventas pendientes del cliente
     Object.keys(prev.usuarios).forEach(nombreUsuario => {
       prev.usuarios[nombreUsuario].ventas = prev.usuarios[nombreUsuario].ventas.filter(v => {
         const esEsteCliente = String(v.cliente || "").toLowerCase().trim() === String(cliente.nombre || "").toLowerCase().trim();
@@ -709,7 +711,6 @@ function borrarDeudaCliente(idx) {
     return prev;
   });
 
-  // Precargar formulario con la última venta encontrada
   if (ventasCliente.length > 0) {
     const ultima = ventasCliente[ventasCliente.length - 1].venta;
     state.usuarioActivo = ventasCliente[ventasCliente.length - 1].usuario;
@@ -720,10 +721,8 @@ function borrarDeudaCliente(idx) {
     state.totalCobradoInput = String(ultima.totalCobrado || "");
   }
 
-  // Sincronizar stock con Sheet
   Object.keys(state.usuarios).forEach(u => encolarActualizarStockEnSheet(u));
 
-  // Borrar deuda en Sheet
   fetch(URL_SCRIPT, {
     method: "POST",
     body: JSON.stringify({ accion: "borrarDeudaCliente", cliente: cliente.nombre }),
@@ -736,7 +735,7 @@ function borrarDeudaCliente(idx) {
   alert(`✅ Deuda de ${cliente.nombre} borrada. Stock devuelto. Formulario precargado.`);
 }
 
-// ===== RENDER: PANEL DE USUARIO (CON ALQUILER BARRIL) =====
+// ===== RENDER: PANEL DE USUARIO (CON BARRILES Y BOTONES) =====
 function renderPanelUsuario() {
   const container = document.getElementById("panel-usuario-container");
   if (!container) return;
@@ -745,8 +744,8 @@ function renderPanelUsuario() {
   const usuario = state.usuarios[state.usuarioActivo];
   const preview = calcularPreview();
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  const precioUnitario = state.precioUnitario || "";
-  const totalCobrado = totalLatas > 0 && precioUnitario ? totalLatas * Number(precioUnitario) : 0;
+  const precioSugerido = state.precioUnitario || (Number(state.configuracion?.precioMinorista) || 3500);
+  const totalCobrado = totalLatas > 0 && precioSugerido ? totalLatas * Number(precioSugerido) : (Number(state.totalCobradoInput) || 0);
   const hayAlquiler = state.alquilerBarril && state.alquilerBarril.trim() !== "";
 
   container.innerHTML = `<div class="panel-usuario card">
@@ -802,7 +801,7 @@ function renderPanelUsuario() {
           </select>
           <input type="number" id="transfer-cantidad" placeholder="Cantidad" style="width:100%; margin-bottom:6px; padding:6px;">
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-           
+            <button id="btn-ce-a-se" style="background:#f59e0b; padding:8px; font-size:0.8em;">C/E → S/E</button>
             <button id="btn-se-a-ce" style="background:#f59e0b; padding:8px; font-size:0.8em;">S/E → C/E</button>
           </div>
         </div>
@@ -812,7 +811,7 @@ function renderPanelUsuario() {
       <div>
         <h3>🛒 Registrar Venta</h3>
         <div style="position: relative; margin-bottom: 10px;">
-          <input type="text" id="cliente-nombre" placeholder="Nombre Cliente (Opcional)" value="${state.clienteNombre}" autocomplete="off" style="margin-bottom: 0; width: 100%;">
+          <input type="text" id="cliente-nombre" placeholder="Nombre Cliente (Obligatorio)" value="${state.clienteNombre}" autocomplete="off" style="margin-bottom: 0; width: 100%;">
           <div id="sugerencias-cliente" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #d1d5db; border-top: none; border-radius: 0 0 8px 8px; max-height: 160px; overflow-y: auto; z-index: 999; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
         </div>
         ${estilosBase.map(e => `<div class="flex space-between" style="margin-bottom: 5px;">
@@ -820,18 +819,8 @@ function renderPanelUsuario() {
           <input type="number" data-venta="${e}" value="${state.ventaActual[e] || ""}" placeholder="0" style="width: 80px;">
         </div>`).join("")}
         
-        <!-- INPUT ALQUILER BARRIL -->
         <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)" value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
         
-        <!-- 🔹 BLOQUE MANUAL (solo si hay alquiler) -->
-        <div id="bloque-manual" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${hayAlquiler ? 'block' : 'none'}; border: 2px solid #fbbf24;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="color: #fbbf24;">💰 Total a cobrar (manual):</span>
-            <input type="text" id="input-total-manual" value="${state.totalCobradoInput ? Number(state.totalCobradoInput).toLocaleString('es-AR') : ''}" placeholder="Ej: 3.500" style="background: transparent; border: none; color: #fbbf24; font-size: 1.5em; font-weight: bold; text-align: right; width: 60%;">
-          </div>
-        </div>
-
-        <!-- 🔹 BLOQUE AUTOMÁTICO (si NO hay alquiler) -->
         <div id="bloque-automatico" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${hayAlquiler ? 'none' : 'block'};">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span style="color: #94a3b8; font-size: 0.9em;">Total latas:</span>
@@ -839,15 +828,15 @@ function renderPanelUsuario() {
           </div>
           <div style="display: flex; gap: 8px; margin-bottom: 10px;">
             <button onclick="setState(p => { p.tipoLata = 'conEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#334155'}; background: ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#0f172a'}; color: ${state.tipoLata !== 'sinEtiqueta' ? '#1e293b' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
-              🏷️ Con Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$1.750</span>
+              🏷️ Con Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$${state.configuracion?.costoConEtiquetaNormal || 1850}</span>
             </button>
             <button onclick="setState(p => { p.tipoLata = 'sinEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#334155'}; background: ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#0f172a'}; color: ${state.tipoLata === 'sinEtiqueta' ? '#1e293b' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
-              📦 Sin Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$1.450</span>
+              📦 Sin Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$${state.configuracion?.costoSinEtiquetaNormal || 1510}</span>
             </button>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
             <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap;">Precio unitario $</label>
-            <input type="number" id="precio-unitario" value="${precioUnitario}" placeholder="ej: 2400" style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
+            <input type="number" id="precio-unitario" value="${precioSugerido}" placeholder="ej: 3500" style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
           </div>
           <div style="text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155;">
             <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
@@ -855,11 +844,39 @@ function renderPanelUsuario() {
           </div>
         </div>
         
+        <!-- 🟢 NUEVO: BOTONES DE VENTA RÁPIDA -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-top:10px;">
+          <button onclick="setPrecioVenta('mayorista')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">Mayorista</button>
+          <button onclick="setPrecioVenta('six')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">Six Pack</button>
+          <button onclick="setPrecioVenta('doce')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">12 Pack</button>
+        </div>
+
+        <!-- 🟢 NUEVO: SECCIÓN BARRILES EN VENTA -->
+        <div style="margin-top:15px; border-top:2px solid #e5e7eb; padding-top:10px;">
+          <h4 style="margin:0 0 8px 0;">🍺 Barriles Disponibles</h4>
+          <div style="display:flex; gap:6px; margin-bottom:8px;">
+            <select id="select-barril-venta" style="flex:1; padding:8px; border-radius:6px; border:1px solid #d1d5db;">
+              <option value="">Seleccionar barril...</option>
+              ${(state.barrilesDisponibles || []).map(b => `<option value="${b.id}">${b.serie || b.id} - ${b.tipo} (${b.tamano})</option>`).join("")}
+            </select>
+            <button onclick="agregarBarrilAVenta()" style="background:#3b82f6; color:white; padding:8px 12px; border-radius:6px; cursor:pointer;">➕</button>
+          </div>
+          <div id="lista-barriles-venta" style="font-size:0.85em; color:#374151;">
+            ${(state.ventaActualBarriles || []).map((b, i) => `
+              <div style="display:flex; justify-content:space-between; background:#eff6ff; padding:4px 8px; border-radius:4px; margin-bottom:4px;">
+                <span>${b.tipo} (${b.tamano})</span>
+                <button onclick="quitarBarrilDeVenta(${i})" style="background:#ef4444; color:white; border:none; border-radius:4px; padding:2px 6px; cursor:pointer;">X</button>
+              </div>
+            `).join("")}
+          </div>
+          <button onclick="aplicarDescuento()" style="width:100%; margin-top:5px; background:#f59e0b; color:white; padding:8px; border-radius:6px; font-size:0.85em; cursor:pointer;">% Aplicar Descuento</button>
+        </div>
+
         <!-- VISTA PREVIA PROFETA -->
         <div style="background:#fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-top: 10px;">
           <h4 style="margin: 0 0 8px 0; color: #92400e;">📊 Vista Previa Profeta</h4>
           <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
-            <span style="color:#78350f;">Costo (${state.tipoLata === 'sinEtiqueta' ? 'sin etiqueta' : 'con etiqueta'}):</span>
+            <span style="color:#78350f;">Costo Total (Latas + Barriles):</span>
             <b style="color:#92400e;">$${preview.costoTotal.toLocaleString('es-AR')}</b>
           </div>
           <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
@@ -909,7 +926,6 @@ function renderPanelUsuario() {
     </div>
   </div>`;
   
-  // Bind de eventos después de renderizar
   bindPanelEventos();
   bindAutocompletadoCliente();
   bindPrecioUnitario();
@@ -921,7 +937,6 @@ function bindPrecioUnitario() {
   const input = document.getElementById("precio-unitario");
   if (!input) return;
   
-  // 🛑 Si hay alquiler de barril, NO recalcules automáticamente
   const alquilerInput = document.getElementById("alquiler-barril");
   if (alquilerInput && alquilerInput.value.trim() !== "") return;
   
@@ -936,55 +951,19 @@ function bindPrecioUnitario() {
   });
 }
 
-// ===== BIND: ALQUILER BARRIL (VERSIÓN FUERTE - evita salto de cursor) =====
+// ===== BIND: ALQUILER BARRIL =====
 function bindAlquilerBarril() {
   const inputAlquiler = document.getElementById('alquiler-barril');
   if (!inputAlquiler) return;
 
-  const bloqueManual = document.getElementById('bloque-manual');
   const bloqueAutomatico = document.getElementById('bloque-automatico');
-  const inputTotalManual = document.getElementById('input-total-manual');
 
   inputAlquiler.addEventListener('input', (e) => {
     const valor = e.target.value.trim();
     state.alquilerBarril = e.target.value;
-
     const hayAlquiler = valor !== '';
-
-    // Cambiar visibilidad sin hacer render completo
-    if (bloqueManual) bloqueManual.style.display = hayAlquiler ? 'block' : 'none';
     if (bloqueAutomatico) bloqueAutomatico.style.display = hayAlquiler ? 'none' : 'block';
-
-    // Solo mover foco al campo manual si corresponde
-    if (hayAlquiler && inputTotalManual) {
-      
-    }
   });
-
-  // Formato de miles en el campo manual
-  if (inputTotalManual) {
-    inputTotalManual.addEventListener('input', (e) => {
-      const valorSinFormato = e.target.value.replace(/\./g, '');
-      state.totalCobradoInput = valorSinFormato;
-      
-      if (valorSinFormato) {
-        const numero = Number(valorSinFormato);
-        if (!isNaN(numero)) {
-          e.target.value = numero.toLocaleString('es-AR');
-        }
-      }
-    });
-
-    inputTotalManual.addEventListener('blur', (e) => {
-      const valor = e.target.value.replace(/\./g, '');
-      if (valor) {
-        const numero = Number(valor);
-        if (!isNaN(numero)) {
-          e.target.value = numero.toLocaleString('es-AR');
-        }
-      }
-    });
-  }
 }
 
 // ===== BIND: AUTOCOMPLETADO CLIENTE =====
@@ -1026,9 +1005,6 @@ function seleccionarCliente(nombre) {
   if (input) input.value = nombre;
   const sugerencias = document.getElementById("sugerencias-cliente");
   if (sugerencias) sugerencias.style.display = "none";
-  
-  // === NO recordamos el pedido anterior ===
-  // Solo ponemos el nombre, los campos de latas quedan limpios
   setState(p => { 
     p.ventaActual = { BLONDE: "", "IRISH RED": "", STOUT: "", "SESSION IPA": "", "RED IPA": "", HONEY: "" };
     return p; 
@@ -1037,33 +1013,23 @@ function seleccionarCliente(nombre) {
 
 // ===== BIND: EVENTOS DEL PANEL =====
 function bindPanelEventos() {
-  // Inputs de stock
-  document.querySelectorAll("[data-stock]").forEach(i => i.onchange = (e) => modificarStockDirecto(state.usuarioActivo, e.target.dataset.stock, e.target.value));
-  
-  // Inputs de venta
   document.querySelectorAll("[data-venta]").forEach(i => i.onchange = (e) => {
     setState(p => { p.ventaActual[e.target.dataset.venta] = e.target.value; return p; });
   });
   
-  // Input cliente
   const clienteInput = document.getElementById("cliente-nombre");
   if (clienteInput) clienteInput.oninput = (e) => { state.clienteNombre = e.target.value; };
   
-  // Input alquiler barril (solo guarda el valor, la lógica visual está en bindAlquilerBarril)
   const barrilInput = document.getElementById("alquiler-barril");
   if (barrilInput) {
     barrilInput.oninput = (e) => { 
       state.alquilerBarril = e.target.value;
-      // Actualizar visibilidad sin re-render completo para no perder foco
-      const bloqueManual = document.getElementById('bloque-manual');
       const bloqueAutomatico = document.getElementById('bloque-automatico');
       const hayTexto = e.target.value.trim() !== '';
-      if (bloqueManual) bloqueManual.style.display = hayTexto ? 'block' : 'none';
       if (bloqueAutomatico) bloqueAutomatico.style.display = hayTexto ? 'none' : 'block';
     };
   }
   
-  // Botón Registrar Venta
   const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
     const precio = Number(state.precioUnitario) || 0;
@@ -1075,7 +1041,6 @@ function bindPanelEventos() {
     state.precioUnitario = "";
   };
   
-  // Botón Guardar en Sheet
   const btnGuardar = document.getElementById("btn-guardar");
   if (btnGuardar) btnGuardar.onclick = async function() {
     this.disabled = true;
@@ -1086,7 +1051,6 @@ function bindPanelEventos() {
     this.textContent = "💾 Guardar en Sheet";
   };
   
-  // Botón Agregar Stock (Con Etiqueta)
   const btnAgregarStock = document.getElementById("btn-agregar-stock");
   if (btnAgregarStock) btnAgregarStock.onclick = async () => {
     const estilosCargados = {};
@@ -1105,7 +1069,6 @@ function bindPanelEventos() {
     encolarActualizarStockEnSheet(state.usuarioActivo);
   };
   
-  // Botón Agregar Stock (Sin Etiqueta)
   const btnAgregarStockSin = document.getElementById("btn-agregar-stock-sin-etiqueta");
   if (btnAgregarStockSin) btnAgregarStockSin.onclick = async () => {
     const estilosCargados = {};
@@ -1129,7 +1092,6 @@ function bindPanelEventos() {
     encolarActualizarStockEnSheet(state.usuarioActivo);
   };
   
-  // Botón Reset Stock
   const btnReset = document.getElementById("btn-reset-stock");
   if (btnReset) btnReset.onclick = () => {
     if (confirm("¿Resetear todo el stock a 0?")) {
@@ -1146,7 +1108,6 @@ function bindPanelEventos() {
     }
   };
   
-  // Botón Convertir C/E → S/E
   const btnCeSe = document.getElementById("btn-ce-a-se");
   if (btnCeSe) btnCeSe.onclick = () => {
     const estilo = document.getElementById("transfer-estilo").value;
@@ -1166,7 +1127,6 @@ function bindPanelEventos() {
     }
   };
   
-  // Botón Convertir S/E → C/E
   const btnSeCe = document.getElementById("btn-se-a-ce");
   if (btnSeCe) btnSeCe.onclick = () => {
     const estilo = document.getElementById("transfer-estilo").value;
@@ -1243,7 +1203,6 @@ function renderTransferencia() {
 
     if (!hayDatos) return;
 
-    // Actualizar UI Local
     setState((prev) => {
       const usuarioDesde = prev.usuarios[desde];
       const usuarioHacia = prev.usuarios[hacia];
@@ -1262,14 +1221,12 @@ function renderTransferencia() {
       return prev;
     });
 
-    // Registrar en historial local y en Sheet
     registrarTransferenciaHistorial(desde, hacia, estilosTransferidos, tipo === 'con' ? 'conEtiqueta' : 'sinEtiqueta');
     guardarTransferenciaEnSheet(desde, hacia, estilosTransferidos, tipo === 'con' ? 'conEtiqueta' : 'sinEtiqueta');
     
     encolarActualizarStockEnSheet(desde);
     encolarActualizarStockEnSheet(hacia);
     
-    // Limpiar inputs
     document.querySelectorAll("[data-transfer]").forEach(input => input.value = "");
   }
 
@@ -1337,28 +1294,63 @@ function mostrarHistorialTransferencias() {
   document.body.appendChild(modal);
 }
 
-// ===== MODALES: TODOS LOS CLIENTES =====
-function mostrarTodosLosClientes() {
-  const modal = document.createElement("div");
-  modal.style.cssText = "position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;";
-  const todosLosClientes = state.clientesGlobales.sort((a, b) => a.nombre.localeCompare(b.nombre));
-  modal.innerHTML = `<div style="background:white; border-radius:12px; padding:24px; max-width:600px; width:100%; max-height:80vh; overflow-y:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-      <h2 style="margin:0;">👥 Todos los Clientes (${todosLosClientes.length})</h2>
-      <button onclick="this.closest('div[style*=fixed]').remove()" style="background:#ef4444; padding:8px 16px;">✕ Cerrar</button>
-    </div>
-    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:8px;">
-      ${todosLosClientes.map(cliente => {
-        const deuda = cliente.deuda - cliente.pagado;
-        return `<div style="padding:10px; border:1px solid #e5e7eb; border-radius:8px; ${deuda > 0 ? 'background:#fef2f2; border-color:#fecaca;' : 'background:#f9fafb;'}">
-          <div style="font-weight:600; font-size:0.9em;">${cliente.nombre}</div>
-          ${deuda > 0 ? `<div style="color:#dc2626; font-size:0.8em; margin-top:4px;">Debe: $${deuda.toLocaleString('es-AR')}</div>` : '<div style="color:#059669; font-size:0.8em; margin-top:4px;">Sin deuda</div>'}
-        </div>`;
-      }).join("")}
-    </div>
-  </div>`;
-  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
-  document.body.appendChild(modal);
+// ===== NUEVAS FUNCIONES PARA BARRILES Y PRECIOS =====
+function setPrecioVenta(tipo) {
+  const config = state.configuracion || {};
+  const estilosLupulados = ["SESSION IPA", "RED IPA"];
+  const hayLupuladas = Object.entries(state.ventaActual).some(([e, c]) => estilosLupulados.includes(e) && Number(c) > 0);
+  
+  let precio = 0;
+  if (tipo === 'mayorista') {
+    precio = hayLupuladas ? (Number(config.precioMayoristaLupulada) || 2500) : (Number(config.precioMayoristaNormal) || 2400);
+  } else if (tipo === 'six') {
+    precio = Number(config.precioSixPack) || 3250;
+  } else if (tipo === 'doce') {
+    precio = Number(config.precioDocePack) || 3000;
+  }
+  
+  state.precioUnitario = String(precio);
+  const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+  state.totalCobradoInput = totalLatas > 0 ? String(totalLatas * precio) : "";
+  render();
+}
+
+function agregarBarrilAVenta() {
+  const select = document.getElementById("select-barril-venta");
+  if (!select || !select.value) return alert("Seleccioná un barril primero.");
+  const barril = state.barrilesDisponibles.find(b => b.id === select.value);
+  if (!barril) return;
+
+  if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
+  state.ventaActualBarriles.push(barril);
+  
+  const config = state.configuracion || {};
+  const litros = parseInt(barril.tamano) || 0;
+  const costoLitro = Number(config["costoLitro_" + barril.tipo]) || 0;
+  const costoBarril = litros * costoLitro;
+  
+  const precioSugeridoBarril = Math.round(costoBarril * 1.5); 
+  const totalActual = Number(state.totalCobradoInput) || 0;
+  state.totalCobradoInput = String(totalActual + precioSugeridoBarril);
+  
+  render();
+}
+
+function quitarBarrilDeVenta(index) {
+  if (!state.ventaActualBarriles) return;
+  state.ventaActualBarriles.splice(index, 1);
+  render();
+}
+
+function aplicarDescuento() {
+  const descStr = prompt("¿Qué porcentaje de descuento querés aplicar sobre el total actual?", "10");
+  if (!descStr) return;
+  const pct = Number(descStr) / 100;
+  if (isNaN(pct)) return alert("Porcentaje inválido.");
+  const totalActual = Number(state.totalCobradoInput) || 0;
+  const nuevoTotal = Math.round(totalActual - (totalActual * pct));
+  state.totalCobradoInput = String(nuevoTotal);
+  render();
 }
 
 // ===== FIN DE UI.JS =====
