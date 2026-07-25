@@ -833,17 +833,11 @@ function renderPanelUsuario() {
           <input type="number" data-venta="${e}" value="${state.ventaActual[e] || ""}" placeholder="0" style="width: 80px;">
         </div>`).join("")}
         
-        <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)" value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
+        
         
         <!-- FIX 4: BLOQUE MANUAL VUELTO -->
-        <div id="bloque-manual" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${hayAlquiler ? 'block' : 'none'}; border: 2px solid #fbbf24;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="color: #fbbf24;">💰 Total a cobrar (manual):</span>
-            <input type="text" id="input-total-manual" value="${state.totalCobradoInput ? Number(state.totalCobradoInput).toLocaleString('es-AR') : ''}" placeholder="Ej: 3.500" style="background: transparent; border: none; color: #fbbf24; font-size: 1.5em; font-weight: bold; text-align: right; width: 60%;">
-          </div>
-        </div>
 
-        <div id="bloque-automatico" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${hayAlquiler ? 'none' : 'block'};">
+       <div id="bloque-automatico" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: block;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span style="color: #94a3b8; font-size: 0.9em;">Total latas:</span>
             <b style="color: #f1f5f9; font-size: 1.4em;">${totalLatas}</b>
@@ -972,20 +966,7 @@ function bindPrecioUnitario() {
 
 // ===== BIND: ALQUILER BARRIL Y TOTAL MANUAL =====
 function bindAlquilerBarril() {
-  const inputAlquiler = document.getElementById('alquiler-barril');
-  if (!inputAlquiler) return;
 
-  const bloqueAutomatico = document.getElementById('bloque-automatico');
-  const bloqueManual = document.getElementById('bloque-manual');
-  const inputTotalManual = document.getElementById('input-total-manual');
-
-  // FIX 5: Solo un listener para el input de alquiler
-  inputAlquiler.oninput = (e) => {
-    const valor = e.target.value.trim();
-    state.alquilerBarril = e.target.value;
-    const hayAlquiler = valor !== '';
-    if (bloqueAutomatico) bloqueAutomatico.style.display = hayAlquiler ? 'none' : 'block';
-    if (bloqueManual) bloqueManual.style.display = hayAlquiler ? 'block' : 'none';
   };
 
   // Binding para el total manual
