@@ -1023,7 +1023,7 @@ function bindAutocompletadoCliente() {
     sugerencias.innerHTML = filtrados.map(nombre => {
       const cliente = state.clientesGlobales.find(c => c.nombre === nombre);
       const deuda = cliente ? (cliente.deuda - cliente.pagado) : 0;
-      return `<div onclick="seleccionarCliente('${nombre.replace(/'/g, "\\'")}')" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; font-size: 0.9em;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
+      return `<div onclick="seleccionarCliente('${nombre.replace(/'/g, "\'")}')" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; font-size: 0.9em;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
         👤 ${nombre} ${deuda > 0 ? `<span style="color:#dc2626; font-size:0.8em;">(Debe $${deuda.toLocaleString('es-AR')})</span>` : ''}
       </div>`;
     }).join("");
