@@ -1051,16 +1051,15 @@ function bindPanelEventos() {
   const clienteInput = document.getElementById("cliente-nombre");
   if (clienteInput) clienteInput.oninput = (e) => { state.clienteNombre = e.target.value; };
   
-  const btnRegistrar = document.getElementById("btn-registrar");
+   const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
     const precio = Number(state.precioUnitario) || 0;
     const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
     
+    // Si no hay precio ni total cargado, usa el precio minorista por defecto para las latas
     if (precio === 0 && totalLatas > 0 && Number(state.totalCobradoInput) === 0) {
       const precioMinorista = Number(state.configuracion?.precioMinorista) || 3500;
       state.totalCobradoInput = String(totalLatas * precioMinorista);
-    } else if (precio > 0 && totalLatas > 0) {
-      state.totalCobradoInput = String(totalLatas * precio);
     }
     
     registrarVentaLocal();
