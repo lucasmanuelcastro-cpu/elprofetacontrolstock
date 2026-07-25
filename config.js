@@ -8,4 +8,4 @@
  * const URL_SCRIPT = "https://script.google.com/macros/s/AKfycb.../exec";
  * ============================================================
  */
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbywFsRzbcGj3TbhGZbCZ6Z0p1UTamoYlUSLs5sVmSXNmLLPYY3SJTnROBz9qhk-KkFX/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbyv6rtnGb6Uifyrvv8E0_DrJFb-abze35NJg5dGaa-IshwPn2MnIITNVbFDBmH5XKsB/exec";
