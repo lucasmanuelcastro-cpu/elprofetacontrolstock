@@ -1,8 +1,7 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Final v41 (Fixes aplicados)
- * + Alquiler de Barril + Formato de Miles (es-AR)
+ * UI.JS - Control de la interfaz visual - Versión Final v43 (Limpieza Alquiler)
  * + Precios dinámicos desde Sheets + Barriles en venta
- * + FIX: registrarCargaStock argumentos, sync barriles, bloque manual, doble binding.
+ * + FIX: Alquiler de barril removido, bloque manual removido.
  */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
@@ -25,7 +24,6 @@ let state = {
   metodoPago: "efectivo",
   clienteNombre: "",
   totalCobradoInput: "",
-  alquilerBarril: "",
   tipoLata: "conEtiqueta",
   precioUnitario: "",
   transferDesde: "Julian",
@@ -157,11 +155,10 @@ function registrarVentaLocal() {
   }
 
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  const hayAlquiler = (state.alquilerBarril || "").trim() !== "";
   const hayBarriles = (state.ventaActualBarriles || []).length > 0;
 
-  if (totalLatas === 0 && !hayAlquiler && !hayBarriles) {
-    alert("Cargá al menos 1 lata, un barril o el alquiler de barril");
+  if (totalLatas === 0 && !hayBarriles) {
+    alert("Cargá al menos 1 lata o un barril");
     return;
   }
 
@@ -176,7 +173,6 @@ function registrarVentaLocal() {
   const venta = {
     cliente: cliente,
     estilos: {...state.ventaActual},
-    alquilerBarril: state.alquilerBarril || "",
     barriles: state.ventaActualBarriles || [],
     tipoLata: state.tipoLata,
     estado: "PENDIENTE",
@@ -218,7 +214,6 @@ function registrarVentaLocal() {
   ventasPendientes.push(ventaParaSheet);
   localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
 
-  // FIX 3: Encolar barriles pendientes al vender
   const barrilesVendidos = state.ventaActualBarriles || [];
   if (barrilesVendidos.length > 0) {
     let barrilesPendientes = [];
@@ -237,7 +232,6 @@ function registrarVentaLocal() {
   state.ventaActual = { BLONDE: "", "IRISH RED": "", STOUT: "", "SESSION IPA": "", "RED IPA": "", HONEY: "" };
   state.ventaActualBarriles = [];
   state.clienteNombre = "";
-  state.alquilerBarril = "";
   state.totalCobradoInput = "";
   state.precioUnitario = "";
 
@@ -262,7 +256,6 @@ function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
   } else {
     usuarioObj.stock[estilo] = cantidadNueva;
   }
-  // FIX 1: Pasar objeto de estilos en vez de string suelto
   registrarCargaStock(usuario, { [estilo]: cantidadNueva - cantidadAnterior }, tipo);
   encolarActualizarStockEnSheet(usuario);
   render();
@@ -731,7 +724,6 @@ function borrarDeudaCliente(idx) {
     state.clienteNombre = cliente.nombre;
     state.ventaActual = { ...ultima.estilos };
     state.tipoLata = ultima.tipoLata || 'conEtiqueta';
-    state.alquilerBarril = ultima.alquilerBarril || "";
     state.totalCobradoInput = String(ultima.totalCobrado || "");
   }
 
@@ -760,7 +752,6 @@ function renderPanelUsuario() {
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
   const precioSugerido = state.precioUnitario || (Number(state.configuracion?.precioMinorista) || 3500);
   const totalCobrado = totalLatas > 0 && precioSugerido ? totalLatas * Number(precioSugerido) : (Number(state.totalCobradoInput) || 0);
-  const hayAlquiler = state.alquilerBarril && state.alquilerBarril.trim() !== "";
 
   container.innerHTML = `<div class="panel-usuario card">
     <h1 style="border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Panel de ${state.usuarioActivo}</h1>
@@ -833,11 +824,7 @@ function renderPanelUsuario() {
           <input type="number" data-venta="${e}" value="${state.ventaActual[e] || ""}" placeholder="0" style="width: 80px;">
         </div>`).join("")}
         
-        
-        
-        <!-- FIX 4: BLOQUE MANUAL VUELTO -->
-
-       <div id="bloque-automatico" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: block;">
+        <div id="bloque-automatico" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: block;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span style="color: #94a3b8; font-size: 0.9em;">Total latas:</span>
             <b style="color: #f1f5f9; font-size: 1.4em;">${totalLatas}</b>
@@ -942,16 +929,12 @@ function renderPanelUsuario() {
   bindPanelEventos();
   bindAutocompletadoCliente();
   bindPrecioUnitario();
-
 }
 
 // ===== BIND: PRECIO UNITARIO =====
 function bindPrecioUnitario() {
   const input = document.getElementById("precio-unitario");
   if (!input) return;
-  
-  const alquilerInput = document.getElementById("alquiler-barril");
-  if (alquilerInput && alquilerInput.value.trim() !== "") return;
   
   input.addEventListener("input", () => {
     const precio = Number(input.value) || 0;
@@ -962,37 +945,6 @@ function bindPrecioUnitario() {
     const display = document.querySelector("[data-total-display]");
     if (display) display.textContent = total > 0 ? "$" + total.toLocaleString('es-AR') : "$—";
   });
-}
-
-// ===== BIND: ALQUILER BARRIL Y TOTAL MANUAL =====
-function bindAlquilerBarril() {
-
-  };
-
-  // Binding para el total manual
-  if (inputTotalManual) {
-    inputTotalManual.addEventListener('input', (e) => {
-      const valorSinFormato = e.target.value.replace(/\./g, '');
-      state.totalCobradoInput = valorSinFormato;
-      
-      if (valorSinFormato) {
-        const numero = Number(valorSinFormato);
-        if (!isNaN(numero)) {
-          e.target.value = numero.toLocaleString('es-AR');
-        }
-      }
-    });
-
-    inputTotalManual.addEventListener('blur', (e) => {
-      const valor = e.target.value.replace(/\./g, '');
-      if (valor) {
-        const numero = Number(valor);
-        if (!isNaN(numero)) {
-          e.target.value = numero.toLocaleString('es-AR');
-        }
-      }
-    });
-  }
 }
 
 // ===== BIND: AUTOCOMPLETADO CLIENTE =====
@@ -1048,8 +1000,6 @@ function bindPanelEventos() {
   
   const clienteInput = document.getElementById("cliente-nombre");
   if (clienteInput) clienteInput.oninput = (e) => { state.clienteNombre = e.target.value; };
-  
-  // FIX 5: Removido el binding duplicado de alquiler-barril de acá
   
   const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
@@ -1141,7 +1091,6 @@ function bindPanelEventos() {
         u.stockSinEtiqueta[estilo] = (u.stockSinEtiqueta[estilo] || 0) + cantidad;
         return p;
       });
-      // FIX 1: Pasar objeto a registrarCargaStock
       registrarCargaStock(state.usuarioActivo, { [estilo]: -cantidad }, 'conEtiqueta');
       registrarCargaStock(state.usuarioActivo, { [estilo]: cantidad }, 'sinEtiqueta');
       document.getElementById("transfer-cantidad").value = "";
@@ -1161,7 +1110,6 @@ function bindPanelEventos() {
         u.stock[estilo] = (u.stock[estilo] || 0) + cantidad;
         return p;
       });
-      // FIX 1: Pasar objeto a registrarCargaStock
       registrarCargaStock(state.usuarioActivo, { [estilo]: -cantidad }, 'sinEtiqueta');
       registrarCargaStock(state.usuarioActivo, { [estilo]: cantidad }, 'conEtiqueta');
       document.getElementById("transfer-cantidad").value = "";
@@ -1347,7 +1295,7 @@ function agregarBarrilAVenta() {
   if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
   state.ventaActualBarriles.push(barril);
   
-  // FIX 2: Sacar de disponibles
+  // FIX: Sacar de disponibles
   state.barrilesDisponibles = state.barrilesDisponibles.filter(b => b.id !== barril.id);
   
   const config = state.configuracion || {};
@@ -1366,7 +1314,7 @@ function quitarBarrilDeVenta(index) {
   if (!state.ventaActualBarriles) return;
   const barrilQuitado = state.ventaActualBarriles.splice(index, 1)[0];
   
-  // FIX 2: Devolverlo a disponibles si se quita de la venta
+  // FIX: Devolverlo a disponibles si se quita de la venta
   if (barrilQuitado && !state.barrilesDisponibles.some(b => b.id === barrilQuitado.id)) {
     state.barrilesDisponibles.push(barrilQuitado);
   }
