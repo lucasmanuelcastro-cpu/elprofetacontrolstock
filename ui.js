@@ -1269,20 +1269,38 @@ function mostrarHistorialTransferencias() {
 function setPrecioVenta(tipo) {
   const config = state.configuracion || {};
   const estilosLupulados = ["SESSION IPA", "RED IPA"];
-  const hayLupuladas = Object.entries(state.ventaActual).some(([e, c]) => estilosLupulados.includes(e) && Number(c) > 0);
   
-  let precio = 0;
   if (tipo === 'mayorista') {
-    precio = hayLupuladas ? (Number(config.precioMayoristaLupulada) || 2500) : (Number(config.precioMayoristaNormal) || 2400);
+    // Lógica corregida para Mayorista (precios mixtos)
+    const precioNormal = Number(config.precioMayoristaNormal) || 2400;
+    const precioLupulada = Number(config.precioMayoristaLupulada) || 2500;
+    let totalCalculado = 0;
+
+    Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
+      const c = Number(cant) || 0;
+      if (c > 0) {
+        // Sumamos el precio que corresponda según el estilo
+        totalCalculado += c * (estilosLupulados.includes(estilo) ? precioLupulada : precioNormal);
+      }
+    });
+
+    // Vaciamos el precio unitario para que no se confunda, y ponemos el total directo
+    state.precioUnitario = ""; 
+    state.totalCobradoInput = totalCalculado > 0 ? String(totalCalculado) : "";
+
   } else if (tipo === 'six') {
-    precio = Number(config.precioSixPack) || 3250;
+    const precio = Number(config.precioSixPack) || 3250;
+    state.precioUnitario = String(precio);
+    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+    state.totalCobradoInput = totalLatas > 0 ? String(totalLatas * precio) : "";
+
   } else if (tipo === 'doce') {
-    precio = Number(config.precioDocePack) || 3000;
+    const precio = Number(config.precioDocePack) || 3000;
+    state.precioUnitario = String(precio);
+    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+    state.totalCobradoInput = totalLatas > 0 ? String(totalLatas * precio) : "";
   }
   
-  state.precioUnitario = String(precio);
-  const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  state.totalCobradoInput = totalLatas > 0 ? String(totalLatas * precio) : "";
   render();
 }
 
