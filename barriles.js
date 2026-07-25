@@ -81,12 +81,13 @@ function renderListaBarriles() {
             ${b.estado === "prestado" ? `👤 ${b.cliente || "Cliente anónimo"}` : "📦 En depósito"}
           </div>
         </div>
-        <div>
+        <div style="display:flex; align-items:center;">
           ${
             b.estado === "prestado"
               ? `<button class="btn-devolver" onclick="devolverBarril('${b.id}')">Devolver</button>`
               : `<button class="filtro-btn active" style="background:#10b981; color:white; border-color:#10b981; font-weight:bold;" onclick="abrirModalPrestamoConDatos('${b.id}', '${b.serie || ''}', '${b.tamano || ''}')">➕ Prestar</button>`
           }
+          <button class="btn-borrar" onclick="borrarBarrilDefinitivo('${b.id}', '${b.tipo || ''}', '${b.tamano || ''}', '${b.serie || ''}')">🗑️</button>
         </div>
       </div>
       <div style="margin-top: 8px; font-size: 0.9em; color: #475569;">
@@ -122,7 +123,7 @@ function renderHistorial() {
 // ===== MODALES =====
 window.abrirModalPrestamo = function () {
   document.getElementById("form-prestamo").reset();
-  document.getElementById("id-barril-prestamo").value = ""; // Limpiar ID oculto
+  document.getElementById("id-barril-prestamo").value = "";
   document.getElementById("modal-prestamo").style.display = "flex";
   setTimeout(() => document.getElementById("cliente-barril")?.focus(), 100);
 };
@@ -151,14 +152,12 @@ window.abrirModalPrestamoConDatos = function(id, serie, tamano) {
 
 // ===== EVENTOS FORM =====
 function bindEvents() {
-  // Cerrar modales clickeando fuera
   document.getElementById("modal-prestamo")?.addEventListener("click", (e) => { if (e.target.id === "modal-prestamo") cerrarModalPrestamo(); });
   document.getElementById("modal-agregar")?.addEventListener("click", (e) => { if (e.target.id === "modal-agregar") cerrarModalAgregar(); });
 
-  // Submit Agregar Barril
   document.getElementById("form-agregar")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const tipo = document.getElementById("add-tipo-barril").value.trim();
+    const tipo = document.getElementById("add-tipo-barril").value;
     const tamano = document.getElementById("add-tamano-barril").value;
     const serie = document.getElementById("add-serie-barril").value.trim();
     const obs = document.getElementById("add-obs-barril").value.trim();
@@ -168,7 +167,7 @@ function bindEvents() {
     const barril = {
       id: Date.now().toString(),
       cliente: "",
-      tipo: tipo || "Cerveza General",
+      tipo: tipo || "VACIO",
       tamano,
       serie: serie || "",
       deposito: 0,
@@ -194,18 +193,17 @@ function bindEvents() {
     }
   });
 
-  // Submit Prestar Barril
   document.getElementById("form-prestamo")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     await prestarBarril();
   });
 }
 
-// ===== PRESTAR BARRIL (Corregido para actualizar si ya existe) =====
+// ===== PRESTAR BARRIL =====
 async function prestarBarril() {
   const idExistente = document.getElementById("id-barril-prestamo").value;
   const cliente = document.getElementById("cliente-barril").value.trim();
-  const tipo = document.getElementById("tipo-barril").value.trim();
+  const tipo = document.getElementById("tipo-barril").value;
   const tamano = document.getElementById("tamano-barril").value;
   const serie = document.getElementById("serie-barril").value.trim();
   const deposito = document.getElementById("deposito-barril").value;
@@ -214,9 +212,9 @@ async function prestarBarril() {
   if (!tamano) return alert("Completá al menos el Tamaño.");
 
   const barril = {
-    id: idExistente || Date.now().toString(), // Usa ID viejo si existe, sino crea nuevo
+    id: idExistente || Date.now().toString(),
     cliente: cliente || "Consumidor Final",
-    tipo: tipo || "Cerveza General",
+    tipo: tipo || "VACIO",
     tamano,
     serie: serie || "",
     deposito: Number(deposito) || 0,
@@ -228,7 +226,6 @@ async function prestarBarril() {
   };
 
   try {
-    // Si tiene ID existente, actualiza. Si no, guarda nuevo.
     const accion = idExistente ? "actualizarBarril" : "guardarBarril";
     const resp = await fetch(URL_SCRIPT, {
       method: "POST",
@@ -238,7 +235,6 @@ async function prestarBarril() {
     const texto = await resp.text();
     if (!texto.includes("OK")) throw new Error(texto);
 
-    // Registrar en historial
     await fetch(URL_SCRIPT, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
@@ -264,19 +260,18 @@ async function prestarBarril() {
   }
 }
 
-// ===== DEVOLVER BARRIL (Corregido el bug de comparación de ID) =====
+// ===== DEVOLVER BARRIL =====
 window.devolverBarril = async function(idBarril) {
-  // FIX: Convertimos ambos a String para que la comparación funcione siempre
   const barril = barriles.find(b => String(b.id) === String(idBarril));
   if (!barril) return alert("Error: No se encontró el barril.");
 
   let usuarioEntrega = prompt(`¿Quién devuelve este barril?`, barril.cliente || "");
-  if (usuarioEntrega === null) return; // Canceló
+  if (usuarioEntrega === null) return;
 
   try {
     const actualizado = {
       ...barril,
-      cliente: "", // Vaciamos el cliente porque ya volvió al depósito
+      cliente: "",
       estado: "disponible",
       fechaDevolucion: new Date().toLocaleString("es-AR")
     };
@@ -289,7 +284,6 @@ window.devolverBarril = async function(idBarril) {
     const texto = await resp.text();
     if (!texto.includes("OK")) throw new Error(texto);
 
-    // Guardar movimiento
     await fetch(URL_SCRIPT, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
@@ -315,3 +309,42 @@ window.devolverBarril = async function(idBarril) {
   }
 };
 
+// 🟢 NUEVO: BORRAR BARRIL (Mantiene historial)
+window.borrarBarrilDefinitivo = async function(idBarril, tipo, tamano, serie) {
+  if (!confirm("⚠️ ¿Borrar este barril del inventario?\nEl registro se conservará en el Historial de Movimientos.")) return;
+
+  try {
+    // 1. Registrar en historial que se borró
+    await fetch(URL_SCRIPT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        accion: "registrarMovimientoBarril",
+        movimiento: {
+          fecha: new Date().toLocaleString("es-AR"),
+          accion: "BAJA DE INVENTARIO",
+          cliente: "—",
+          tipo: tipo, tamano: tamano, serie: serie,
+          deposito: 0, observaciones: "Barril eliminado del stock activo"
+        }
+      })
+    });
+
+    // 2. Borrar de la hoja principal
+    const resp = await fetch(URL_SCRIPT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ accion: "borrarBarril", id: idBarril })
+    });
+    const texto = await resp.text();
+    if (!texto.includes("OK")) throw new Error(texto);
+
+    await cargarBarriles();
+    await cargarHistorial();
+    await actualizarEstadisticas();
+    alert("Barril eliminado del inventario.");
+  } catch (err) {
+    console.error(err);
+    alert("Error al borrar el barril.");
+  }
+};
