@@ -1,3 +1,4 @@
+
 /**
  * GASTOS.JS - Módulo 100% independiente
  * No depende de ui.js ni logic.js. Habla directo con AppScript.
