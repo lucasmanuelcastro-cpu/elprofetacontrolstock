@@ -1,5 +1,4 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
-// La URL_SCRIPT ahora se define una sola vez en config.js
 
 /** El Sheet guarda "sin"/"con"; la UI usa sinEtiqueta/conEtiqueta */
 function normalizarTipoLataDesdeSheet(raw) {
@@ -88,11 +87,13 @@ function registrarVentaLocal() {
   const preview = calcularPreview();
   const totalVenta = Number(state.totalCobradoInput) || 0;
   const alquilerBarril = state.alquilerBarril || "";
+  const barrilesVendidos = state.ventaActualBarriles || [];
 
   const ventaDatos = {
     cliente: state.clienteNombre || "Consumidor Final",
     estilos: { ...state.ventaActual },
     alquilerBarril: alquilerBarril,
+    barriles: barrilesVendidos,
     totalCobrado: totalVenta,
     paraProfeta: preview.paraProfeta,
     comision: preview.comision,
@@ -109,6 +110,24 @@ function registrarVentaLocal() {
   localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
   console.log("📝 Venta registrada. Pendientes:", ventasPendientes.length);
 
+  // 🟢 NUEVO: Encolar actualización de barriles a "prestado"
+  if (barrilesVendidos.length > 0) {
+    let barrilesPendientes = [];
+    try { barrilesPendientes = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]"); } catch(e) {}
+    barrilesVendidos.forEach(b => {
+      barrilesPendientes.push({
+        id: b.id,
+        tipo: b.tipo,
+        tamano: b.tamano,
+        serie: b.serie,
+        cliente: ventaDatos.cliente,
+        estado: "prestado",
+        fechaPrestamo: new Date().toLocaleString("es-AR")
+      });
+    });
+    localStorage.setItem("barrilesPendientes", JSON.stringify(barrilesPendientes));
+  }
+
   setState((prev) => {
     const usuario = prev.usuarios[prev.usuarioActivo];
     usuario.ventas.push({
@@ -120,6 +139,7 @@ function registrarVentaLocal() {
       metodoPago: "",
       fecha: ventaDatos.fecha,
       tipoLata: ventaDatos.tipoLata,
+      barriles: barrilesVendidos
     });
 
     if (prev.clienteNombre && prev.clienteNombre.trim() !== "") {
@@ -129,6 +149,11 @@ function registrarVentaLocal() {
       } else {
         prev.clientesGlobales.push({ nombre: prev.clienteNombre, deuda: totalVenta, pagado: 0 });
       }
+    }
+
+    // Quitar barriles de la lista de disponibles localmente
+    if (barrilesVendidos.length > 0) {
+      prev.barrilesDisponibles = prev.barrilesDisponibles.filter(b => !barrilesVendidos.some(v => v.id === b.id));
     }
 
     Object.entries(prev.ventaActual).forEach(([estilo, cant]) => {
@@ -141,9 +166,11 @@ function registrarVentaLocal() {
     });
 
     prev.ventaActual = {};
+    prev.ventaActualBarriles = []; // Limpiar barriles de la venta
     prev.clienteNombre = "";
     prev.totalCobradoInput = "";
     prev.alquilerBarril = "";
+    prev.precioUnitario = "";
     return prev;
   });
 }
@@ -175,6 +202,35 @@ async function guardarVentasPendientesEnSheet() {
       console.error("❌ Error enviando venta:", err);
       ventasPendientes.push(venta);
       localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
+    }
+  }
+}
+
+// 🟢 NUEVO: Sincronizar barriles prestados en el Sheet
+async function guardarBarrilesPendientesEnSheet() {
+  let cola = [];
+  try {
+    cola = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]");
+  } catch (e) {}
+  if (!cola.length) return;
+  localStorage.removeItem("barrilesPendientes");
+
+  for (const b of cola) {
+    try {
+      const payload = { accion: "actualizarBarril", barril: b };
+      await fetch(URL_SCRIPT, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "text/plain" },
+        mode: "cors"
+      });
+    } catch (err) {
+      console.error("Error enviando barril al Sheet:", err);
+      // Re-encolar si falla
+      let prev = [];
+      try { prev = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]"); } catch(e2) {}
+      prev.push(b);
+      localStorage.setItem("barrilesPendientes", JSON.stringify(prev));
     }
   }
 }
@@ -251,7 +307,7 @@ async function guardarTransferenciaEnSheet(desde, hacia, estilos, tipo) {
 }
 
 // ============================================================
-// CARGA DE DATOS DESDE SHEET (VERSIÓN CORREGIDA)
+// CARGA DE DATOS DESDE SHEET
 // ============================================================
 async function cargarDatosDesdeSheet() {
   try {
@@ -265,11 +321,19 @@ async function cargarDatosDesdeSheet() {
     if (!datosCloud.usuarios || typeof datosCloud.usuarios !== "object") return;
 
     setState((prev) => {
-     // 1. POPULARIDAD
-if (datosCloud.popularidad) {
-  prev.popularidadSheet = datosCloud.popularidad;
-  prev.popularidad = datosCloud.popularidad; // 👈 AGREGÁ ESTA LÍNEA JUSTO ABAJO
-}
+      // 1. POPULARIDAD
+      if (datosCloud.popularidad) {
+        prev.popularidadSheet = datosCloud.popularidad;
+        prev.popularidad = datosCloud.popularidad;
+      }
+
+      // 🟢 NUEVO: CARGAR CONFIGURACIÓN Y BARRILES DISPONIBLES
+      if (datosCloud.configuracion) {
+        prev.configuracion = datosCloud.configuracion;
+      }
+      if (datosCloud.barrilesDisponibles) {
+        prev.barrilesDisponibles = datosCloud.barrilesDisponibles;
+      }
 
       // 2. TOTALES FINANCIEROS
       if (datosCloud.totalIngresadoSheet !== undefined) prev.totalIngresadoSheet = Number(datosCloud.totalIngresadoSheet) || 0;
@@ -293,7 +357,6 @@ if (datosCloud.popularidad) {
       // 4. SINCRONIZAR STOCK Y VENTAS POR USUARIO
       Object.entries(datosCloud.usuarios).forEach(([nombre, datos]) => {
         if (prev.usuarios[nombre]) {
-          // Stock con etiqueta
           if (datos.stock) {
             prev.usuarios[nombre].stock = {
               "BLONDE": Number(datos.stock["BLONDE"]) || 0,
@@ -305,7 +368,6 @@ if (datosCloud.popularidad) {
             };
           }
           
-          // Stock sin etiqueta
           if (datos.stockSinEtiqueta) {
             prev.usuarios[nombre].stockSinEtiqueta = {
               "BLONDE": Number(datos.stockSinEtiqueta["BLONDE"]) || 0,
@@ -317,7 +379,6 @@ if (datosCloud.popularidad) {
             };
           }
           
-          // ⭐ VENTAS - Sincronización completa desde el Sheet ⭐
           if (datos.ventas && Array.isArray(datos.ventas)) {
             prev.usuarios[nombre].ventas = datos.ventas.map(venta => {
               const tipo = normalizarTipoLataDesdeSheet(venta.tipoLata);
@@ -350,17 +411,15 @@ if (datosCloud.popularidad) {
         }
       });
 
-      // 5. SINCRONIZAR CLIENTES — Sheet es siempre fuente de verdad
+      // 5. SINCRONIZAR CLIENTES
       if (datosCloud.clientes && Array.isArray(datosCloud.clientes) && datosCloud.clientes.length > 0) {
         datosCloud.clientes.forEach(clienteCloud => {
           if (!clienteCloud.nombre || typeof clienteCloud.nombre !== 'string') return;
           const deudaCloud  = Number(clienteCloud.deuda)  || 0;
           const pagadoCloud = Number(clienteCloud.pagado) || 0;
-          // Saldo real = deuda - pagado (calculado siempre desde Sheet)
           const saldoReal   = Math.max(0, deudaCloud - pagadoCloud);
           const idx = prev.clientesGlobales.findIndex(c => c.nombre && c.nombre.toLowerCase() === clienteCloud.nombre.toLowerCase());
           if (idx !== -1) {
-            // Si hay pagos locales pendientes de enviar al Sheet, los sumamos al pagado del Sheet
             const pagosLocalesPendientes = (prev.clientesGlobales[idx].pagos || [])
               .filter(p => p._pendiente)
               .reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
