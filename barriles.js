@@ -1,3 +1,4 @@
+
 let barriles = [];
 let historial = [];
 let filtroActual = "todos";
@@ -249,11 +250,35 @@ async function prestarBarril() {
       })
     });
 
+    // 🟢 Depósito/Seña -> cartera de deudores del cliente
+    if (barril.deposito > 0 && barril.cliente && barril.cliente.toLowerCase() !== "consumidor final") {
+      await fetch(URL_SCRIPT, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ accion: "registrarDepositoBarril", cliente: barril.cliente, monto: barril.deposito })
+      });
+      await fetch(URL_SCRIPT, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          accion: "guardarAuditoria",
+          registro: {
+            fecha: new Date().toLocaleString("es-AR"),
+            accion: "DEPÓSITO BARRIL",
+            usuario: "",
+            cliente: barril.cliente,
+            detalle: `${barril.tipo} (${barril.tamano}) serie ${barril.serie || "-"}`,
+            monto: barril.deposito
+          }
+        })
+      }).catch(() => {});
+    }
+
     cerrarModalPrestamo();
     await cargarBarriles();
     await cargarHistorial();
     await actualizarEstadisticas();
-    alert("Préstamo registrado exitosamente.");
+    alert("Préstamo registrado exitosamente." + (barril.deposito > 0 && barril.cliente ? `\n💰 Depósito de $${barril.deposito.toLocaleString("es-AR")} sumado a la cuenta de ${barril.cliente} (cartera de deudores).` : ""));
   } catch (err) {
     console.error(err);
     alert("Error al guardar préstamo.");
@@ -267,6 +292,19 @@ window.devolverBarril = async function(idBarril) {
 
   let usuarioEntrega = prompt(`¿Quién devuelve este barril?`, barril.cliente || "");
   if (usuarioEntrega === null) return;
+
+  // 🟢 Cancelación total/parcial del depósito en la cartera del cliente
+  const clienteDeposito = (barril.cliente || "").trim();
+  const tieneDepositoEnCartera = Number(barril.deposito) > 0 && clienteDeposito && clienteDeposito.toLowerCase() !== "consumidor final";
+  let montoCancelar = 0;
+  if (tieneDepositoEnCartera) {
+    const respuesta = prompt(
+      `Este barril tiene un depósito de $${Number(barril.deposito).toLocaleString("es-AR")} a nombre de ${clienteDeposito}.\n` +
+      `¿Cuánto querés cancelar de su cuenta ahora? (dejalo vacío o 0 para no cancelar nada, podés hacerlo después desde Cartera)`,
+      String(barril.deposito)
+    );
+    montoCancelar = Math.min(Math.max(0, Number(respuesta) || 0), Number(barril.deposito));
+  }
 
   try {
     const actualizado = {
@@ -299,10 +337,48 @@ window.devolverBarril = async function(idBarril) {
       })
     });
 
+    if (tieneDepositoEnCartera && montoCancelar > 0) {
+      await fetch(URL_SCRIPT, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ accion: "cancelarDepositoBarril", cliente: clienteDeposito, monto: montoCancelar })
+      });
+      await fetch(URL_SCRIPT, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          accion: "registrarMovimientoBarril",
+          movimiento: {
+            fecha: new Date().toLocaleString("es-AR"),
+            accion: "CANCELACIÓN DE DEPÓSITO",
+            cliente: clienteDeposito,
+            tipo: barril.tipo, tamano: barril.tamano, serie: barril.serie,
+            deposito: montoCancelar,
+            observaciones: montoCancelar < Number(barril.deposito) ? "Cancelación parcial del depósito" : "Cancelación total del depósito"
+          }
+        })
+      }).catch(() => {});
+      await fetch(URL_SCRIPT, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          accion: "guardarAuditoria",
+          registro: {
+            fecha: new Date().toLocaleString("es-AR"),
+            accion: "CANCELACIÓN DEPÓSITO BARRIL",
+            usuario: "",
+            cliente: clienteDeposito,
+            detalle: `${barril.tipo} (${barril.tamano}) serie ${barril.serie || "-"}`,
+            monto: montoCancelar
+          }
+        })
+      }).catch(() => {});
+    }
+
     await cargarBarriles();
     await cargarHistorial();
     await actualizarEstadisticas();
-    alert("Barril devuelto correctamente.");
+    alert("Barril devuelto correctamente." + (tieneDepositoEnCartera && montoCancelar > 0 ? `\n💰 Se canceló $${montoCancelar.toLocaleString("es-AR")} del depósito en la cuenta de ${clienteDeposito}.` : ""));
   } catch (err) {
     console.error(err);
     alert("Error procesando la devolución.");
@@ -348,3 +424,6 @@ window.borrarBarrilDefinitivo = async function(idBarril, tipo, tamano, serie) {
     alert("Error al borrar el barril.");
   }
 };
+
+
+
