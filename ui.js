@@ -1,9 +1,10 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Final v50
+ * UI.JS - Control de la interfaz visual - Versión Final Estable
  * + Botones C/E - S/E eliminados.
- * + Precio litro manual eliminado.
+ * + Precio litro manual eliminado (prompt al agregar).
  * + Lógica de deuda corregida (reset a 0 al saldar).
  * + Datos de barriles preservados al registrar.
+ * + Costos y comisiones dinámicas desde Sheets.
  */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
@@ -172,7 +173,6 @@ function registrarVentaLocal() {
     return;
   }
 
-  // Preservamos todos los datos del barril para la BD
   const barrilesParaGuardar = (state.ventaActualBarriles || []).map(b => ({
     id: b.id,
     serie: b.serie || "",
@@ -189,7 +189,7 @@ function registrarVentaLocal() {
     estado: "PENDIENTE",
     metodoPago: "",
     totalCobrado: totalCobrado,
-    costoTotal: preview.costoTotal,
+    costo: preview.costoTotal,
     comision: preview.comision,
     paraProfeta: preview.paraProfeta,
     fecha: new Date().toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}),
@@ -349,7 +349,6 @@ function aplicarCobroCartera(index, montoPropuesto, metodoRaw) {
   const deudaRestante = Math.max(0, cliente.deuda - cliente.pagado);
   if (deudaRestante < 1) {
     marcaVentasLocalesCobradasSiSaldado(cliente.nombre, metodo);
-    // RESETEAR DEUDA A 0 PARA EVITAR FANTASMAS EN EL HISTORIAL
     cliente.deuda = 0;
     cliente.pagado = 0;
   }
@@ -608,7 +607,6 @@ function renderVentasGeneral() {
       : [...todasLasVentas].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).map(v => {
           const vendedor = v.vendedor || Object.keys(state.usuarios).find(u => state.usuarios[u].ventas.some(vv => vv === v)) || '—';
           
-          // --- INICIO LÓGICA BARRILES ---
           const barrilesData = v.barriles || v.barrilesVendidos || [];
           let barrilesHtml = '';
           
@@ -617,7 +615,6 @@ function renderVentasGeneral() {
           } else if (typeof barrilesData === 'object' && Object.keys(barrilesData).length > 0) {
             barrilesHtml = Object.entries(barrilesData).map(([nombre, cant]) => `🍺 ${cant}x Barril ${nombre}`).join('<br>');
           }
-          // --- FIN LÓGICA BARRILES ---
           
           return `
           <div style="border-bottom: 1px solid #f3f4f6; padding: 8px 0; font-size: 0.88em;">
@@ -974,7 +971,7 @@ function bindPrecios() {
     inputTotalManual.addEventListener('input', (e) => {
       const valorSinFormato = e.target.value.replace(/\./g, '');
       state.totalCobradoInput = valorSinFormato;
-      state.precioUnitario = ""; // Si edita manual, pisamos los precios
+      state.precioUnitario = ""; 
       
       if (valorSinFormato) {
         const numero = Number(valorSinFormato);
@@ -989,7 +986,6 @@ function bindPrecios() {
   }
 }
 
-// 🟢 FUNCIÓN: Calcula (Latas * Precio Lata) + (Precio Total de cada Barril)
 function recalcularTotalDinamico() {
   const precioLata = Number(state.precioUnitario) || 0;
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
@@ -1000,7 +996,7 @@ function recalcularTotalDinamico() {
   if (totalCalculado > 0) {
     state.totalCobradoInput = String(totalCalculado);
   } else if (totalLatas === 0 && (state.ventaActualBarriles || []).length === 0) {
-    state.totalCobradoInput = ""; // Limpiar si no hay nada
+    state.totalCobradoInput = ""; 
   }
 }
 
@@ -1034,7 +1030,7 @@ function bindAutocompletadoCliente() {
     sugerencias.style.display = "block";
   });
   input.addEventListener("blur", () => setTimeout(() => { sugerencias.style.display = "none"; }, 200));
-  input.addEventListener("focus", () => { if (input.value.trim().length > 0) input.dispatchEvent(new Event("input")); });
+  input.addEventListener("focus", () => { if (input.value.trim().length > 0) input.dispatchEvent(new Event("input"))); });
 }
 
 function seleccionarCliente(nombre) {
@@ -1065,7 +1061,6 @@ function bindPanelEventos() {
     const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
     const totalBarriles = (state.ventaActualBarriles || []).length;
     
-    // Si no puso ningún precio pero hay latas, usa el minorista
     if (Number(state.totalCobradoInput) === 0 && totalLatas > 0 && totalBarriles === 0) {
       const precioMinorista = Number(state.configuracion?.precioMinorista) || 3500;
       state.totalCobradoInput = String(totalLatas * precioMinorista);
@@ -1342,9 +1337,8 @@ function agregarBarrilAVenta() {
 
   const litros = parseInt(barril.tamano) || 0;
   
-  // Pedir el precio por litro para ESTE barril específico
   const precioStr = prompt(`Ingresá el precio TOTAL para el barril de ${barril.tipo} (${litros}L):`, "");
-  if (!precioStr) return; // Si cancela, no hace nada
+  if (!precioStr) return; 
   
   const precioTotalBarril = Number(precioStr) || 0;
   if (precioTotalBarril <= 0) return alert("⚠️ Precio inválido. El barril no se agregó.");
@@ -1352,7 +1346,6 @@ function agregarBarrilAVenta() {
   if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
   state.ventaActualBarriles.push({ ...barril, precioTotal: precioTotalBarril });
   
-  // Sacar de la lista de disponibles
   state.barrilesDisponibles = state.barrilesDisponibles.filter(b => String(b.id) !== String(barril.id));
   
   recalcularTotalDinamico();
