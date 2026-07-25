@@ -1,9 +1,9 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Final v49
- * + Barriles piden su precio individual al agregarlos.
- * + Historial Global muestra Barriles.
- * + Fix bug de descuento al registrar.
- * + Precio Lata y Precio Litro separados.
+ * UI.JS - Control de la interfaz visual - Versión Final v50
+ * + Botones C/E - S/E eliminados.
+ * + Precio litro manual eliminado.
+ * + Lógica de deuda corregida (reset a 0 al saldar).
+ * + Datos de barriles preservados al registrar.
  */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
@@ -28,7 +28,6 @@ let state = {
   totalCobradoInput: "",
   tipoLata: "conEtiqueta",
   precioUnitario: "",
-  precioLitro: "",
   transferDesde: "Julian",
   transferHacia: "Matias",
   transferEstilo: "BLONDE",
@@ -173,10 +172,19 @@ function registrarVentaLocal() {
     return;
   }
 
+  // Preservamos todos los datos del barril para la BD
+  const barrilesParaGuardar = (state.ventaActualBarriles || []).map(b => ({
+    id: b.id,
+    serie: b.serie || "",
+    tipo: b.tipo || "",
+    tamano: b.tamano || "",
+    precioTotal: b.precioTotal || 0
+  }));
+
   const venta = {
     cliente: cliente,
     estilos: {...state.ventaActual},
-    barriles: state.ventaActualBarriles || [],
+    barriles: barrilesParaGuardar,
     tipoLata: state.tipoLata,
     estado: "PENDIENTE",
     metodoPago: "",
@@ -217,13 +225,15 @@ function registrarVentaLocal() {
   ventasPendientes.push(ventaParaSheet);
   localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
 
-  const barrilesVendidos = state.ventaActualBarriles || [];
-  if (barrilesVendidos.length > 0) {
+  if (barrilesParaGuardar.length > 0) {
     let barrilesPendientes = [];
     try { barrilesPendientes = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]"); } catch(e) {}
-    barrilesVendidos.forEach(b => {
+    barrilesParaGuardar.forEach(b => {
       barrilesPendientes.push({
         id: b.id,
+        serie: b.serie,
+        tipo: b.tipo,
+        tamano: b.tamano,
         cliente: cliente,
         estado: "prestado",
         fechaPrestamo: new Date().toLocaleString("es-AR")
@@ -237,7 +247,6 @@ function registrarVentaLocal() {
   state.clienteNombre = "";
   state.totalCobradoInput = "";
   state.precioUnitario = "";
-  state.precioLitro = "";
 
   registrarAuditoria("VENTA", state.usuarioActivo, cliente,
     Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
@@ -340,7 +349,11 @@ function aplicarCobroCartera(index, montoPropuesto, metodoRaw) {
   const deudaRestante = Math.max(0, cliente.deuda - cliente.pagado);
   if (deudaRestante < 1) {
     marcaVentasLocalesCobradasSiSaldado(cliente.nombre, metodo);
+    // RESETEAR DEUDA A 0 PARA EVITAR FANTASMAS EN EL HISTORIAL
+    cliente.deuda = 0;
+    cliente.pagado = 0;
   }
+  
   encolarPagoParaSheet(cliente.nombre, monto, metodo);
   registrarAuditoria("COBRO", state.usuarioActivo, cliente.nombre, metodo, monto);
   
@@ -600,7 +613,7 @@ function renderVentasGeneral() {
           let barrilesHtml = '';
           
           if (Array.isArray(barrilesData) && barrilesData.length > 0) {
-            barrilesHtml = barrilesData.map(b => `🍺 ${b.cantidad || 1}x Barril ${b.tipo || b.estilo || ''} ${b.tamano || ''}`).join('<br>');
+            barrilesHtml = barrilesData.map(b => `🍺 ${b.cantidad || 1}x Barril ${b.tipo || b.estilo || ''} ${b.tamano || ''} (${b.serie || b.id || ''})`).join('<br>');
           } else if (typeof barrilesData === 'object' && Object.keys(barrilesData).length > 0) {
             barrilesHtml = Object.entries(barrilesData).map(([nombre, cant]) => `🍺 ${cant}x Barril ${nombre}`).join('<br>');
           }
@@ -821,17 +834,6 @@ function renderPanelUsuario() {
           <button id="btn-agregar-stock-sin-etiqueta" style="background:#6b7280; padding: 10px; font-size: 0.9em;">📦 Sin Etiqueta</button>
         </div>
         <button id="btn-reset-stock" style="width:100%; margin-top:6px; background:#ef4444; padding: 10px;">Reset Stock Total</button>
-        <div style="margin-top:15px; padding-top:15px; border-top:2px solid #e5e7eb;">
-          <h4 style="margin:0 0 8px 0; font-size:0.9em;">🔄 Convertir Stock Propio</h4>
-          <select id="transfer-estilo" style="width:100%; margin-bottom:6px; padding:6px; font-size:0.85em;">
-            ${estilosBase.map(e => `<option value="${e}">${e}</option>`).join("")}
-          </select>
-          <input type="number" id="transfer-cantidad" placeholder="Cantidad" style="width:100%; margin-bottom:6px; padding:6px;">
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-            <button id="btn-ce-a-se" style="background:#f59e0b; padding:8px; font-size:0.8em;">C/E → S/E</button>
-            <button id="btn-se-a-ce" style="background:#f59e0b; padding:8px; font-size:0.8em;">S/E → C/E</button>
-          </div>
-        </div>
       </div>
       
       <!-- COLUMNA 3: REGISTRAR VENTA -->
@@ -863,10 +865,6 @@ function renderPanelUsuario() {
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
             <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap; width: 100px;">Precio Lata $</label>
             <input type="number" id="precio-unitario" value="${state.precioUnitario || ""}" placeholder="ej: 3500" style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px; margin-bottom: 4px;">
-            <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap; width: 100px;">Precio Litro $</label>
-            <input type="number" id="precio-litro" value="${state.precioLitro || ""}" placeholder="ej: 800" style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
           </div>
           
           <div style="text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;">
@@ -959,7 +957,7 @@ function renderPanelUsuario() {
   bindPrecios();
 }
 
-// ===== BIND: PRECIOS (LATAS Y LITROS POR SEPARADO) =====
+// ===== BIND: PRECIOS (SOLO LATAS) =====
 function bindPrecios() {
   const inputPrecioLata = document.getElementById("precio-unitario");
   if (inputPrecioLata) {
@@ -971,22 +969,12 @@ function bindPrecios() {
     });
   }
 
-  const inputPrecioLitro = document.getElementById("precio-litro");
-  if (inputPrecioLitro) {
-    inputPrecioLitro.addEventListener("input", () => {
-      state.precioLitro = inputPrecioLitro.value;
-      const inputTotal = document.getElementById("input-total-manual");
-      if (inputTotal) inputTotal.value = state.totalCobradoInput ? Number(state.totalCobradoInput).toLocaleString('es-AR') : "";
-    });
-  }
-
   const inputTotalManual = document.getElementById("input-total-manual");
   if (inputTotalManual) {
     inputTotalManual.addEventListener('input', (e) => {
       const valorSinFormato = e.target.value.replace(/\./g, '');
       state.totalCobradoInput = valorSinFormato;
       state.precioUnitario = ""; // Si edita manual, pisamos los precios
-      state.precioLitro = "";
       
       if (valorSinFormato) {
         const numero = Number(valorSinFormato);
@@ -1085,7 +1073,6 @@ function bindPanelEventos() {
     
     registrarVentaLocal();
     state.precioUnitario = "";
-    state.precioLitro = ""; // Limpiamos también el precio litro
   };
   
   const btnGuardar = document.getElementById("btn-guardar");
@@ -1151,44 +1138,6 @@ function bindPanelEventos() {
         });
         return p;
       });
-      encolarActualizarStockEnSheet(state.usuarioActivo);
-    }
-  };
-  
-  const btnCeSe = document.getElementById("btn-ce-a-se");
-  if (btnCeSe) btnCeSe.onclick = () => {
-    const estilo = document.getElementById("transfer-estilo").value;
-    const cantidad = Number(document.getElementById("transfer-cantidad").value);
-    if (cantidad > 0) {
-      setState(p => {
-        const u = p.usuarios[p.usuarioActivo];
-        if (!u.stockSinEtiqueta) u.stockSinEtiqueta = {};
-        u.stock[estilo] = (u.stock[estilo] || 0) - cantidad;
-        u.stockSinEtiqueta[estilo] = (u.stockSinEtiqueta[estilo] || 0) + cantidad;
-        return p;
-      });
-      registrarCargaStock(state.usuarioActivo, { [estilo]: -cantidad }, 'conEtiqueta');
-      registrarCargaStock(state.usuarioActivo, { [estilo]: cantidad }, 'sinEtiqueta');
-      document.getElementById("transfer-cantidad").value = "";
-      encolarActualizarStockEnSheet(state.usuarioActivo);
-    }
-  };
-  
-  const btnSeCe = document.getElementById("btn-se-a-ce");
-  if (btnSeCe) btnSeCe.onclick = () => {
-    const estilo = document.getElementById("transfer-estilo").value;
-    const cantidad = Number(document.getElementById("transfer-cantidad").value);
-    if (cantidad > 0) {
-      setState(p => {
-        const u = p.usuarios[p.usuarioActivo];
-        if (!u.stockSinEtiqueta) u.stockSinEtiqueta = {};
-        u.stockSinEtiqueta[estilo] = (u.stockSinEtiqueta[estilo] || 0) - cantidad;
-        u.stock[estilo] = (u.stock[estilo] || 0) + cantidad;
-        return p;
-      });
-      registrarCargaStock(state.usuarioActivo, { [estilo]: -cantidad }, 'sinEtiqueta');
-      registrarCargaStock(state.usuarioActivo, { [estilo]: cantidad }, 'conEtiqueta');
-      document.getElementById("transfer-cantidad").value = "";
       encolarActualizarStockEnSheet(state.usuarioActivo);
     }
   };
@@ -1392,23 +1341,19 @@ function agregarBarrilAVenta() {
   if (!barril) return alert("Error: No se encontró el barril seleccionado.");
 
   const litros = parseInt(barril.tamano) || 0;
-  const precioSugerido = state.precioLitro || "";
   
   // Pedir el precio por litro para ESTE barril específico
-  const precioStr = prompt(`Ingresá el precio por litro para el barril de ${barril.tipo} (${litros}L):`, precioSugerido);
+  const precioStr = prompt(`Ingresá el precio TOTAL para el barril de ${barril.tipo} (${litros}L):`, "");
   if (!precioStr) return; // Si cancela, no hace nada
   
-  const precioLitro = Number(precioStr) || 0;
-  if (precioLitro <= 0) return alert("⚠️ Precio inválido. El barril no se agregó.");
-
-  const precioTotalBarril = litros * precioLitro;
+  const precioTotalBarril = Number(precioStr) || 0;
+  if (precioTotalBarril <= 0) return alert("⚠️ Precio inválido. El barril no se agregó.");
 
   if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
-  state.ventaActualBarriles.push({ ...barril, precioLitro: precioLitro, precioTotal: precioTotalBarril });
+  state.ventaActualBarriles.push({ ...barril, precioTotal: precioTotalBarril });
   
   // Sacar de la lista de disponibles
   state.barrilesDisponibles = state.barrilesDisponibles.filter(b => String(b.id) !== String(barril.id));
-  state.precioLitro = String(precioLitro); // Lo guardamos como sugerencia para el próximo
   
   recalcularTotalDinamico();
   render();
@@ -1441,7 +1386,6 @@ function aplicarDescuento() {
   const nuevoTotal = Math.round(totalActual - (totalActual * pct));
   state.totalCobradoInput = String(nuevoTotal);
   state.precioUnitario = ""; 
-  state.precioLitro = "";
   render();
 }
 
