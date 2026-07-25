@@ -1,7 +1,6 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Final v46
- * + Total a cobrar manual habilitado siempre.
- * + Alerta si el barril no tiene costo cargado en Sheets.
+ * UI.JS - Control de la interfaz visual - Versión Final v47
+ * + Atajo Precio Unitario/Litro unificado para Latas y Barriles.
  */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
@@ -843,7 +842,7 @@ function renderPanelUsuario() {
           </div>
           
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-            <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap;">Precio unitario $</label>
+            <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap;">Precio unitario/litro $</label>
             <input type="number" id="precio-unitario" value="${state.precioUnitario || ""}" placeholder="ej: 3500" style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
           </div>
           
@@ -937,18 +936,16 @@ function renderPanelUsuario() {
   bindPrecios();
 }
 
-// ===== BIND: PRECIOS (UNITARIO Y TOTAL MANUAL) =====
+// ===== BIND: PRECIOS (UNITARIO/LITRO Y TOTAL MANUAL) =====
 function bindPrecios() {
   const inputPrecio = document.getElementById("precio-unitario");
   if (inputPrecio) {
     inputPrecio.addEventListener("input", () => {
-      const precio = Number(inputPrecio.value) || 0;
       state.precioUnitario = inputPrecio.value;
-      const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-      const total = totalLatas * precio;
-      state.totalCobradoInput = total > 0 ? String(total) : "";
+      recalcularTotalDinamico();
+      
       const inputTotal = document.getElementById("input-total-manual");
-      if (inputTotal) inputTotal.value = total > 0 ? total.toLocaleString('es-AR') : "";
+      if (inputTotal) inputTotal.value = state.totalCobradoInput ? Number(state.totalCobradoInput).toLocaleString('es-AR') : "";
     });
   }
 
@@ -969,6 +966,16 @@ function bindPrecios() {
         }
       }
     });
+  }
+}
+
+// 🟢 FUNCIÓN: Calcula (Latas + Litros) * Precio
+function recalcularTotalDinamico() {
+  const precioPorUnidad = Number(state.precioUnitario) || 0;
+  if (precioPorUnidad > 0) {
+    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+    const totalLitrosBarriles = (state.ventaActualBarriles || []).reduce((sum, b) => sum + (parseInt(b.tamano) || 0), 0);
+    state.totalCobradoInput = String((totalLatas + totalLitrosBarriles) * precioPorUnidad);
   }
 }
 
@@ -1020,7 +1027,9 @@ function seleccionarCliente(nombre) {
 // ===== BIND: EVENTOS DEL PANEL =====
 function bindPanelEventos() {
   document.querySelectorAll("[data-venta]").forEach(i => i.onchange = (e) => {
-    setState(p => { p.ventaActual[e.target.dataset.venta] = e.target.value; return p; });
+    state.ventaActual[e.target.dataset.venta] = e.target.value;
+    recalcularTotalDinamico();
+    render();
   });
   
   const clienteInput = document.getElementById("cliente-nombre");
@@ -1345,23 +1354,20 @@ function agregarBarrilAVenta() {
   const barril = state.barrilesDisponibles.find(b => String(b.id) === String(select.value));
   if (!barril) return alert("Error: No se encontró el barril seleccionado.");
 
+  const precioLitro = Number(state.precioUnitario) || 0;
+  if (precioLitro <= 0) {
+    alert("⚠️ Para calcular el barril, primero ingresá un valor en 'Precio unitario/litro'.");
+    return;
+  }
+
   if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
   state.ventaActualBarriles.push(barril);
   
+  // Sacar de la lista de disponibles
   state.barrilesDisponibles = state.barrilesDisponibles.filter(b => String(b.id) !== String(barril.id));
   
-  const config = state.configuracion || {};
-  const litros = parseInt(barril.tamano) || 0;
-  const costoLitro = Number(config["costoLitro_" + barril.tipo]) || 0;
-  
-  if (costoLitro === 0) {
-    alert("⚠️ Aviso: El costo por litro para '" + barril.tipo + "' no está configurado en la hoja 'Configuracion' de Google Sheets. El costo de este barril será $0.");
-  }
-  
-  const costoBarril = litros * costoLitro;
-  const precioSugeridoBarril = Math.round(costoBarril * 1.5); 
-  const totalActual = Number(state.totalCobradoInput) || 0;
-  state.totalCobradoInput = String(totalActual + precioSugeridoBarril);
+  // Recalcular el total dinámico
+  recalcularTotalDinamico();
   
   render();
 }
@@ -1374,6 +1380,7 @@ function quitarBarrilDeVenta(index) {
     state.barrilesDisponibles.push(barrilQuitado);
   }
   
+  recalcularTotalDinamico();
   render();
 }
 
