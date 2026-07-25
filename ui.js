@@ -1,6 +1,8 @@
 /**
- * UI.JS - Control de la interfaz visual - Versión Final v47
- * + Atajo Precio Unitario/Litro unificado para Latas y Barriles.
+ * UI.JS - Control de la interfaz visual - Versión Final v48
+ * + Precio Lata y Precio Litro separados.
+ * + Historial Global muestra Barriles.
+ * + Fix bug de descuento al registrar.
  */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
@@ -25,6 +27,7 @@ let state = {
   totalCobradoInput: "",
   tipoLata: "conEtiqueta",
   precioUnitario: "",
+  precioLitro: "",
   transferDesde: "Julian",
   transferHacia: "Matias",
   transferEstilo: "BLONDE",
@@ -233,6 +236,7 @@ function registrarVentaLocal() {
   state.clienteNombre = "";
   state.totalCobradoInput = "";
   state.precioUnitario = "";
+  state.precioLitro = "";
 
   registrarAuditoria("VENTA", state.usuarioActivo, cliente,
     Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
@@ -595,10 +599,8 @@ function renderVentasGeneral() {
           let barrilesHtml = '';
           
           if (Array.isArray(barrilesData) && barrilesData.length > 0) {
-            // Si los barriles vienen en un Array de objetos
-            barrilesHtml = barrilesData.map(b => `🍺 ${b.cantidad || 1}x Barril ${b.estilo || ''} ${b.tamano || ''}`).join('<br>');
+            barrilesHtml = barrilesData.map(b => `🍺 ${b.cantidad || 1}x Barril ${b.tipo || b.estilo || ''} ${b.tamano || ''}`).join('<br>');
           } else if (typeof barrilesData === 'object' && Object.keys(barrilesData).length > 0) {
-            // Si los barriles vienen en un Objeto/Mapa
             barrilesHtml = Object.entries(barrilesData).map(([nombre, cant]) => `🍺 ${cant}x Barril ${nombre}`).join('<br>');
           }
           // --- FIN LÓGICA BARRILES ---
@@ -858,8 +860,12 @@ function renderPanelUsuario() {
           </div>
           
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-            <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap;">Precio unitario/litro $</label>
+            <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap; width: 100px;">Precio Lata $</label>
             <input type="number" id="precio-unitario" value="${state.precioUnitario || ""}" placeholder="ej: 3500" style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px; margin-bottom: 4px;">
+            <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap; width: 100px;">Precio Litro $</label>
+            <input type="number" id="precio-litro" value="${state.precioLitro || ""}" placeholder="ej: 800" style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
           </div>
           
           <div style="text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;">
@@ -952,14 +958,23 @@ function renderPanelUsuario() {
   bindPrecios();
 }
 
-// ===== BIND: PRECIOS (UNITARIO/LITRO Y TOTAL MANUAL) =====
+// ===== BIND: PRECIOS (LATAS Y LITROS POR SEPARADO) =====
 function bindPrecios() {
-  const inputPrecio = document.getElementById("precio-unitario");
-  if (inputPrecio) {
-    inputPrecio.addEventListener("input", () => {
-      state.precioUnitario = inputPrecio.value;
+  const inputPrecioLata = document.getElementById("precio-unitario");
+  if (inputPrecioLata) {
+    inputPrecioLata.addEventListener("input", () => {
+      state.precioUnitario = inputPrecioLata.value;
       recalcularTotalDinamico();
-      
+      const inputTotal = document.getElementById("input-total-manual");
+      if (inputTotal) inputTotal.value = state.totalCobradoInput ? Number(state.totalCobradoInput).toLocaleString('es-AR') : "";
+    });
+  }
+
+  const inputPrecioLitro = document.getElementById("precio-litro");
+  if (inputPrecioLitro) {
+    inputPrecioLitro.addEventListener("input", () => {
+      state.precioLitro = inputPrecioLitro.value;
+      recalcularTotalDinamico();
       const inputTotal = document.getElementById("input-total-manual");
       if (inputTotal) inputTotal.value = state.totalCobradoInput ? Number(state.totalCobradoInput).toLocaleString('es-AR') : "";
     });
@@ -970,7 +985,8 @@ function bindPrecios() {
     inputTotalManual.addEventListener('input', (e) => {
       const valorSinFormato = e.target.value.replace(/\./g, '');
       state.totalCobradoInput = valorSinFormato;
-      state.precioUnitario = ""; // Si edita manual, pisamos el precio unitario
+      state.precioUnitario = ""; // Si edita manual, pisamos los precios
+      state.precioLitro = "";
       
       if (valorSinFormato) {
         const numero = Number(valorSinFormato);
@@ -985,13 +1001,20 @@ function bindPrecios() {
   }
 }
 
-// 🟢 FUNCIÓN: Calcula (Latas + Litros) * Precio
+// 🟢 FUNCIÓN: Calcula (Latas * Precio Lata) + (Litros * Precio Litro)
 function recalcularTotalDinamico() {
-  const precioPorUnidad = Number(state.precioUnitario) || 0;
-  if (precioPorUnidad > 0) {
-    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-    const totalLitrosBarriles = (state.ventaActualBarriles || []).reduce((sum, b) => sum + (parseInt(b.tamano) || 0), 0);
-    state.totalCobradoInput = String((totalLatas + totalLitrosBarriles) * precioPorUnidad);
+  const precioLata = Number(state.precioUnitario) || 0;
+  const precioLitro = Number(state.precioLitro) || 0;
+  
+  const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+  const totalLitrosBarriles = (state.ventaActualBarriles || []).reduce((sum, b) => sum + (parseInt(b.tamano) || 0), 0);
+  
+  const totalCalculado = (totalLatas * precioLata) + (totalLitrosBarriles * precioLitro);
+  
+  if (totalCalculado > 0) {
+    state.totalCobradoInput = String(totalCalculado);
+  } else if (totalLatas === 0 && totalLitrosBarriles === 0) {
+    state.totalCobradoInput = ""; // Limpiar si no hay nada
   }
 }
 
@@ -1051,19 +1074,20 @@ function bindPanelEventos() {
   const clienteInput = document.getElementById("cliente-nombre");
   if (clienteInput) clienteInput.oninput = (e) => { state.clienteNombre = e.target.value; };
   
-   const btnRegistrar = document.getElementById("btn-registrar");
+  const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
-    const precio = Number(state.precioUnitario) || 0;
     const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+    const totalBarriles = (state.ventaActualBarriles || []).length;
     
-    // Si no hay precio ni total cargado, usa el precio minorista por defecto para las latas
-    if (precio === 0 && totalLatas > 0 && Number(state.totalCobradoInput) === 0) {
+    // Si no puso ningún precio pero hay latas, usa el minorista
+    if (Number(state.totalCobradoInput) === 0 && totalLatas > 0 && totalBarriles === 0) {
       const precioMinorista = Number(state.configuracion?.precioMinorista) || 3500;
       state.totalCobradoInput = String(totalLatas * precioMinorista);
     }
     
     registrarVentaLocal();
     state.precioUnitario = "";
+    state.precioLitro = ""; // Limpiamos también el precio litro
   };
   
   const btnGuardar = document.getElementById("btn-guardar");
@@ -1369,9 +1393,9 @@ function agregarBarrilAVenta() {
   const barril = state.barrilesDisponibles.find(b => String(b.id) === String(select.value));
   if (!barril) return alert("Error: No se encontró el barril seleccionado.");
 
-  const precioLitro = Number(state.precioUnitario) || 0;
+  const precioLitro = Number(state.precioLitro) || 0;
   if (precioLitro <= 0) {
-    alert("⚠️ Para calcular el barril, primero ingresá un valor en 'Precio unitario/litro'.");
+    alert("⚠️ Para calcular el barril, primero ingresá un valor en 'Precio Litro $'.");
     return;
   }
 
@@ -1413,7 +1437,9 @@ function aplicarDescuento() {
   
   const nuevoTotal = Math.round(totalActual - (totalActual * pct));
   state.totalCobradoInput = String(nuevoTotal);
-  state.precioUnitario = ""; // 👈 ESTA LÍNEA ES LA QUE ARREGLA EL BUG
+  state.precioUnitario = ""; 
+  state.precioLitro = "";
   render();
 }
+
 // ===== FIN DE UI.JS =====
