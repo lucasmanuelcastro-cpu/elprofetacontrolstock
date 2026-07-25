@@ -1030,7 +1030,7 @@ function bindAutocompletadoCliente() {
     sugerencias.style.display = "block";
   });
   input.addEventListener("blur", () => setTimeout(() => { sugerencias.style.display = "none"; }, 200));
-  input.addEventListener("focus", () => { if (input.value.trim().length > 0) input.dispatchEvent(new Event("input"))); });
+  input.addEventListener("focus", () => { if (input.value.trim().length > 0) input.dispatchEvent(new Event("input")); });
 }
 
 function seleccionarCliente(nombre) {
