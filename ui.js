@@ -1,5 +1,7 @@
 /* UI.JS - Control de la interfaz visual - Versión Final Estable (modificado)
  + Ajustes en agregarBarrilAVenta: prompt por precio/lt prellenado con costo por litro y calculo total
+ + FIX: al borrar una venta, los barriles asociados ahora se devuelven a barrilesDisponibles
+        y se limpian/actualizan en localStorage["barrilesPendientes"]
 */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
@@ -64,7 +66,7 @@ function calcularPreview() {
 
   let costoTotalLatas = 0;
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  
+
   Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
     const c = Number(cant) || 0;
     if (c > 0) {
@@ -90,7 +92,7 @@ function calcularPreview() {
   const totalCobrado = Number(state.totalCobradoInput) || 0;
   const gananciaBruta = totalCobrado > costoTotal ? totalCobrado - costoTotal : 0;
   const comision = gananciaBruta * 0.5;
-  
+
   return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas, gananciaBruta, costoTotalBarriles };
 }
 
@@ -144,7 +146,7 @@ function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
 // ===== REGISTRAR VENTA LOCAL =====
 function registrarVentaLocal() {
   const cliente = (state.clienteNombre || "").trim();
-  
+
   if (!cliente || cliente === "Consumidor Final") {
     alert("⚠️ Debes ingresar el nombre del cliente.\n\nNo se puede registrar como 'Consumidor Final' automáticamente.");
     const inputCliente = document.getElementById("cliente-nombre");
@@ -258,7 +260,7 @@ function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
   const cantidadAnterior = tipo === 'sinEtiqueta'
     ? (usuarioObj.stockSinEtiqueta?.[estilo] || 0)
     : (usuarioObj.stock[estilo] || 0);
-  
+
   if (tipo === 'sinEtiqueta') {
     if (!usuarioObj.stockSinEtiqueta) usuarioObj.stockSinEtiqueta = {};
     usuarioObj.stockSinEtiqueta[estilo] = cantidadNueva;
@@ -270,13 +272,16 @@ function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
   render();
 }
 
-async function borrarVentaIndividual(index) {
+// ===== BORRAR VENTA (FIX: devuelve latas Y barriles, y limpia barrilesPendientes) =====
+function borrarVentaIndividual(index) {
   if (!confirm("¿Borrar esta venta? Se devolverá el stock automáticamente.")) return;
   const venta = state.usuarios[state.usuarioActivo].ventas[index];
   if (!venta) return;
 
   setState(prev => {
     const usuario = prev.usuarios[prev.usuarioActivo];
+
+    // Devolver latas al stock
     Object.entries(venta.estilos || {}).forEach(([estilo, cant]) => {
       const c = Number(cant) || 0;
       if (c > 0) {
@@ -289,6 +294,203 @@ async function borrarVentaIndividual(index) {
       }
     });
 
-  
-  },
-  "merge: aplicar cambios de branch fix/barril-precio-litro-deudores-delete a main (ui.js)");
+    // FIX: Devolver barriles a barrilesDisponibles
+    (venta.barriles || []).forEach(b => {
+      const yaEsta = prev.barrilesDisponibles.some(bd => String(bd.id) === String(b.id));
+      if (!yaEsta) {
+        prev.barrilesDisponibles.push({
+          id: b.id,
+          serie: b.serie || "",
+          tipo: b.tipo || "",
+          tamano: b.tamano || ""
+        });
+      }
+    });
+
+    // Ajustar deuda del cliente
+    const nombreCliente = String(venta.cliente || "").toLowerCase().trim();
+    const idxCliente = prev.clientesGlobales.findIndex(c =>
+      String(c.nombre || "").toLowerCase().trim() === nombreCliente
+    );
+    if (idxCliente !== -1) {
+      const monto = Number(venta.totalCobrado) || 0;
+      prev.clientesGlobales[idxCliente].deuda = Math.max(0, (prev.clientesGlobales[idxCliente].deuda || 0) - monto);
+      if (prev.clientesGlobales[idxCliente].deuda === 0) {
+        prev.clientesGlobales[idxCliente].pagado = 0;
+      }
+    }
+
+    prev.usuarios[prev.usuarioActivo].ventas.splice(index, 1);
+    return prev;
+  });
+
+  // FIX: limpiar los barriles de esta venta en localStorage["barrilesPendientes"]
+  if (venta.barriles && venta.barriles.length > 0) {
+    try {
+      let barrilesPendientes = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]");
+      const idsBorrados = new Set(venta.barriles.map(b => String(b.id)));
+      barrilesPendientes = barrilesPendientes.filter(bp => !idsBorrados.has(String(bp.id)));
+      localStorage.setItem("barrilesPendientes", JSON.stringify(barrilesPendientes));
+    } catch (e) {
+      console.error("Error limpiando barrilesPendientes:", e);
+    }
+  }
+
+  encolarBorrarVentaEnSheet({
+    vendedor: venta.vendedor || state.usuarioActivo,
+    fecha: venta.fecha,
+    cliente: venta.cliente,
+    estilos: venta.estilos,
+    tipoLata: venta.tipoLata || "conEtiqueta",
+    totalCobrado: venta.totalCobrado || 0,
+  });
+  encolarActualizarStockEnSheet(state.usuarioActivo);
+  registrarAuditoria("BORRADO", state.usuarioActivo, venta.cliente,
+    Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
+    venta.totalCobrado || 0);
+  guardarDatos();
+}
+
+function swapMetodoPago(nombreUsuario, ventaIndex) {
+  setState((prev) => {
+    const venta = prev.usuarios[nombreUsuario].ventas[ventaIndex];
+    if (!venta) return prev;
+    venta.metodoPago = (venta.metodoPago || "efectivo") === "efectivo" ? "transferencia" : "efectivo";
+    return prev;
+  });
+}
+
+// Guardar Transferencia en Sheet
+function guardarTransferenciaEnSheet(desde, hacia, estilos, tipo) {
+  try {
+    const entrada = {
+      fecha: new Date().toLocaleString("es-AR"),
+      desde: desde,
+      hacia: hacia,
+      estilos: estilos,
+      tipo: tipo
+    };
+
+    fetch(URL_SCRIPT, {
+      method: "POST",
+      body: JSON.stringify({
+        accion: "guardarTransferencia",
+        entrada: entrada
+      }),
+      headers: { "Content-Type": "text/plain" },
+      mode: "cors"
+    });
+  } catch (err) {
+    console.error("Error guardando transferencia en Sheet:", err);
+  }
+}
+
+// ===== Resto de funciones (cargarDatosDesdeSheet, render, etc.) =====
+// Para mantener el archivo legible solo se han modificado las funciones relacionadas con barriles.
+// Se conserva el resto del ui.js original sin cambios.
+
+// ===== FUNCIONES PARA BARRILES Y PRECIOS (modificadas) =====
+function setPrecioVenta(tipo) {
+  const config = state.configuracion || {};
+  const estilosLupulados = ["SESSION IPA", "RED IPA"];
+  const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+
+  if (tipo === 'mayorista') {
+    const precioNormal = Number(config.precioMayoristaNormal) || 2400;
+    const precioLupulada = Number(config.precioMayoristaLupulada) || 2500;
+    let totalCalculado = 0;
+
+    Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
+      const c = Number(cant) || 0;
+      if (c > 0) {
+        totalCalculado += c * (estilosLupulados.includes(estilo) ? precioLupulada : precioNormal);
+      }
+    });
+
+    state.precioUnitario = "";
+    state.totalCobradoInput = totalCalculado > 0 ? String(totalCalculado) : "";
+
+  } else if (tipo === 'six') {
+    if (totalLatas !== 6) {
+      alert("⚠️ Para aplicar el precio de Six Pack, debés cargar exactamente 6 latas en total.\nActualmente tenés " + totalLatas + " lata(s).");
+      return;
+    }
+    const precio = Number(config.precioSixPack) || 3250;
+    state.precioUnitario = String(precio);
+    state.totalCobradoInput = String(totalLatas * precio);
+
+  } else if (tipo === 'doce') {
+    if (totalLatas !== 12) {
+      alert("⚠️ Para aplicar el precio de 12 Pack, debés cargar exactamente 12 latas en total.\nActualmente tenés " + totalLatas + " lata(s).");
+      return;
+    }
+    const precio = Number(config.precioDocePack) || 3000;
+    state.precioUnitario = String(precio);
+    state.totalCobradoInput = String(totalLatas * precio);
+  }
+
+  render();
+}
+
+function agregarBarrilAVenta() {
+  const select = document.getElementById("select-barril-venta");
+  if (!select || !select.value) return alert("Seleccioná un barril primero.");
+
+  const barril = state.barrilesDisponibles.find(b => String(b.id) === String(select.value));
+  if (!barril) return alert("Error: No se encontró el barril seleccionado.");
+
+  // Extraer litros (parseInt maneja "50L" -> 50)
+  const litros = parseInt(barril.tamano) || 0;
+
+  // Leer costo por litro desde configuración
+  const costoPorLitro = Number(state.configuracion ? state.configuracion["costoLitro_" + barril.tipo] : 0) || 0;
+
+  // El popup pide el PRECIO DE VENTA POR LITRO, prellenado con el costoPorLitro (editable)
+  const precioPorLitroStr = prompt(`Ingresá el precio por LITRO de venta para ${barril.tipo} (Litros: ${litros})\nPrecio por litro (prefill = costo):`, String(costoPorLitro));
+  if (precioPorLitroStr === null) return; // cancelado
+  const precioPorLitro = Number(precioPorLitroStr) || 0;
+  if (precioPorLitro <= 0) return alert("⚠️ Precio por litro inválido. El barril no se agregó.");
+
+  const precioTotalBarril = precioPorLitro * litros;
+
+  if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
+  state.ventaActualBarriles.push({ ...barril, precioTotal: precioTotalBarril, precioPorLitro: precioPorLitro });
+
+  // Quitar de disponibles
+  state.barrilesDisponibles = state.barrilesDisponibles.filter(b => String(b.id) !== String(barril.id));
+
+  recalcularTotalDinamico();
+  render();
+}
+
+function quitarBarrilDeVenta(index) {
+  if (!state.ventaActualBarriles) return;
+  const barrilQuitado = state.ventaActualBarriles.splice(index, 1)[0];
+
+  if (barrilQuitado && !state.barrilesDisponibles.some(b => b.id === barrilQuitado.id)) {
+    state.barrilesDisponibles.push(barrilQuitado);
+  }
+
+  recalcularTotalDinamico();
+  render();
+}
+
+function aplicarDescuento() {
+  const descStr = prompt("¿Qué porcentaje de descuento querés aplicar sobre el total actual?", "10");
+  if (!descStr) return;
+  const pct = Number(descStr) / 100;
+  if (isNaN(pct)) return alert("Porcentaje inválido.");
+
+  const totalActual = Number(state.totalCobradoInput) || 0;
+  if (totalActual <= 0) {
+    alert("No hay un total cargado para aplicarle el descuento. Cargá las latas y un precio primero.");
+    return;
+  }
+
+  const nuevoTotal = Math.round(totalActual - (totalActual * pct));
+  state.totalCobradoInput = String(nuevoTotal);
+  state.precioUnitario = "";
+  render();
+}
+
+// ===== FIN DE UI.JS =====
