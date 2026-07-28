@@ -7,7 +7,6 @@
 // ===== CONSTANTES Y ESTADO GLOBAL =====
 const estilosBase = ["BLONDE", "IRISH RED", "STOUT", "SESSION IPA", "RED IPA", "HONEY"];
 
-// Estado principal de la aplicación
 let state = {
   usuarios: {
     Julian: { stock: {}, stockSinEtiqueta: {}, ventas: [] },
@@ -19,9 +18,9 @@ let state = {
   popularidadSheet: {},
   usuarioActivo: "Julian",
   ventaActual: { BLONDE: "", "IRISH RED": "", STOUT: "", "SESSION IPA": "", "RED IPA": "", HONEY: "" },
-  ventaActualBarriles: [], // 🟢 NUEVO
-  configuracion: {}, // 🟢 NUEVO
-  barrilesDisponibles: [], // 🟢 NUEVO
+  ventaActualBarriles: [],
+  configuracion: {},
+  barrilesDisponibles: [],
   metodoPago: "efectivo",
   clienteNombre: "",
   totalCobradoInput: "",
@@ -41,8 +40,6 @@ let state = {
 };
 
 // ===== UTILIDADES =====
-
-// Reemplazo seguro para structuredClone (soporta móviles antiguos/Safari)
 function setState(updater) {
   const estadoClonado = JSON.parse(JSON.stringify(state));
   state = typeof updater === "function" ? updater(estadoClonado) : updater;
@@ -50,7 +47,6 @@ function setState(updater) {
   render();
 }
 
-// Actualiza el stock general sumando todos los usuarios
 function actualizarStockGeneral() {
   let total = {};
   Object.values(state.usuarios).forEach((u) => {
@@ -61,7 +57,6 @@ function actualizarStockGeneral() {
   state.stockGeneral = total;
 }
 
-// Calcula vista previa de costos y ganancias
 function calcularPreview() {
   const config = state.configuracion || {};
   const costoConEtiqNormal = Number(config.costoConEtiquetaNormal) || 1850;
@@ -87,10 +82,9 @@ function calcularPreview() {
     }
   });
 
-  // Calcular barriles
   let costoTotalBarriles = 0;
   (state.ventaActualBarriles || []).forEach(b => {
-    const litros = parseInt(b.tamano) || 0;
+    const litros = parseInt(b.tamano) || 0; 
     const costoLitro = Number(config["costoLitro_" + b.tipo]) || 0;
     costoTotalBarriles += litros * costoLitro;
   });
@@ -100,15 +94,13 @@ function calcularPreview() {
   const gananciaBruta = totalCobrado > costoTotal ? totalCobrado - costoTotal : 0;
   const comision = gananciaBruta * 0.5;
   
-  return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas, gananciaBruta, costoTotalBarriles };
+  return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas, gananciaBruta, costoTotalBarriles, costoTotalLatas };
 }
 
-// Obtiene todas las ventas de todos los usuarios
 function getVentasGenerales() {
   return Object.values(state.usuarios).flatMap((u) => u.ventas);
 }
 
-// Formatea para mostrar el total "Para El Profeta"
 function paraProfetaMostrar(v) {
   const p = Number(v.paraProfeta);
   if (!isNaN(p) && p > 0) return p;
@@ -118,7 +110,7 @@ function paraProfetaMostrar(v) {
 }
 
 function ventaApareceEnHistorialGlobal(v) {
-  return (Number(v.totalCobrado) || 0) > 0;
+  return String(v.estado || "").toUpperCase() === "COBRADO" || (v.metodoPago && v.metodoPago !== "");
 }
 
 function getEstadisticasVentas() {
@@ -152,7 +144,6 @@ function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
   });
 }
 
-// ===== REGISTRAR VENTA LOCAL (CORREGIDA) =====
 function registrarVentaLocal() {
   const cliente = (state.clienteNombre || "").trim();
   
@@ -234,7 +225,6 @@ function registrarVentaLocal() {
   render();
 }
 
-// ===== MANEJO DE STOCK =====
 function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
   const cantidadNueva = Number(valor) || 0;
   const usuarioObj = state.usuarios[usuario];
@@ -303,7 +293,6 @@ async function borrarVentaIndividual(index) {
   guardarDatos();
 }
 
-// ===== COBROS Y CARTERA =====
 function normalizarMetodoPago(metodoRaw) {
   const s = String(metodoRaw || "").toLowerCase().trim();
   return s === "transferencia" ? "transferencia" : "efectivo";
@@ -372,7 +361,6 @@ function registrarPagoManual(index) {
   aplicarCobroCartera(index, montoIngresado, metodo);
 }
 
-// ===== HISTORIALES =====
 function registrarCargaStock(usuario, estilos, tipo) {
   const fecha = new Date().toLocaleString('es-AR');
   if (typeof estilos === 'string') return; 
@@ -397,7 +385,6 @@ function registrarTransferenciaHistorial(desde, hacia, estilos, tipo) {
   });
 }
 
-// ===== PERSISTENCIA LOCAL =====
 function guardarDatos() {
   const data = { usuarios: state.usuarios, clientes: state.clientesGlobales };
   localStorage.setItem("elProfetaData", JSON.stringify(data));
@@ -413,7 +400,6 @@ function cargarDatos() {
   }
 }
 
-// ===== SINCRONIZACIÓN CON SHEETS =====
 async function guardarEnSheets() {
   let nVentas = 0, nPagos = 0, nStock = 0, nBorrar = 0, nBarriles = 0;
   try { const vRaw = localStorage.getItem("ventasPendientes"); if (vRaw) nVentas = JSON.parse(vRaw).length; } catch (e) {}
@@ -432,7 +418,7 @@ async function guardarEnSheets() {
     await guardarPagosPendientesEnSheet();
     await guardarBorrarVentasPendienteEnSheet();
     await guardarStockPendienteEnSheet();
-    await guardarBarrilesPendientesEnSheet(); // 🟢 NUEVO
+    await guardarBarrilesPendientesEnSheet(); 
     await cargarDatosDesdeSheet();
     alert("✅ Todo pendiente se envió a Google Sheets.");
   } catch (err) {
@@ -440,7 +426,6 @@ async function guardarEnSheets() {
   }
 }
 
-// ===== INICIALIZACIÓN =====
 document.addEventListener('DOMContentLoaded', async () => {
   cargarDatos();
   render();
@@ -453,7 +438,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// ===== RENDER PRINCIPAL =====
 function render() {
   renderStockGeneral();
   renderVentasGeneral();
@@ -463,7 +447,6 @@ function render() {
   renderPanelUsuario();
 }
 
-// ===== RENDER: STOCK GENERAL =====
 function renderStockGeneral() {
   const container = document.getElementById("stock-general-section");
   if (!container) return;
@@ -534,7 +517,6 @@ function renderStockGeneral() {
 </div>`;
 }
 
-// ===== RENDER: VENTAS GENERAL =====
 function renderVentasGeneral() {
   const container = document.getElementById("ventas-general-section");
   if (!container) return;
@@ -544,16 +526,14 @@ function renderVentasGeneral() {
   const dineroTotal = state.totalIngresadoSheet;
   const totalProfeta = state.paraProfetaSheet;
   
-  const todasLasVentas = getVentasGenerales().filter(
-    v => (Number(v.totalCobrado) || 0) > 0 && ventaApareceEnHistorialGlobal(v)
-  );
+  const todasLasVentas = getVentasGenerales().filter(v => ventaApareceEnHistorialGlobal(v));
   
   container.innerHTML = `
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
     <div class="card" style="border-left: 4px solid #059669;">
       <h2>💵 Dinero Ingresado (Efectivo)</h2>
       <p class="big-number" style="color:#059669;">${dineroEfectivo != null ? '$' + dineroEfectivo.toLocaleString('es-AR') : '—'}</p>
-      <small>Ventas cobradas en efectivo</small>
+      <small>Ventas cobradas en efectivo (prorrateadas si hay pagos parciales)</small>
     </div>
     <div class="card" style="border-left: 4px solid #2563eb;">
       <h2>🏦 Dinero Ingresado (Transferencia)</h2>
@@ -565,22 +545,27 @@ function renderVentasGeneral() {
     <div class="card" style="border-left: 4px solid #3b82f6;">
       <h2>💰 Total Ingresado</h2>
       <p class="big-number" style="color:#3b82f6;">${dineroTotal != null ? '$' + dineroTotal.toLocaleString('es-AR') : '—'}</p>
-      <small>${dineroTotal != null ? '📊 Desde hoja Venta de Latas y Barriles' : 'Sincronizando...'}</small>
+      <small>${dineroTotal != null ? '📊 Solo lo cobrado hasta ahora' : 'Sincronizando...'}</small>
     </div>
     <div class="card">
       <h2>👑 Para El Profeta (Total)</h2>
       <p class="big-number" style="color:#059669;">${totalProfeta != null ? '$' + totalProfeta.toLocaleString('es-AR') : '—'}</p>
-      <small>Costo + 50% Ganancia generada</small>
+      <small>Costo + 50% Ganancia generada (prorrateado si hay pagos parciales)</small>
     </div>
   </div>
   <div class="card" style="margin-top: 20px; border-left: 4px solid #7c3aed;">
-    <h2>📋 Historial Global (${todasLasVentas.length} ventas)</h2>
-    <p style="color:#64748b; font-size:0.85em; margin:0 0 8px 0;">Solo ventas ya cobradas. Sheet: botón «Guardar en Sheet».</p>
+    <h2>📋 Historial Global (${todasLasVentas.length} ventas cobradas)</h2>
+    <p style="color:#64748b; font-size:0.85em; margin:0 0 8px 0;">Solo aparecen acá las ventas 100% saldadas. Sheet: botón «Guardar en Sheet».</p>
     <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
     ${todasLasVentas.length === 0
-      ? '<p style="color:gray;">No hay ventas cobradas aún.</p>'
+      ? '<p style="color:gray;">No hay ventas cobradas en su totalidad aún.</p>'
       : [...todasLasVentas].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).map(v => {
           const vendedor = v.vendedor || Object.keys(state.usuarios).find(u => state.usuarios[u].ventas.some(vv => vv === v)) || '—';
+          const latasHtml = Object.entries(v.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', ');
+          const barrilesHtml = (v.barriles && v.barriles.length > 0) 
+            ? v.barriles.map(b => `1x Barril ${b.tipo} ${b.tamano}`).join(', ') 
+            : '';
+          
           return `
           <div style="border-bottom: 1px solid #f3f4f6; padding: 8px 0; font-size: 0.88em;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
@@ -592,26 +577,16 @@ function renderVentasGeneral() {
               <small style="color:#64748b;">📅 ${v.fecha || ''}</small>
             </div>
             <div style="color:#555; margin: 3px 0;">
-              ${Object.entries(v.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', ') || '—'}
-              <b style="color:#1e40af; margin-left:6px;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0), 0)} latas)</b>
+              ${latasHtml || ''}
+              ${barrilesHtml ? `<span style="color:#7c3aed; font-weight:600; margin-left:6px;">🍺 ${barrilesHtml}</span>` : ''}
+              ${latasHtml ? `<b style="color:#1e40af; margin-left:6px;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0), 0)} latas)</b>` : ''}
               <span style="margin-left:6px; padding:1px 8px; border-radius:10px; font-size:0.82em; font-weight:600; background:${v.tipoLata === 'sinEtiqueta' ? '#dbeafe' : '#fef9c3'}; color:${v.tipoLata === 'sinEtiqueta' ? '#1e40af' : '#92400e'};">
                 ${v.tipoLata === 'sinEtiqueta' ? '📦 Sin etiqueta' : '🏷️ Con etiqueta'}
               </span>
             </div>
             <div style="display:flex; gap:12px; flex-wrap:wrap; color:#374151; align-items:center;">
               <span>💵 $${(v.totalCobrado||0).toLocaleString('es-AR')}</span>
-              ${(() => {
-                const mp = String(v.metodoPago || "").trim().toLowerCase();
-                if (mp === "transferencia") return '<span style="padding:1px 8px; border-radius:6px; font-size:0.85em; font-weight:600; background:#dbeafe; color:#1e40af;">🏦 Transferencia</span>';
-                if (mp === "efectivo") return '<span style="padding:1px 8px; border-radius:6px; font-size:0.85em; font-weight:600; background:#dcfce7; color:#166534;">💵 Efectivo</span>';
-                const nombreCliente = String(v.cliente || "").toLowerCase().trim();
-                const clienteObj = state.clientesGlobales.find(c => String(c.nombre || "").toLowerCase().trim() === nombreCliente);
-                const deudaPendiente = clienteObj ? Math.max(0, (Number(clienteObj.deuda) || 0) - (Number(clienteObj.pagado) || 0)) : 0;
-                if (clienteObj && deudaPendiente <= 0) {
-                  return '<span style="padding:1px 8px; border-radius:6px; font-size:0.85em; font-weight:600; background:#dcfce7; color:#166534;">✅ Cobrado</span>';
-                }
-                return '<span style="padding:1px 8px; border-radius:6px; font-size:0.85em; font-weight:600; background:#fef3c7; color:#92400e;">⏳ Fiado (pendiente)</span>';
-              })()}
+              <span style="padding:1px 8px; border-radius:6px; font-size:0.85em; font-weight:600; background:#dcfce7; color:#166534;">✅ Cobrado</span>
               <span>Comisión: $${(v.comision||0).toLocaleString('es-AR')}</span>
               <span>👑 Profeta: $${paraProfetaMostrar(v).toLocaleString('es-AR')}</span>
             </div>
@@ -622,7 +597,6 @@ function renderVentasGeneral() {
   </div>`;
 }
 
-// ===== RENDER: CLIENTES GLOBALES =====
 function renderClientesGlobales() {
   const container = document.getElementById("clientes-section");
   if (!container) return;
@@ -663,7 +637,6 @@ function renderClientesGlobales() {
   </div>`;
 }
 
-// ===== BORRAR DEUDA CLIENTE =====
 function borrarDeudaCliente(idx) {
   const cliente = state.clientesGlobales[idx];
   if (!cliente) return;
@@ -735,7 +708,6 @@ function borrarDeudaCliente(idx) {
   alert(`✅ Deuda de ${cliente.nombre} borrada. Stock devuelto. Formulario precargado.`);
 }
 
-// ===== RENDER: PANEL DE USUARIO (CON BARRILES Y BOTONES) =====
 function renderPanelUsuario() {
   const container = document.getElementById("panel-usuario-container");
   if (!container) return;
@@ -752,7 +724,6 @@ function renderPanelUsuario() {
     <h1 style="border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Panel de ${state.usuarioActivo}</h1>
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
       
-      <!-- COLUMNA 1: STOCK PROPIO -->
       <div>
         <h3>📦 Stock Propio</h3>
         <table style="width:100%; border-collapse: collapse; margin-top:10px; background: #f8fafc; border-radius: 8px;">
@@ -782,7 +753,6 @@ function renderPanelUsuario() {
         </table>
       </div>
       
-      <!-- COLUMNA 2: AGREGAR STOCK -->
       <div>
         <h3>➕ Agregar Stock</h3>
         ${estilosBase.map(e => `<div class="flex space-between" style="margin-bottom: 5px; align-items: center;">
@@ -807,7 +777,6 @@ function renderPanelUsuario() {
         </div>
       </div>
       
-      <!-- COLUMNA 3: REGISTRAR VENTA -->
       <div>
         <h3>🛒 Registrar Venta</h3>
         <div style="position: relative; margin-bottom: 10px;">
@@ -827,10 +796,10 @@ function renderPanelUsuario() {
             <b style="color: #f1f5f9; font-size: 1.4em;">${totalLatas}</b>
           </div>
           <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-            <button onclick="setState(p => { p.tipoLata = 'conEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#334155'}; background: ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#0f172a'}; color: ${state.tipoLata !== 'sinEtiqueta' ? '#1e293b' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
+            <button onclick="setState(p => { p.tipoLata = 'conEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#334155'}; background: ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#0f172a'}; color: ${state.tipoLata !== 'sinEtiqueta' ? '#1e40af' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
               🏷️ Con Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$${state.configuracion?.costoConEtiquetaNormal || 1850}</span>
             </button>
-            <button onclick="setState(p => { p.tipoLata = 'sinEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#334155'}; background: ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#0f172a'}; color: ${state.tipoLata === 'sinEtiqueta' ? '#1e293b' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
+            <button onclick="setState(p => { p.tipoLata = 'sinEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#334155'}; background: ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#0f172a'}; color: ${state.tipoLata === 'sinEtiqueta' ? '#1e40af' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
               📦 Sin Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$${state.configuracion?.costoSinEtiquetaNormal || 1510}</span>
             </button>
           </div>
@@ -844,27 +813,27 @@ function renderPanelUsuario() {
           </div>
         </div>
         
-        <!-- 🟢 NUEVO: BOTONES DE VENTA RÁPIDA -->
         <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-top:10px;">
           <button onclick="setPrecioVenta('mayorista')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">Mayorista</button>
           <button onclick="setPrecioVenta('six')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">Six Pack</button>
           <button onclick="setPrecioVenta('doce')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">12 Pack</button>
         </div>
 
-        <!-- 🟢 NUEVO: SECCIÓN BARRILES EN VENTA -->
         <div style="margin-top:15px; border-top:2px solid #e5e7eb; padding-top:10px;">
           <h4 style="margin:0 0 8px 0;">🍺 Barriles Disponibles</h4>
           <div style="display:flex; gap:6px; margin-bottom:8px;">
             <select id="select-barril-venta" style="flex:1; padding:8px; border-radius:6px; border:1px solid #d1d5db;">
               <option value="">Seleccionar barril...</option>
-              ${(state.barrilesDisponibles || []).map(b => `<option value="${b.id}">${b.serie || b.id} - ${b.tipo} (${b.tamano})</option>`).join("")}
+              ${(state.barrilesDisponibles || [])
+                .filter(b => String(b.tipo).toUpperCase() !== "VACIO")
+                .map(b => `<option value="${b.id}">${b.serie || b.id} - ${b.tipo} (${b.tamano})</option>`).join("")}
             </select>
             <button onclick="agregarBarrilAVenta()" style="background:#3b82f6; color:white; padding:8px 12px; border-radius:6px; cursor:pointer;">➕</button>
           </div>
           <div id="lista-barriles-venta" style="font-size:0.85em; color:#374151;">
             ${(state.ventaActualBarriles || []).map((b, i) => `
               <div style="display:flex; justify-content:space-between; background:#eff6ff; padding:4px 8px; border-radius:4px; margin-bottom:4px;">
-                <span>${b.tipo} (${b.tamano})</span>
+                <span>${b.tipo} (${b.tamano}) - Venta: $${(b.precioVenta||0).toLocaleString('es-AR')}</span>
                 <button onclick="quitarBarrilDeVenta(${i})" style="background:#ef4444; color:white; border:none; border-radius:4px; padding:2px 6px; cursor:pointer;">X</button>
               </div>
             `).join("")}
@@ -872,7 +841,6 @@ function renderPanelUsuario() {
           <button onclick="aplicarDescuento()" style="width:100%; margin-top:5px; background:#f59e0b; color:white; padding:8px; border-radius:6px; font-size:0.85em; cursor:pointer;">% Aplicar Descuento</button>
         </div>
 
-        <!-- VISTA PREVIA PROFETA -->
         <div style="background:#fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-top: 10px;">
           <h4 style="margin: 0 0 8px 0; color: #92400e;">📊 Vista Previa Profeta</h4>
           <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
@@ -932,7 +900,6 @@ function renderPanelUsuario() {
   bindAlquilerBarril();
 }
 
-// ===== BIND: PRECIO UNITARIO =====
 function bindPrecioUnitario() {
   const input = document.getElementById("precio-unitario");
   if (!input) return;
@@ -951,7 +918,6 @@ function bindPrecioUnitario() {
   });
 }
 
-// ===== BIND: ALQUILER BARRIL =====
 function bindAlquilerBarril() {
   const inputAlquiler = document.getElementById('alquiler-barril');
   if (!inputAlquiler) return;
@@ -966,7 +932,6 @@ function bindAlquilerBarril() {
   });
 }
 
-// ===== BIND: AUTOCOMPLETADO CLIENTE =====
 function bindAutocompletadoCliente() {
   const input = document.getElementById("cliente-nombre");
   const sugerencias = document.getElementById("sugerencias-cliente");
@@ -1011,7 +976,6 @@ function seleccionarCliente(nombre) {
   });
 }
 
-// ===== BIND: EVENTOS DEL PANEL =====
 function bindPanelEventos() {
   document.querySelectorAll("[data-venta]").forEach(i => i.onchange = (e) => {
     setState(p => { p.ventaActual[e.target.dataset.venta] = e.target.value; return p; });
@@ -1147,14 +1111,12 @@ function bindPanelEventos() {
   };
 }
 
-// ===== RENDER: USUARIOS =====
 function renderUsuarios() {
   const container = document.getElementById("usuarios-section");
   if (!container) return;
   container.innerHTML = Object.keys(state.usuarios).map(u => `<button onclick="setState(p => { p.usuarioActivo = '${u}'; return p; })" style="background: ${state.usuarioActivo === u ? '#1e40af' : '#3b82f6'}; margin: 5px;">Panel ${u} </button>`).join("");
 }
 
-// ===== RENDER: TRANSFERENCIA =====
 function renderTransferencia() {
   const container = document.getElementById("transferencia-section");
   if (!container) return;
@@ -1236,7 +1198,6 @@ function renderTransferencia() {
   if (btnSin) btnSin.onclick = () => ejecutarTransferencia('sin');
 }
 
-// ===== MODALES: HISTORIAL STOCK =====
 function mostrarHistorialStock() {
   const modal = document.createElement("div");
   modal.style.cssText = "position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;";
@@ -1266,7 +1227,6 @@ function mostrarHistorialStock() {
   document.body.appendChild(modal);
 }
 
-// ===== MODALES: HISTORIAL TRANSFERENCIAS =====
 function mostrarHistorialTransferencias() {
   const modal = document.createElement("div");
   modal.style.cssText = "position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;";
@@ -1294,7 +1254,6 @@ function mostrarHistorialTransferencias() {
   document.body.appendChild(modal);
 }
 
-// ===== NUEVAS FUNCIONES PARA BARRILES Y PRECIOS =====
 function setPrecioVenta(tipo) {
   const config = state.configuracion || {};
   const estilosLupulados = ["SESSION IPA", "RED IPA"];
@@ -1307,6 +1266,8 @@ function setPrecioVenta(tipo) {
     precio = Number(config.precioSixPack) || 3250;
   } else if (tipo === 'doce') {
     precio = Number(config.precioDocePack) || 3000;
+  } else if (tipo === 'minorista') {
+    precio = Number(config.precioMinorista) || 3500;
   }
   
   state.precioUnitario = String(precio);
@@ -1317,27 +1278,39 @@ function setPrecioVenta(tipo) {
 
 function agregarBarrilAVenta() {
   const select = document.getElementById("select-barril-venta");
-  if (!select || !select.value) return alert("Seleccioná un barril primero.");
+  if (!select || !select.value) return alert("Seleccioná un barril disponible primero.");
+  
   const barril = state.barrilesDisponibles.find(b => b.id === select.value);
   if (!barril) return;
 
-  if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
-  state.ventaActualBarriles.push(barril);
-  
-  const config = state.configuracion || {};
   const litros = parseInt(barril.tamano) || 0;
-  const costoLitro = Number(config["costoLitro_" + barril.tipo]) || 0;
-  const costoBarril = litros * costoLitro;
+  if (litros === 0) return alert("El tamaño del barril no es válido en la base de datos.");
+
+  const precioStr = prompt(`Ingresá el precio TOTAL de venta para el barril de ${barril.tipo} (${litros}L):`, "");
+  if (!precioStr) return; 
+  const precioVenta = Number(precioStr);
+  if (isNaN(precioVenta) || precioVenta <= 0) return alert("Precio inválido. Debe ser un número mayor a 0.");
+
+  const barrilConPrecio = { ...barril, precioVenta: precioVenta };
   
-  const precioSugeridoBarril = Math.round(costoBarril * 1.5); 
+  if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
+  state.ventaActualBarriles.push(barrilConPrecio);
+  
   const totalActual = Number(state.totalCobradoInput) || 0;
-  state.totalCobradoInput = String(totalActual + precioSugeridoBarril);
+  state.totalCobradoInput = String(totalActual + precioVenta);
+  
+  select.value = "";
   
   render();
 }
 
 function quitarBarrilDeVenta(index) {
   if (!state.ventaActualBarriles) return;
+  const barril = state.ventaActualBarriles[index];
+  if (barril) {
+    const totalActual = Number(state.totalCobradoInput) || 0;
+    state.totalCobradoInput = String(Math.max(0, totalActual - (barril.precioVenta || 0)));
+  }
   state.ventaActualBarriles.splice(index, 1);
   render();
 }
