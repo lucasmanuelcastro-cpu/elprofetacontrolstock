@@ -1,5 +1,7 @@
 /* UI.JS - Control de la interfaz visual - Versión Final Estable (modificado)
  + Ajustes en agregarBarrilAVenta: prompt por precio/lt prellenado con costo por litro y calculo total
+ + FIX: al borrar una venta, los barriles asociados ahora se devuelven a barrilesDisponibles
+        y se limpian/actualizan en localStorage["barrilesPendientes"]
 */
 
 // ===== CONSTANTES Y ESTADO GLOBAL =====
@@ -64,7 +66,7 @@ function calcularPreview() {
 
   let costoTotalLatas = 0;
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  
+
   Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
     const c = Number(cant) || 0;
     if (c > 0) {
@@ -90,7 +92,7 @@ function calcularPreview() {
   const totalCobrado = Number(state.totalCobradoInput) || 0;
   const gananciaBruta = totalCobrado > costoTotal ? totalCobrado - costoTotal : 0;
   const comision = gananciaBruta * 0.5;
-  
+
   return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas, gananciaBruta, costoTotalBarriles };
 }
 
@@ -144,7 +146,7 @@ function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
 // ===== REGISTRAR VENTA LOCAL =====
 function registrarVentaLocal() {
   const cliente = (state.clienteNombre || "").trim();
-  
+
   if (!cliente || cliente === "Consumidor Final") {
     alert("⚠️ Debes ingresar el nombre del cliente.\n\nNo se puede registrar como 'Consumidor Final' automáticamente.");
     const inputCliente = document.getElementById("cliente-nombre");
@@ -258,7 +260,7 @@ function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
   const cantidadAnterior = tipo === 'sinEtiqueta'
     ? (usuarioObj.stockSinEtiqueta?.[estilo] || 0)
     : (usuarioObj.stock[estilo] || 0);
-  
+
   if (tipo === 'sinEtiqueta') {
     if (!usuarioObj.stockSinEtiqueta) usuarioObj.stockSinEtiqueta = {};
     usuarioObj.stockSinEtiqueta[estilo] = cantidadNueva;
@@ -270,13 +272,16 @@ function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
   render();
 }
 
-async function borrarVentaIndividual(index) {
+// ===== BORRAR VENTA (FIX: devuelve latas Y barriles, y limpia barrilesPendientes) =====
+function borrarVentaIndividual(index) {
   if (!confirm("¿Borrar esta venta? Se devolverá el stock automáticamente.")) return;
   const venta = state.usuarios[state.usuarioActivo].ventas[index];
   if (!venta) return;
 
   setState(prev => {
     const usuario = prev.usuarios[prev.usuarioActivo];
+
+    // Devolver latas al stock
     Object.entries(venta.estilos || {}).forEach(([estilo, cant]) => {
       const c = Number(cant) || 0;
       if (c > 0) {
@@ -289,6 +294,20 @@ async function borrarVentaIndividual(index) {
       }
     });
 
+    // FIX: Devolver barriles a barrilesDisponibles
+    (venta.barriles || []).forEach(b => {
+      const yaEsta = prev.barrilesDisponibles.some(bd => String(bd.id) === String(b.id));
+      if (!yaEsta) {
+        prev.barrilesDisponibles.push({
+          id: b.id,
+          serie: b.serie || "",
+          tipo: b.tipo || "",
+          tamano: b.tamano || ""
+        });
+      }
+    });
+
+    // Ajustar deuda del cliente
     const nombreCliente = String(venta.cliente || "").toLowerCase().trim();
     const idxCliente = prev.clientesGlobales.findIndex(c =>
       String(c.nombre || "").toLowerCase().trim() === nombreCliente
@@ -304,6 +323,18 @@ async function borrarVentaIndividual(index) {
     prev.usuarios[prev.usuarioActivo].ventas.splice(index, 1);
     return prev;
   });
+
+  // FIX: limpiar los barriles de esta venta en localStorage["barrilesPendientes"]
+  if (venta.barriles && venta.barriles.length > 0) {
+    try {
+      let barrilesPendientes = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]");
+      const idsBorrados = new Set(venta.barriles.map(b => String(b.id)));
+      barrilesPendientes = barrilesPendientes.filter(bp => !idsBorrados.has(String(bp.id)));
+      localStorage.setItem("barrilesPendientes", JSON.stringify(barrilesPendientes));
+    } catch (e) {
+      console.error("Error limpiando barrilesPendientes:", e);
+    }
+  }
 
   encolarBorrarVentaEnSheet({
     vendedor: venta.vendedor || state.usuarioActivo,
@@ -339,12 +370,12 @@ function guardarTransferenciaEnSheet(desde, hacia, estilos, tipo) {
       estilos: estilos,
       tipo: tipo
     };
-    
+
     fetch(URL_SCRIPT, {
       method: "POST",
-      body: JSON.stringify({ 
-        accion: "guardarTransferencia", 
-        entrada: entrada 
+      body: JSON.stringify({
+        accion: "guardarTransferencia",
+        entrada: entrada
       }),
       headers: { "Content-Type": "text/plain" },
       mode: "cors"
@@ -363,7 +394,7 @@ function setPrecioVenta(tipo) {
   const config = state.configuracion || {};
   const estilosLupulados = ["SESSION IPA", "RED IPA"];
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  
+
   if (tipo === 'mayorista') {
     const precioNormal = Number(config.precioMayoristaNormal) || 2400;
     const precioLupulada = Number(config.precioMayoristaLupulada) || 2500;
@@ -376,13 +407,13 @@ function setPrecioVenta(tipo) {
       }
     });
 
-    state.precioUnitario = ""; 
+    state.precioUnitario = "";
     state.totalCobradoInput = totalCalculado > 0 ? String(totalCalculado) : "";
 
   } else if (tipo === 'six') {
     if (totalLatas !== 6) {
       alert("⚠️ Para aplicar el precio de Six Pack, debés cargar exactamente 6 latas en total.\nActualmente tenés " + totalLatas + " lata(s).");
-      return; 
+      return;
     }
     const precio = Number(config.precioSixPack) || 3250;
     state.precioUnitario = String(precio);
@@ -391,20 +422,20 @@ function setPrecioVenta(tipo) {
   } else if (tipo === 'doce') {
     if (totalLatas !== 12) {
       alert("⚠️ Para aplicar el precio de 12 Pack, debés cargar exactamente 12 latas en total.\nActualmente tenés " + totalLatas + " lata(s).");
-      return; 
+      return;
     }
     const precio = Number(config.precioDocePack) || 3000;
     state.precioUnitario = String(precio);
     state.totalCobradoInput = String(totalLatas * precio);
   }
-  
+
   render();
 }
 
 function agregarBarrilAVenta() {
   const select = document.getElementById("select-barril-venta");
   if (!select || !select.value) return alert("Seleccioná un barril primero.");
-  
+
   const barril = state.barrilesDisponibles.find(b => String(b.id) === String(select.value));
   if (!barril) return alert("Error: No se encontró el barril seleccionado.");
 
@@ -424,10 +455,10 @@ function agregarBarrilAVenta() {
 
   if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
   state.ventaActualBarriles.push({ ...barril, precioTotal: precioTotalBarril, precioPorLitro: precioPorLitro });
-  
+
   // Quitar de disponibles
   state.barrilesDisponibles = state.barrilesDisponibles.filter(b => String(b.id) !== String(barril.id));
-  
+
   recalcularTotalDinamico();
   render();
 }
@@ -435,11 +466,11 @@ function agregarBarrilAVenta() {
 function quitarBarrilDeVenta(index) {
   if (!state.ventaActualBarriles) return;
   const barrilQuitado = state.ventaActualBarriles.splice(index, 1)[0];
-  
+
   if (barrilQuitado && !state.barrilesDisponibles.some(b => b.id === barrilQuitado.id)) {
     state.barrilesDisponibles.push(barrilQuitado);
   }
-  
+
   recalcularTotalDinamico();
   render();
 }
@@ -449,16 +480,16 @@ function aplicarDescuento() {
   if (!descStr) return;
   const pct = Number(descStr) / 100;
   if (isNaN(pct)) return alert("Porcentaje inválido.");
-  
+
   const totalActual = Number(state.totalCobradoInput) || 0;
   if (totalActual <= 0) {
     alert("No hay un total cargado para aplicarle el descuento. Cargá las latas y un precio primero.");
     return;
   }
-  
+
   const nuevoTotal = Math.round(totalActual - (totalActual * pct));
   state.totalCobradoInput = String(nuevoTotal);
-  state.precioUnitario = ""; 
+  state.precioUnitario = "";
   render();
 }
 
