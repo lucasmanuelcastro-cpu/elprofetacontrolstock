@@ -452,7 +452,7 @@ function renderStockGeneral() {
   if (!container) return;
   const stats = getEstadisticasVentas();
   
-  // Si no hay latas en memoria local, usa la Popularidad directa de Google Sheets
+  // Muestra las ventas locales si existen en la sesión, o la popularidad directa que envió Google Sheets
   const popularidadData = stats.granTotalLatas > 0 
     ? stats.totalesPorEstilo 
     : (state.popularidadSheet || {});
@@ -527,6 +527,7 @@ function renderStockGeneral() {
   </div>
 </div>`;
 }
+
 function renderVentasGeneral() {
   const container = document.getElementById("ventas-general-section");
   if (!container) return;
