@@ -61,7 +61,6 @@ async function guardarPagosPendientesEnSheet() {
         mode: "cors",
       });
       await resp.text();
-      // Marcar pagos locales de este cliente como confirmados (quitar _pendiente)
       const clienteObj = state.clientesGlobales.find(c => c.nombre && c.nombre.toLowerCase() === p.cliente.toLowerCase());
       if (clienteObj && clienteObj.pagos) {
         clienteObj.pagos.forEach(pago => { if (pago._pendiente) delete pago._pendiente; });
@@ -108,9 +107,7 @@ function registrarVentaLocal() {
 
   ventasPendientes.push(ventaDatos);
   localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
-  console.log("📝 Venta registrada. Pendientes:", ventasPendientes.length);
 
-  // 🟢 NUEVO: Encolar actualización de barriles a "prestado"
   if (barrilesVendidos.length > 0) {
     let barrilesPendientes = [];
     try { barrilesPendientes = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]"); } catch(e) {}
@@ -151,7 +148,6 @@ function registrarVentaLocal() {
       }
     }
 
-    // Quitar barriles de la lista de disponibles localmente
     if (barrilesVendidos.length > 0) {
       prev.barrilesDisponibles = prev.barrilesDisponibles.filter(b => !barrilesVendidos.some(v => v.id === b.id));
     }
@@ -166,7 +162,7 @@ function registrarVentaLocal() {
     });
 
     prev.ventaActual = {};
-    prev.ventaActualBarriles = []; // Limpiar barriles de la venta
+    prev.ventaActualBarriles = [];
     prev.clienteNombre = "";
     prev.totalCobradoInput = "";
     prev.alquilerBarril = "";
@@ -180,7 +176,6 @@ async function guardarVentasPendientesEnSheet() {
     const guardadas = localStorage.getItem("ventasPendientes");
     if (guardadas) ventasPendientes = JSON.parse(guardadas);
   }
-  console.log("📦 Ventas pendientes a enviar:", ventasPendientes.length);
   if (!ventasPendientes.length) return;
 
   const colaActual = [...ventasPendientes];
@@ -206,7 +201,6 @@ async function guardarVentasPendientesEnSheet() {
   }
 }
 
-// 🟢 NUEVO: Sincronizar barriles prestados en el Sheet
 async function guardarBarrilesPendientesEnSheet() {
   let cola = [];
   try {
@@ -226,7 +220,6 @@ async function guardarBarrilesPendientesEnSheet() {
       });
     } catch (err) {
       console.error("Error enviando barril al Sheet:", err);
-      // Re-encolar si falla
       let prev = [];
       try { prev = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]"); } catch(e2) {}
       prev.push(b);
@@ -243,7 +236,6 @@ async function cargarClientesHistoricos() {
     const datos = JSON.parse(texto.trim().replace(/^﻿/, ""));
     if (datos.clientesTodos && Array.isArray(datos.clientesTodos)) {
       clientesHistoricos = datos.clientesTodos.filter(c => c && c.nombre);
-      console.log("✅ Clientes históricos desde ventas:", clientesHistoricos.length);
     }
   } catch (err) {
     console.error("❌ Error cargando clientes históricos:", err);
@@ -281,7 +273,6 @@ function swapMetodoPago(nombreUsuario, ventaIndex) {
   });
 }
 
-// Guardar Transferencia en Sheet
 async function guardarTransferenciaEnSheet(desde, hacia, estilos, tipo) {
   try {
     const entrada = {
@@ -327,7 +318,6 @@ async function cargarDatosDesdeSheet() {
         prev.popularidad = datosCloud.popularidad;
       }
 
-      // 🟢 NUEVO: CARGAR CONFIGURACIÓN Y BARRILES DISPONIBLES
       if (datosCloud.configuracion) {
         prev.configuracion = datosCloud.configuracion;
       }
@@ -354,60 +344,64 @@ async function cargarDatosDesdeSheet() {
         };
       }
 
-      // 4. SINCRONIZAR STOCK Y VENTAS POR USUARIO
+      // 4. SINCRONIZAR STOCK Y VENTAS POR USUARIO (BLOQUE BLINDADO)
       Object.entries(datosCloud.usuarios).forEach(([nombre, datos]) => {
-        if (prev.usuarios[nombre]) {
-          if (datos.stock) {
-            prev.usuarios[nombre].stock = {
-              "BLONDE": Number(datos.stock["BLONDE"]) || 0,
-              "IRISH RED": Number(datos.stock["IRISH RED"]) || 0,
-              "STOUT": Number(datos.stock["STOUT"]) || 0,
-              "SESSION IPA": Number(datos.stock["SESSION IPA"]) || 0,
-              "RED IPA": Number(datos.stock["RED IPA"]) || 0,
-              "HONEY": Number(datos.stock["HONEY"]) || 0,
+        // Si el usuario no existe en el estado local, lo creamos para evitar errores
+        if (!prev.usuarios[nombre]) {
+          prev.usuarios[nombre] = { stock: {}, stockSinEtiqueta: {}, ventas: [] };
+        }
+        
+        if (datos.stock) {
+          prev.usuarios[nombre].stock = {
+            "BLONDE": Number(datos.stock["BLONDE"]) || 0,
+            "IRISH RED": Number(datos.stock["IRISH RED"]) || 0,
+            "STOUT": Number(datos.stock["STOUT"]) || 0,
+            "SESSION IPA": Number(datos.stock["SESSION IPA"]) || 0,
+            "RED IPA": Number(datos.stock["RED IPA"]) || 0,
+            "HONEY": Number(datos.stock["HONEY"]) || 0,
+          };
+        }
+        
+        if (datos.stockSinEtiqueta) {
+          prev.usuarios[nombre].stockSinEtiqueta = {
+            "BLONDE": Number(datos.stockSinEtiqueta["BLONDE"]) || 0,
+            "IRISH RED": Number(datos.stockSinEtiqueta["IRISH RED"]) || 0,
+            "STOUT": Number(datos.stockSinEtiqueta["STOUT"]) || 0,
+            "SESSION IPA": Number(datos.stockSinEtiqueta["SESSION IPA"]) || 0,
+            "RED IPA": Number(datos.stockSinEtiqueta["RED IPA"]) || 0,
+            "HONEY": Number(datos.stockSinEtiqueta["HONEY"]) || 0,
+          };
+        }
+        
+        if (datos.ventas && Array.isArray(datos.ventas)) {
+          prev.usuarios[nombre].ventas = datos.ventas.map(venta => {
+            const tipo = normalizarTipoLataDesdeSheet(venta.tipoLata);
+            const costo = Number(venta.costo) || 0;
+            const com = Number(venta.comision) || 0;
+            const paraProfeta = venta.paraProfeta != null && venta.paraProfeta !== ""
+              ? Number(venta.paraProfeta)
+              : costo + com;
+            
+            return {
+              cliente: venta.cliente || "Consumidor Final",
+              estilos: venta.estilos || {},
+              alquilerBarril: venta.alquilerBarril || "",
+              tipoLata: tipo,
+              estado: venta.estado || "PENDIENTE",
+              metodoPago: venta.metodoPago || "",
+              totalCobrado: Number(venta.totalCobrado) || 0,
+              costoTotal: Number(venta.costoTotal) || costo,
+              comision: com,
+              paraProfeta: paraProfeta,
+              fecha: venta.fecha || "",
+              timestamp: venta.timestamp 
+                ? Number(venta.timestamp) 
+                : (new Date(venta.fecha).getTime() || 0),
+              vendedor: venta.vendedor || nombre,
+              cobradoReal: Number(venta.cobradoReal) || 0,
+              barriles: venta.barriles || []
             };
-          }
-          
-          if (datos.stockSinEtiqueta) {
-            prev.usuarios[nombre].stockSinEtiqueta = {
-              "BLONDE": Number(datos.stockSinEtiqueta["BLONDE"]) || 0,
-              "IRISH RED": Number(datos.stockSinEtiqueta["IRISH RED"]) || 0,
-              "STOUT": Number(datos.stockSinEtiqueta["STOUT"]) || 0,
-              "SESSION IPA": Number(datos.stockSinEtiqueta["SESSION IPA"]) || 0,
-              "RED IPA": Number(datos.stockSinEtiqueta["RED IPA"]) || 0,
-              "HONEY": Number(datos.stockSinEtiqueta["HONEY"]) || 0,
-            };
-          }
-          
-          if (datos.ventas && Array.isArray(datos.ventas)) {
-            prev.usuarios[nombre].ventas = datos.ventas.map(venta => {
-              const tipo = normalizarTipoLataDesdeSheet(venta.tipoLata);
-              const costo = Number(venta.costo) || 0;
-              const com = Number(venta.comision) || 0;
-              const paraProfeta = venta.paraProfeta != null && venta.paraProfeta !== ""
-                ? Number(venta.paraProfeta)
-                : costo + com;
-              
-              return {
-                cliente: venta.cliente || "Consumidor Final",
-                estilos: venta.estilos || {},
-                alquilerBarril: venta.alquilerBarril || "",
-                tipoLata: tipo,
-                estado: venta.estado || "PENDIENTE",
-                metodoPago: venta.metodoPago || "",
-                totalCobrado: Number(venta.totalCobrado) || 0,
-                costoTotal: Number(venta.costoTotal) || costo,
-                comision: com,
-                paraProfeta: paraProfeta,
-                fecha: venta.fecha || "",
-                timestamp: venta.timestamp 
-                  ? Number(venta.timestamp) 
-                  : (new Date(venta.fecha).getTime() || 0),
-                vendedor: venta.vendedor || nombre,
-                cobradoReal: Number(venta.cobradoReal) || 0
-              };
-            });
-          }
+          });
         }
       });
 
@@ -593,4 +587,3 @@ function registrarAuditoria(accion, usuario, cliente, detalle, monto) {
     mode: "cors"
   }).catch(err => console.error("Error auditoría:", err));
 }
-
