@@ -185,6 +185,14 @@ function registrarVentaLocal() {
 
   state.usuarios[state.usuarioActivo].ventas.push(venta);
 
+  // Prestar automáticamente los barriles vendidos
+  if (venta.barriles && venta.barriles.length > 0) {
+    venta.barriles.forEach(b => encolarPrestamoBarrilDesdeVenta(b, cliente));
+    state.barrilesDisponibles = (state.barrilesDisponibles || []).filter(
+      bd => !venta.barriles.some(bv => String(bv.id) === String(bd.id))
+    );
+  }
+  
   if (totalLatas > 0) {
     Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
       const c = Number(cant) || 0;
@@ -291,6 +299,73 @@ async function borrarVentaIndividual(index) {
     Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
     venta.totalCobrado || 0);
   guardarDatos();
+}
+
+function encolarPrestamoBarrilDesdeVenta(barril, cliente) {
+  let cola = [];
+  try {
+    cola = JSON.parse(localStorage.getItem("barrilesPrestamoPendientes") || "[]");
+  } catch (e) {}
+  cola.push({
+    barril: {
+      id: barril.id,
+      cliente: cliente || "Consumidor Final",
+      tipo: barril.tipo,
+      tamano: barril.tamano,
+      serie: barril.serie || "",
+      deposito: 0,
+      observaciones: `Vendido en venta a ${cliente || "Consumidor Final"} - $${(barril.precioVenta||0).toLocaleString('es-AR')}`,
+      estado: "prestado",
+      fechaPrestamo: new Date().toLocaleString("es-AR"),
+      fechaDevolucion: "",
+      timestamp: Date.now()
+    },
+    movimiento: {
+      fecha: new Date().toLocaleString("es-AR"),
+      accion: "PRÉSTAMO (Venta)",
+      cliente: cliente || "Consumidor Final",
+      tipo: barril.tipo,
+      tamano: barril.tamano,
+      serie: barril.serie || "",
+      deposito: 0,
+      observaciones: `Precio venta: $${(barril.precioVenta||0).toLocaleString('es-AR')}`
+    }
+  });
+  localStorage.setItem("barrilesPrestamoPendientes", JSON.stringify(cola));
+}
+
+async function guardarBarrilesPrestamoPendientesEnSheet() {
+  let cola = [];
+  try {
+    cola = JSON.parse(localStorage.getItem("barrilesPrestamoPendientes") || "[]");
+  } catch (e) {}
+  if (!cola.length) return;
+  localStorage.removeItem("barrilesPrestamoPendientes");
+  const fallidos = [];
+  for (const item of cola) {
+    try {
+      await fetch(URL_SCRIPT, {
+        method: "POST",
+        body: JSON.stringify({ accion: "actualizarBarril", barril: item.barril }),
+        headers: { "Content-Type": "text/plain" },
+        mode: "cors"
+      });
+      await fetch(URL_SCRIPT, {
+        method: "POST",
+        body: JSON.stringify({ accion: "registrarMovimientoBarril", movimiento: item.movimiento }),
+        headers: { "Content-Type": "text/plain" },
+        mode: "cors"
+      });
+    } catch (err) {
+      console.error("Error prestando barril desde venta:", err);
+      fallidos.push(item);
+    }
+  }
+  if (fallidos.length) {
+    let prev = [];
+    try { prev = JSON.parse(localStorage.getItem("barrilesPrestamoPendientes") || "[]"); } catch (e2) {}
+    localStorage.setItem("barrilesPrestamoPendientes", JSON.stringify(prev.concat(fallidos)));
+  }
 }
 
 function normalizarMetodoPago(metodoRaw) {
@@ -419,6 +494,7 @@ async function guardarEnSheets() {
     await guardarBorrarVentasPendienteEnSheet();
     await guardarStockPendienteEnSheet();
     await guardarBarrilesPendientesEnSheet(); 
+    await guardarBarrilesPrestamoPendientesEnSheet();
     await cargarDatosDesdeSheet();
     alert("✅ Todo pendiente se envió a Google Sheets.");
   } catch (err) {
