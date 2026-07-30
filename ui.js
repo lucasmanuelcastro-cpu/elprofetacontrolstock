@@ -1280,26 +1280,34 @@ function agregarBarrilAVenta() {
   const select = document.getElementById("select-barril-venta");
   if (!select || !select.value) return alert("Seleccioná un barril disponible primero.");
   
-  const barril = state.barrilesDisponibles.find(b => b.id === select.value);
-  if (!barril) return;
+  const barril = state.barrilesDisponibles.find(b => String(b.id) === select.value);
+  if (!barril) return alert("No se encontró el barril seleccionado. Probá recargar la página.");
 
   const litros = parseInt(barril.tamano) || 0;
   if (litros === 0) return alert("El tamaño del barril no es válido en la base de datos.");
 
-  const precioStr = prompt(`Ingresá el precio TOTAL de venta para el barril de ${barril.tipo} (${litros}L):`, "");
-  if (!precioStr) return; 
-  const precioVenta = Number(precioStr);
-  if (isNaN(precioVenta) || precioVenta <= 0) return alert("Precio inválido. Debe ser un número mayor a 0.");
+  const precioLitroStr = prompt(`Ingresá el precio POR LITRO para el barril de ${barril.tipo} (${litros}L):`, "");
+  if (!precioLitroStr) return;
+  const precioLitro = Number(precioLitroStr);
+  if (isNaN(precioLitro) || precioLitro <= 0) return alert("Precio inválido. Debe ser un número mayor a 0.");
 
-  const barrilConPrecio = { ...barril, precioVenta: precioVenta };
+  const precioVenta = Math.round(precioLitro * litros);
+
+  const confirmar = confirm(
+    `Barril ${barril.tipo} (${litros}L)\n` +
+    `Precio por litro: $${precioLitro.toLocaleString('es-AR')}\n` +
+    `Total: $${precioVenta.toLocaleString('es-AR')}\n\n` +
+    `¿Confirmar?`
+  );
+  if (!confirmar) return;
+
+  const barrilConPrecio = { ...barril, precioVenta: precioVenta, precioLitro: precioLitro };
   
   if (!state.ventaActualBarriles) state.ventaActualBarriles = [];
   state.ventaActualBarriles.push(barrilConPrecio);
   
   const totalActual = Number(state.totalCobradoInput) || 0;
   state.totalCobradoInput = String(totalActual + precioVenta);
-  
-  select.value = "";
   
   render();
 }
