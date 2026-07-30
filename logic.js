@@ -300,6 +300,39 @@ async function guardarTransferenciaEnSheet(desde, hacia, estilos, tipo) {
 // ============================================================
 // CARGA DE DATOS DESDE SHEET
 // ============================================================
+
+function parsearFechaFlexible(str) {
+  if (!str) return 0;
+  str = String(str).trim();
+
+  const conHora = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[,]?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?/i);
+  if (conHora) {
+    let [, p1, p2, anio, hora, min, seg, ampm] = conHora;
+    p1 = Number(p1); p2 = Number(p2); anio = Number(anio);
+    hora = Number(hora); min = Number(min); seg = seg ? Number(seg) : 0;
+
+    let dia = p1, mes = p2;
+    if (mes > 12) { const t = dia; dia = mes; mes = t; } // corrige si vino invertido
+
+    if (ampm) {
+      const esPM = /p/i.test(ampm);
+      if (esPM && hora < 12) hora += 12;
+      if (!esPM && hora === 12) hora = 0;
+    }
+    return new Date(anio, mes - 1, dia, hora, min, seg).getTime() || 0;
+  }
+
+  const soloFecha = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (soloFecha) {
+    let [, p1, p2, anio] = soloFecha.map(Number);
+    let dia = p1, mes = p2;
+    if (mes > 12) { const t = dia; dia = mes; mes = t; }
+    return new Date(anio, mes - 1, dia).getTime() || 0;
+  }
+
+  return 0;
+}
+
 async function cargarDatosDesdeSheet() {
   try {
     const url = URL_SCRIPT + "?v=" + Date.now();
@@ -395,7 +428,7 @@ async function cargarDatosDesdeSheet() {
                 fecha: venta.fecha || "",
                 timestamp: venta.timestamp 
                   ? Number(venta.timestamp) 
-                  : (new Date(venta.fecha).getTime() || 0),
+                   : parsearFechaFlexible(venta.fecha),
                 vendedor: venta.vendedor || nombre,
                 cobradoReal: Number(venta.cobradoReal) || 0,
                 barriles: venta.barriles || []
