@@ -770,10 +770,9 @@ function renderPanelUsuario() {
             ${estilosBase.map(e => `<option value="${e}">${e}</option>`).join("")}
           </select>
           <input type="number" id="transfer-cantidad" placeholder="Cantidad" style="width:100%; margin-bottom:6px; padding:6px;">
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-            <button id="btn-ce-a-se" style="background:#f59e0b; padding:8px; font-size:0.8em;">C/E → S/E</button>
-            <button id="btn-se-a-ce" style="background:#f59e0b; padding:8px; font-size:0.8em;">S/E → C/E</button>
-          </div>
+          <div style="display:grid; grid-template-columns:1fr; gap:6px;">
+  <button id="btn-se-a-ce" style="background:#f59e0b; padding:8px; font-size:0.85em; width:100%;">S/E → C/E</button>
+</div>
         </div>
       </div>
       
