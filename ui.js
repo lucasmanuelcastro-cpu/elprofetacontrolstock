@@ -451,6 +451,14 @@ function renderStockGeneral() {
   const container = document.getElementById("stock-general-section");
   if (!container) return;
   const stats = getEstadisticasVentas();
+  
+  // Usar ventas locales si existen; de lo contrario, usar popularidad directa del Sheet
+  const popularidadData = stats.granTotalLatas > 0 
+    ? stats.totalesPorEstilo 
+    : (state.popularidadSheet || {});
+
+  const tienePop = Object.keys(popularidadData).length > 0;
+
   container.innerHTML = `
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
   <div class="card">
@@ -496,27 +504,29 @@ function renderStockGeneral() {
   <div class="card" style="background: #f8fafc; border: 1px solid #e2e8f0;">
     <h2>Popularidad (% Ventas)</h2>
  ${(() => {
-  if (Object.entries(stats.totalesPorEstilo).length === 0)
-    return '<p style="color:gray; font-size: 0.9em;">Esperando primeras ventas...</p>';
-  return Object.entries(stats.totalesPorEstilo).sort((a, b) => b[1] - a[1]).map(([estilo, cant]) => {
-    const porcentaje = stats.granTotalLatas > 0
-      ? ((cant / stats.granTotalLatas) * 100).toFixed(0)
-      : '0';
+  if (!tienePop) return '<p style="color:gray; font-size: 0.9em;">Esperando primeras ventas...</p>';
+  
+  const totalBase = stats.granTotalLatas > 0 
+    ? stats.granTotalLatas 
+    : Object.values(popularidadData).reduce((a, b) => a + (Number(b) || 0), 0);
+
+  return Object.entries(popularidadData).sort((a, b) => b[1] - a[1]).map(([estilo, cant]) => {
+    const val = Number(cant) || 0;
+    const porcentaje = totalBase > 0 ? ((val / totalBase) * 100).toFixed(0) : '0';
     return `
     <div class="flex space-between" style="padding: 4px 0; border-bottom: 1px solid #e2e8f0;">
       <span>${estilo}</span>
-      <span style="color:#64748b; font-size:0.85em; margin-right:8px;">${cant} latas</span>
+      <span style="color:#64748b; font-size:0.85em; margin-right:8px;">${val} latas</span>
       <span style="color: #3b82f6; font-weight: bold;">${porcentaje}%</span>
     </div>`;
   }).join("") + `
   <div style="margin-top: 15px; text-align: right;">
-    <small style="color: #64748b;">Total latas vendidas: <b>${stats.granTotalLatas}</b></small>
+    <small style="color: #64748b;">Total latas vendidas: <b>${totalBase}</b></small>
   </div>`;
 })()}
   </div>
 </div>`;
 }
-
 function renderVentasGeneral() {
   const container = document.getElementById("ventas-general-section");
   if (!container) return;
