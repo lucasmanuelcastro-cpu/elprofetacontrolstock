@@ -1,6 +1,58 @@
 // --- LÓGICA DE ESTADO Y SINCRONIZACIÓN EL PROFETA ---
 
 /** El Sheet guarda "sin"/"con"; la UI usa sinEtiqueta/conEtiqueta */
+
+function parsearFechaFlexible(str) {
+  if (!str) return 0;
+  str = String(str).trim();
+  const hoy = Date.now();
+
+  function construir(dia, mes, anio, hora, min, seg) {
+    return new Date(anio, mes - 1, dia, hora || 0, min || 0, seg || 0).getTime() || 0;
+  }
+
+  function mejorOpcion(a, b) {
+    const aValida = a > 0 && a <= hoy;
+    const bValida = b > 0 && b <= hoy;
+    if (aValida && !bValida) return a;
+    if (bValida && !aValida) return b;
+    if (aValida && bValida) return Math.max(a, b);
+    return Math.min(a || Infinity, b || Infinity) === Infinity ? 0 : Math.min(a || Infinity, b || Infinity);
+  }
+
+  const conHora = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[,]?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?/i);
+  if (conHora) {
+    let [, p1, p2, anio, hora, min, seg, ampm] = conHora;
+    p1 = Number(p1); p2 = Number(p2); anio = Number(anio);
+    hora = Number(hora); min = Number(min); seg = seg ? Number(seg) : 0;
+
+    if (ampm) {
+      const esPM = /p/i.test(ampm);
+      if (esPM && hora < 12) hora += 12;
+      if (!esPM && hora === 12) hora = 0;
+    }
+
+    if (p2 > 12) return construir(p2, p1, anio, hora, min, seg);
+    if (p1 > 12) return construir(p1, p2, anio, hora, min, seg);
+
+    const comoDiaMes = construir(p1, p2, anio, hora, min, seg);
+    const comoMesDia = construir(p2, p1, anio, hora, min, seg);
+    return mejorOpcion(comoDiaMes, comoMesDia);
+  }
+
+  const soloFecha = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (soloFecha) {
+    let [, p1, p2, anio] = soloFecha.map(Number);
+    if (p2 > 12) return construir(p2, p1, anio);
+    if (p1 > 12) return construir(p1, p2, anio);
+    const comoDiaMes = construir(p1, p2, anio);
+    const comoMesDia = construir(p2, p1, anio);
+    return mejorOpcion(comoDiaMes, comoMesDia);
+  }
+
+  return 0;
+}
+
 function normalizarTipoLataDesdeSheet(raw) {
   var s = String(raw || "").toLowerCase().trim();
   if (s === "sin" || s === "sinetiqueta" || s === "sin_etiqueta") return "sinEtiqueta";
