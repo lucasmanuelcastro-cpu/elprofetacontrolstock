@@ -309,7 +309,6 @@ async function cargarDatosDesdeSheet() {
     const texto = await respuesta.text();
     const datosCloud = JSON.parse(texto.trim().replace(/^﻿/, ""));
     if (datosCloud.error) throw new Error(datosCloud.error);
-    if (!datosCloud.usuarios || typeof datosCloud.usuarios !== "object") return;
 
     setState((prev) => {
       // 1. POPULARIDAD
@@ -325,11 +324,11 @@ async function cargarDatosDesdeSheet() {
         prev.barrilesDisponibles = datosCloud.barrilesDisponibles;
       }
 
-      // 2. TOTALES FINANCIEROS
-      if (datosCloud.totalIngresadoSheet !== undefined) prev.totalIngresadoSheet = Number(datosCloud.totalIngresadoSheet) || 0;
-      if (datosCloud.efectivoSheet !== undefined) prev.efectivoSheet = Number(datosCloud.efectivoSheet) || 0;
-      if (datosCloud.transferenciaSheet !== undefined) prev.transferenciaSheet = Number(datosCloud.transferenciaSheet) || 0;
-      if (datosCloud.paraProfetaSheet !== undefined) prev.paraProfetaSheet = Number(datosCloud.paraProfetaSheet) || 0;
+      // 2. TOTALES FINANCIEROS (Lectura directa blindada)
+      prev.totalIngresadoSheet = datosCloud.totalIngresadoSheet !== undefined ? Number(datosCloud.totalIngresadoSheet) || 0 : (Number(datosCloud.totalIngresado) || 0);
+      prev.efectivoSheet = datosCloud.efectivoSheet !== undefined ? Number(datosCloud.efectivoSheet) || 0 : (Number(datosCloud.efectivo) || 0);
+      prev.transferenciaSheet = datosCloud.transferenciaSheet !== undefined ? Number(datosCloud.transferenciaSheet) || 0 : (Number(datosCloud.transferencia) || 0);
+      prev.paraProfetaSheet = datosCloud.paraProfetaSheet !== undefined ? Number(datosCloud.paraProfetaSheet) || 0 : (Number(datosCloud.paraProfeta) || 0);
 
       // 3. STOCK GENERAL
       if (datosCloud.stockGeneral) {
@@ -344,66 +343,67 @@ async function cargarDatosDesdeSheet() {
         };
       }
 
-      // 4. SINCRONIZAR STOCK Y VENTAS POR USUARIO (BLOQUE BLINDADO)
-      Object.entries(datosCloud.usuarios).forEach(([nombre, datos]) => {
-        // Si el usuario no existe en el estado local, lo creamos para evitar errores
-        if (!prev.usuarios[nombre]) {
-          prev.usuarios[nombre] = { stock: {}, stockSinEtiqueta: {}, ventas: [] };
-        }
-        
-        if (datos.stock) {
-          prev.usuarios[nombre].stock = {
-            "BLONDE": Number(datos.stock["BLONDE"]) || 0,
-            "IRISH RED": Number(datos.stock["IRISH RED"]) || 0,
-            "STOUT": Number(datos.stock["STOUT"]) || 0,
-            "SESSION IPA": Number(datos.stock["SESSION IPA"]) || 0,
-            "RED IPA": Number(datos.stock["RED IPA"]) || 0,
-            "HONEY": Number(datos.stock["HONEY"]) || 0,
-          };
-        }
-        
-        if (datos.stockSinEtiqueta) {
-          prev.usuarios[nombre].stockSinEtiqueta = {
-            "BLONDE": Number(datos.stockSinEtiqueta["BLONDE"]) || 0,
-            "IRISH RED": Number(datos.stockSinEtiqueta["IRISH RED"]) || 0,
-            "STOUT": Number(datos.stockSinEtiqueta["STOUT"]) || 0,
-            "SESSION IPA": Number(datos.stockSinEtiqueta["SESSION IPA"]) || 0,
-            "RED IPA": Number(datos.stockSinEtiqueta["RED IPA"]) || 0,
-            "HONEY": Number(datos.stockSinEtiqueta["HONEY"]) || 0,
-          };
-        }
-        
-        if (datos.ventas && Array.isArray(datos.ventas)) {
-          prev.usuarios[nombre].ventas = datos.ventas.map(venta => {
-            const tipo = normalizarTipoLataDesdeSheet(venta.tipoLata);
-            const costo = Number(venta.costo) || 0;
-            const com = Number(venta.comision) || 0;
-            const paraProfeta = venta.paraProfeta != null && venta.paraProfeta !== ""
-              ? Number(venta.paraProfeta)
-              : costo + com;
-            
-            return {
-              cliente: venta.cliente || "Consumidor Final",
-              estilos: venta.estilos || {},
-              alquilerBarril: venta.alquilerBarril || "",
-              tipoLata: tipo,
-              estado: venta.estado || "PENDIENTE",
-              metodoPago: venta.metodoPago || "",
-              totalCobrado: Number(venta.totalCobrado) || 0,
-              costoTotal: Number(venta.costoTotal) || costo,
-              comision: com,
-              paraProfeta: paraProfeta,
-              fecha: venta.fecha || "",
-              timestamp: venta.timestamp 
-                ? Number(venta.timestamp) 
-                : (new Date(venta.fecha).getTime() || 0),
-              vendedor: venta.vendedor || nombre,
-              cobradoReal: Number(venta.cobradoReal) || 0,
-              barriles: venta.barriles || []
+      // 4. SINCRONIZAR STOCK Y VENTAS POR USUARIO
+      if (datosCloud.usuarios && typeof datosCloud.usuarios === "object") {
+        Object.entries(datosCloud.usuarios).forEach(([nombre, datos]) => {
+          if (!prev.usuarios[nombre]) {
+            prev.usuarios[nombre] = { stock: {}, stockSinEtiqueta: {}, ventas: [] };
+          }
+          
+          if (datos.stock) {
+            prev.usuarios[nombre].stock = {
+              "BLONDE": Number(datos.stock["BLONDE"]) || 0,
+              "IRISH RED": Number(datos.stock["IRISH RED"]) || 0,
+              "STOUT": Number(datos.stock["STOUT"]) || 0,
+              "SESSION IPA": Number(datos.stock["SESSION IPA"]) || 0,
+              "RED IPA": Number(datos.stock["RED IPA"]) || 0,
+              "HONEY": Number(datos.stock["HONEY"]) || 0,
             };
-          });
-        }
-      });
+          }
+          
+          if (datos.stockSinEtiqueta) {
+            prev.usuarios[nombre].stockSinEtiqueta = {
+              "BLONDE": Number(datos.stockSinEtiqueta["BLONDE"]) || 0,
+              "IRISH RED": Number(datos.stockSinEtiqueta["IRISH RED"]) || 0,
+              "STOUT": Number(datos.stockSinEtiqueta["STOUT"]) || 0,
+              "SESSION IPA": Number(datos.stockSinEtiqueta["SESSION IPA"]) || 0,
+              "RED IPA": Number(datos.stockSinEtiqueta["RED IPA"]) || 0,
+              "HONEY": Number(datos.stockSinEtiqueta["HONEY"]) || 0,
+            };
+          }
+          
+          if (datos.ventas && Array.isArray(datos.ventas)) {
+            prev.usuarios[nombre].ventas = datos.ventas.map(venta => {
+              const tipo = normalizarTipoLataDesdeSheet(venta.tipoLata);
+              const costo = Number(venta.costo) || 0;
+              const com = Number(venta.comision) || 0;
+              const paraProfeta = venta.paraProfeta != null && venta.paraProfeta !== ""
+                ? Number(venta.paraProfeta)
+                : costo + com;
+              
+              return {
+                cliente: venta.cliente || "Consumidor Final",
+                estilos: venta.estilos || {},
+                alquilerBarril: venta.alquilerBarril || "",
+                tipoLata: tipo,
+                estado: venta.estado || "PENDIENTE",
+                metodoPago: venta.metodoPago || "",
+                totalCobrado: Number(venta.totalCobrado) || 0,
+                costoTotal: Number(venta.costoTotal) || costo,
+                comision: com,
+                paraProfeta: paraProfeta,
+                fecha: venta.fecha || "",
+                timestamp: venta.timestamp 
+                  ? Number(venta.timestamp) 
+                  : (new Date(venta.fecha).getTime() || 0),
+                vendedor: venta.vendedor || nombre,
+                cobradoReal: Number(venta.cobradoReal) || 0,
+                barriles: venta.barriles || []
+              };
+            });
+          }
+        });
+      }
 
       // 5. SINCRONIZAR CLIENTES
       if (datosCloud.clientes && Array.isArray(datosCloud.clientes) && datosCloud.clientes.length > 0) {
