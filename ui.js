@@ -876,7 +876,6 @@ function renderPanelUsuario() {
           </select>
           <input type="number" id="transfer-cantidad" placeholder="Cantidad" style="width:100%; margin-bottom:6px; padding:6px;">
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-            <button id="btn-ce-a-se" style="background:#f59e0b; padding:8px; font-size:0.8em;">C/E → S/E</button>
             <button id="btn-se-a-ce" style="background:#f59e0b; padding:8px; font-size:0.8em;">S/E → C/E</button>
           </div>
         </div>
@@ -1184,24 +1183,6 @@ function bindPanelEventos() {
     }
   };
   
-  const btnCeSe = document.getElementById("btn-ce-a-se");
-  if (btnCeSe) btnCeSe.onclick = () => {
-    const estilo = document.getElementById("transfer-estilo").value;
-    const cantidad = Number(document.getElementById("transfer-cantidad").value);
-    if (cantidad > 0) {
-      setState(p => {
-        const u = p.usuarios[p.usuarioActivo];
-        if (!u.stockSinEtiqueta) u.stockSinEtiqueta = {};
-        u.stock[estilo] = (u.stock[estilo] || 0) - cantidad;
-        u.stockSinEtiqueta[estilo] = (u.stockSinEtiqueta[estilo] || 0) + cantidad;
-        return p;
-      });
-      registrarCargaStock(state.usuarioActivo, estilo, -cantidad, 'conEtiqueta');
-      registrarCargaStock(state.usuarioActivo, estilo, cantidad, 'sinEtiqueta');
-      document.getElementById("transfer-cantidad").value = "";
-      encolarActualizarStockEnSheet(state.usuarioActivo);
-    }
-  };
   
   const btnSeCe = document.getElementById("btn-se-a-ce");
   if (btnSeCe) btnSeCe.onclick = () => {
