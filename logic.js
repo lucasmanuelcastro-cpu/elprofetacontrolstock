@@ -622,3 +622,49 @@ function registrarAuditoria(accion, usuario, cliente, detalle, monto) {
     mode: "cors"
   }).catch(err => console.error("Error auditoría:", err));
 }
+
+// ===== RESETEO MANUAL DE CACHÉ LOCAL =====
+function resetearCacheLocal() {
+  const claves = [
+    "elProfetaData",
+    "ventasPendientes",
+    "pagosPendientes",
+    "stockPendienteUsuarios",
+    "borrarVentasPendientes",
+    "barrilesPendientes",
+    "barrilesPrestamoPendientes"
+  ];
+
+  const pendientes = [];
+  claves.forEach((clave) => {
+    if (clave === "elProfetaData") return;
+    try {
+      const raw = localStorage.getItem(clave);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        const cantidad = Array.isArray(arr) ? arr.length : (arr ? 1 : 0);
+        if (cantidad > 0) pendientes.push(`• ${clave}: ${cantidad}`);
+      }
+    } catch (e) {}
+  });
+
+  let mensaje;
+  if (pendientes.length > 0) {
+    mensaje =
+      "⚠️ ATENCIÓN: hay datos SIN ENVIAR a la Sheet:\n\n" +
+      pendientes.join("\n") +
+      "\n\nSi continuás, esos cambios se van a PERDER definitivamente " +
+      "(la app va a quedar igual a lo que hay en Google Sheets ahora mismo).\n\n" +
+      "¿Seguro que querés borrar el caché local y recargar?";
+  } else {
+    mensaje =
+      "✅ No se detectaron datos pendientes de envío.\n\n" +
+      "¿Borrar el caché local y recargar la app desde cero de todas formas?";
+  }
+
+  if (!confirm(mensaje)) return;
+
+  claves.forEach((clave) => localStorage.removeItem(clave));
+  alert("🧹 Caché local borrado. La página se va a recargar.");
+  location.reload();
+}
