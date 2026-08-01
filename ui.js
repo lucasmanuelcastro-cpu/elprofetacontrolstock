@@ -928,7 +928,7 @@ function renderPanelUsuario() {
             <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
             <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display> $${totalCobrado > 0 ? totalCobrado.toLocaleString('es-AR') : "—"} </b>
           </div>
-          <div style="margin-top:15px; border-top:2px solid #e5e7eb; padding-top:10px;">
+          <div style="margin-top:15px; border-top:2px solid #ffffff; padding-top:10px;">
           <h4 style="margin:0 0 8px 0;">🧰 Servicios / Adicionales</h4>
           <input type="text" id="servicio-descripcion" placeholder="Ej: Limpieza de canillas, Flete" style="margin-bottom:6px; width:100%;">
           <div style="display:flex; gap:6px; margin-bottom:8px;">
