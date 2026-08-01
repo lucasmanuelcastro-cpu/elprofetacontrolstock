@@ -820,7 +820,9 @@ function renderPanelUsuario() {
   const preview = calcularPreview();
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
   const precioSugerido = state.precioUnitario || (Number(state.configuracion?.precioMinorista) || 3500);
-  const totalCobrado = totalLatas > 0 && precioSugerido ? totalLatas * Number(precioSugerido) : (Number(state.totalCobradoInput) || 0);
+ const totalCobrado = state.modoPrecioActivo
+    ? (Number(state.totalCobradoInput) || 0)
+    : (totalLatas > 0 && precioSugerido ? totalLatas * Number(precioSugerido) : (Number(state.totalCobradoInput) || 0));
   const hayAlquiler = state.alquilerBarril && state.alquilerBarril.trim() !== "";
 
   container.innerHTML = `<div class="panel-usuario card">
