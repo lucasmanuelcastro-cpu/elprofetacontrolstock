@@ -928,17 +928,18 @@ function renderPanelUsuario() {
             <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
             <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display> $${totalCobrado > 0 ? totalCobrado.toLocaleString('es-AR') : "—"} </b>
           </div>
-          <div style="margin-top:15px; border-top:2px solid #ffffff; padding-top:10px;">
-          <h4 style="margin:0 0 8px 0;">🧰 Servicios / Adicionales</h4>
-          <input type="text" id="servicio-descripcion" placeholder="Ej: Limpieza de canillas, Flete" style="margin-bottom:6px; width:100%;">
+       <!-- ===== SECCIÓN SERVICIOS / ADICIONALES ===== -->
+                   <div style="margin-top:15px; background: #ffffff; border-radius: 8px; padding: 12px;">
+          <h4 style="margin:0 0 8px 0; color:#1f2937;">🧰 Servicios / Adicionales</h4>
+          <input type="text" id="servicio-descripcion" placeholder="Ej: Limpieza de canillas, Flete" style="margin-bottom:6px; width:100%; padding:6px; border:1px solid #d1d5db; border-radius:6px;">
           <div style="display:flex; gap:6px; margin-bottom:8px;">
-            <input type="number" id="servicio-monto" placeholder="Monto $" style="flex:1;">
-            <select id="servicio-reparto" style="flex:1; padding:6px; border-radius:6px; border:1px solid #d1d5db;">
+            <input type="number" id="servicio-monto" placeholder="Monto $" style="flex:1; padding:6px; border:1px solid #d1d5db; border-radius:6px;">
+            <select id="servicio-reparto" style="flex:1; padding:6px; border:1px solid #d1d5db; border-radius:6px;">
               <option value="50-50">50/50 con Profeta</option>
               <option value="vendedor">100% Vendedor</option>
               <option value="profeta">100% Profeta</option>
             </select>
-            <button onclick="agregarServicio()" style="background:#3b82f6; color:white; padding:8px 12px; border-radius:6px; cursor:pointer;">➕</button>
+            <button onclick="agregarServicio()" style="background:#3b82f6; color:white; padding:8px 12px; border-radius:6px; cursor:pointer; border:none;">➕</button>
           </div>
           <div id="lista-servicios" style="font-size:0.85em; color:#374151;">
             ${(state.serviciosActuales || []).map((s, i) => `
