@@ -1333,19 +1333,34 @@ function mostrarHistorialTransferencias() {
 function setPrecioVenta(tipo) {
   const config = state.configuracion || {};
   const estilosLupulados = ["SESSION IPA", "RED IPA"];
-  const hayLupuladas = Object.entries(state.ventaActual).some(([e, c]) => estilosLupulados.includes(e) && Number(c) > 0);
-  
-  let precio = 0;
+
   if (tipo === 'mayorista') {
-    precio = hayLupuladas ? (Number(config.precioMayoristaLupulada) || 2500) : (Number(config.precioMayoristaNormal) || 2400);
-  } else if (tipo === 'six') {
+    const precioLup = Number(config.precioMayoristaLupulada) || 2500;
+    const precioNorm = Number(config.precioMayoristaNormal) || 2400;
+    let total = 0;
+    let totalLatas = 0;
+    Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
+      const c = Number(cant) || 0;
+      if (c > 0) {
+        total += c * (estilosLupulados.includes(estilo) ? precioLup : precioNorm);
+        totalLatas += c;
+      }
+    });
+    state.precioUnitario = totalLatas > 0 ? String(Math.round(total / totalLatas)) : "";
+    state.totalCobradoInput = totalLatas > 0 ? String(total) : "";
+    render();
+    return;
+  }
+
+  let precio = 0;
+  if (tipo === 'six') {
     precio = Number(config.precioSixPack) || 3250;
   } else if (tipo === 'doce') {
     precio = Number(config.precioDocePack) || 3000;
   } else if (tipo === 'minorista') {
     precio = Number(config.precioMinorista) || 3500;
   }
-  
+
   state.precioUnitario = String(precio);
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
   state.totalCobradoInput = totalLatas > 0 ? String(totalLatas * precio) : "";
