@@ -2,28 +2,19 @@
 
 /** El Sheet guarda "sin"/"con"; la UI usa sinEtiqueta/conEtiqueta */
 
+/**
+ * Parsea fechas en formato día/mes/año (con hora opcional).
+ * Sin ambigüedad: el primer número SIEMPRE es el día, el segundo SIEMPRE el mes.
+ */
 function parsearFechaFlexible(str) {
   if (!str) return 0;
   str = String(str).trim();
-  const hoy = Date.now();
 
-  function construir(dia, mes, anio, hora, min, seg) {
-    return new Date(anio, mes - 1, dia, hora || 0, min || 0, seg || 0).getTime() || 0;
-  }
-
-  function mejorOpcion(a, b) {
-    const aValida = a > 0 && a <= hoy;
-    const bValida = b > 0 && b <= hoy;
-    if (aValida && !bValida) return a;
-    if (bValida && !aValida) return b;
-    if (aValida && bValida) return Math.max(a, b);
-    return Math.min(a || Infinity, b || Infinity) === Infinity ? 0 : Math.min(a || Infinity, b || Infinity);
-  }
-
+  // dd/MM/yyyy HH:mm(:ss) opcional, con o sin am/pm
   const conHora = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[,]?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?/i);
   if (conHora) {
-    let [, p1, p2, anio, hora, min, seg, ampm] = conHora;
-    p1 = Number(p1); p2 = Number(p2); anio = Number(anio);
+    let [, dia, mes, anio, hora, min, seg, ampm] = conHora;
+    dia = Number(dia); mes = Number(mes); anio = Number(anio);
     hora = Number(hora); min = Number(min); seg = seg ? Number(seg) : 0;
 
     if (ampm) {
@@ -31,23 +22,14 @@ function parsearFechaFlexible(str) {
       if (esPM && hora < 12) hora += 12;
       if (!esPM && hora === 12) hora = 0;
     }
-
-    if (p2 > 12) return construir(p2, p1, anio, hora, min, seg);
-    if (p1 > 12) return construir(p1, p2, anio, hora, min, seg);
-
-    const comoDiaMes = construir(p1, p2, anio, hora, min, seg);
-    const comoMesDia = construir(p2, p1, anio, hora, min, seg);
-    return mejorOpcion(comoDiaMes, comoMesDia);
+    return new Date(anio, mes - 1, dia, hora, min, seg).getTime() || 0;
   }
 
+  // dd/MM/yyyy sin hora
   const soloFecha = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (soloFecha) {
-    let [, p1, p2, anio] = soloFecha.map(Number);
-    if (p2 > 12) return construir(p2, p1, anio);
-    if (p1 > 12) return construir(p1, p2, anio);
-    const comoDiaMes = construir(p1, p2, anio);
-    const comoMesDia = construir(p2, p1, anio);
-    return mejorOpcion(comoDiaMes, comoMesDia);
+    let [, dia, mes, anio] = soloFecha.map(Number);
+    return new Date(anio, mes - 1, dia).getTime() || 0;
   }
 
   return 0;
@@ -352,38 +334,6 @@ async function guardarTransferenciaEnSheet(desde, hacia, estilos, tipo) {
 // ============================================================
 // CARGA DE DATOS DESDE SHEET
 // ============================================================
-
-function parsearFechaFlexible(str) {
-  if (!str) return 0;
-  str = String(str).trim();
-
-  const conHora = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[,]?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?/i);
-  if (conHora) {
-    let [, p1, p2, anio, hora, min, seg, ampm] = conHora;
-    p1 = Number(p1); p2 = Number(p2); anio = Number(anio);
-    hora = Number(hora); min = Number(min); seg = seg ? Number(seg) : 0;
-
-    let dia = p1, mes = p2;
-    if (mes > 12) { const t = dia; dia = mes; mes = t; } // corrige si vino invertido
-
-    if (ampm) {
-      const esPM = /p/i.test(ampm);
-      if (esPM && hora < 12) hora += 12;
-      if (!esPM && hora === 12) hora = 0;
-    }
-    return new Date(anio, mes - 1, dia, hora, min, seg).getTime() || 0;
-  }
-
-  const soloFecha = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (soloFecha) {
-    let [, p1, p2, anio] = soloFecha.map(Number);
-    let dia = p1, mes = p2;
-    if (mes > 12) { const t = dia; dia = mes; mes = t; }
-    return new Date(anio, mes - 1, dia).getTime() || 0;
-  }
-
-  return 0;
-}
 
 async function cargarDatosDesdeSheet() {
   try {
