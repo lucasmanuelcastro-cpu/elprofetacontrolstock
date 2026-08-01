@@ -27,6 +27,7 @@ let state = {
   alquilerBarril: "",
   tipoLata: "conEtiqueta",
   precioUnitario: "",
+  modoPrecioActivo: null,
   transferDesde: "Julian",
   transferHacia: "Matias",
   transferEstilo: "BLONDE",
@@ -225,6 +226,7 @@ function registrarVentaLocal() {
   state.alquilerBarril = "";
   state.totalCobradoInput = "";
   state.precioUnitario = "";
+  state.modoPrecioActivo = null;
 
   registrarAuditoria("VENTA", state.usuarioActivo, cliente,
     Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
@@ -904,10 +906,12 @@ function renderPanelUsuario() {
               📦 Sin Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$${state.configuracion?.costoSinEtiquetaNormal || 1510}</span>
             </button>
           </div>
+          ${state.modoPrecioActivo === 'mayorista' ? renderDesgloseMayorista() : `
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
             <label style="color: #94a3b8; font-size: 0.9em; white-space: nowrap;">Precio unitario $</label>
             <input type="number" id="precio-unitario" value="${precioSugerido}" placeholder="ej: 3500" style="flex:1; background:#0f172a; color:#f1f5f9; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:1em; margin-bottom:0;">
           </div>
+          `}
           <div style="text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155;">
             <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
             <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display> $${totalCobrado > 0 ? totalCobrado.toLocaleString('es-AR') : "—"} </b>
@@ -1009,6 +1013,7 @@ function bindPrecioUnitario() {
   if (alquilerInput && alquilerInput.value.trim() !== "") return;
   
   input.addEventListener("input", () => {
+    state.modoPrecioActivo = null;
     const precio = Number(input.value) || 0;
     state.precioUnitario = input.value;
     const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
@@ -1078,8 +1083,12 @@ function seleccionarCliente(nombre) {
 }
 
 function bindPanelEventos() {
-  document.querySelectorAll("[data-venta]").forEach(i => i.onchange = (e) => {
-    setState(p => { p.ventaActual[e.target.dataset.venta] = e.target.value; return p; });
+ document.querySelectorAll("[data-venta]").forEach(i => i.onchange = (e) => {
+    setState(p => { 
+      p.ventaActual[e.target.dataset.venta] = e.target.value; 
+      calcularPrecioSegunModo(p);
+      return p; 
+    });
   });
   
   const clienteInput = document.getElementById("cliente-nombre");
@@ -1355,42 +1364,43 @@ function mostrarHistorialTransferencias() {
   document.body.appendChild(modal);
 }
 
-function setPrecioVenta(tipo) {
-  const config = state.configuracion || {};
+function calcularPrecioSegunModo(prev) {
+  if (!prev.modoPrecioActivo) return;
+  const config = prev.configuracion || {};
   const estilosLupulados = ["SESSION IPA", "RED IPA"];
 
-  if (tipo === 'mayorista') {
+  if (prev.modoPrecioActivo === 'mayorista') {
     const precioLup = Number(config.precioMayoristaLupulada) || 2500;
     const precioNorm = Number(config.precioMayoristaNormal) || 2400;
-    let total = 0;
-    let totalLatas = 0;
-    Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
+    let total = 0, totalLatas = 0;
+    Object.entries(prev.ventaActual).forEach(([estilo, cant]) => {
       const c = Number(cant) || 0;
       if (c > 0) {
         total += c * (estilosLupulados.includes(estilo) ? precioLup : precioNorm);
         totalLatas += c;
       }
     });
-    state.precioUnitario = totalLatas > 0 ? String(Math.round(total / totalLatas)) : "";
-    state.totalCobradoInput = totalLatas > 0 ? String(total) : "";
-    render();
-    return;
+    prev.precioUnitario = totalLatas > 0 ? String(Math.round(total / totalLatas)) : "";
+    prev.totalCobradoInput = totalLatas > 0 ? String(total) : "";
+  } else {
+    let precio = 0;
+    if (prev.modoPrecioActivo === 'six') precio = Number(config.precioSixPack) || 3250;
+    else if (prev.modoPrecioActivo === 'doce') precio = Number(config.precioDocePack) || 3000;
+    else if (prev.modoPrecioActivo === 'minorista') precio = Number(config.precioMinorista) || 3500;
+    const totalLatas = Object.values(prev.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+    prev.precioUnitario = String(precio);
+    prev.totalCobradoInput = totalLatas > 0 ? String(totalLatas * precio) : "";
   }
-
-  let precio = 0;
-  if (tipo === 'six') {
-    precio = Number(config.precioSixPack) || 3250;
-  } else if (tipo === 'doce') {
-    precio = Number(config.precioDocePack) || 3000;
-  } else if (tipo === 'minorista') {
-    precio = Number(config.precioMinorista) || 3500;
-  }
-
-  state.precioUnitario = String(precio);
-  const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  state.totalCobradoInput = totalLatas > 0 ? String(totalLatas * precio) : "";
-  render();
 }
+
+function setPrecioVenta(tipo) {
+  setState(prev => {
+    prev.modoPrecioActivo = tipo;
+    calcularPrecioSegunModo(prev);
+    return prev;
+  });
+}
+
 
 function agregarBarrilAVenta() {
   const select = document.getElementById("select-barril-venta");
