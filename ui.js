@@ -784,6 +784,31 @@ function borrarDeudaCliente(idx) {
   alert(`✅ Deuda de ${cliente.nombre} borrada. Stock devuelto. Formulario precargado.`);
 }
 
+function renderDesgloseMayorista() {
+  const config = state.configuracion || {};
+  const estilosLupulados = ["SESSION IPA", "RED IPA"];
+  const precioLup = Number(config.precioMayoristaLupulada) || 2500;
+  const precioNorm = Number(config.precioMayoristaNormal) || 2400;
+  let filas = "";
+  Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
+    const c = Number(cant) || 0;
+    if (c > 0) {
+      const precio = estilosLupulados.includes(estilo) ? precioLup : precioNorm;
+      const subtotal = c * precio;
+      filas += `<div style="display:flex; justify-content:space-between; padding:3px 0; font-size:0.85em; color:#cbd5e1;">
+        <span>${estilo} (${c} x $${precio.toLocaleString('es-AR')})</span>
+        <span>$${subtotal.toLocaleString('es-AR')}</span>
+      </div>`;
+    }
+  });
+  return `
+    <div style="background:#0f172a; border-radius:8px; padding:10px; margin-bottom:8px;">
+      <div style="color:#94a3b8; font-size:0.8em; margin-bottom:6px;">📋 Detalle Mayorista (precio por estilo):</div>
+      ${filas || '<div style="color:#64748b; font-size:0.85em;">Cargá cantidades para ver el detalle</div>'}
+    </div>
+  `;
+}
+
 function renderPanelUsuario() {
   const container = document.getElementById("panel-usuario-container");
   if (!container) return;
