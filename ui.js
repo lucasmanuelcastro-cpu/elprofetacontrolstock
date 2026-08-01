@@ -24,7 +24,7 @@ let state = {
   metodoPago: "efectivo",
   clienteNombre: "",
   totalCobradoInput: "",
-  alquilerBarril: "",
+  serviciosActuales: [],
   tipoLata: "conEtiqueta",
   precioUnitario: "",
   modoPrecioActivo: null,
@@ -90,14 +90,25 @@ function calcularPreview() {
     costoTotalBarriles += litros * costoLitro;
   });
 
+ let paraProfetaServicios = 0;
+  let sumServicios = 0;
+  (state.serviciosActuales || []).forEach(s => {
+    const monto = Number(s.monto) || 0;
+    sumServicios += monto;
+    if (s.reparto === 'vendedor') paraProfetaServicios += 0;
+    else if (s.reparto === 'profeta') paraProfetaServicios += monto;
+    else paraProfetaServicios += monto / 2;
+  });
+
   const costoTotal = costoTotalLatas + costoTotalBarriles;
   const totalCobrado = Number(state.totalCobradoInput) || 0;
-  const gananciaBruta = totalCobrado > costoTotal ? totalCobrado - costoTotal : 0;
+  const totalCobradoSinServicios = totalCobrado - sumServicios;
+  const gananciaBruta = totalCobradoSinServicios > costoTotal ? totalCobradoSinServicios - costoTotal : 0;
   const comision = gananciaBruta * 0.5;
+  const paraProfeta = costoTotal + comision + paraProfetaServicios;
   
-  return { costoTotal, comision, paraProfeta: costoTotal + comision, totalLatas, gananciaBruta, costoTotalBarriles, costoTotalLatas };
+  return { costoTotal, comision, paraProfeta, totalLatas, gananciaBruta, costoTotalBarriles, costoTotalLatas, paraProfetaServicios };
 }
-
 function getVentasGenerales() {
   return Object.values(state.usuarios).flatMap((u) => u.ventas);
 }
@@ -155,15 +166,15 @@ function registrarVentaLocal() {
     return;
   }
 
-  const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  const hayAlquiler = (state.alquilerBarril || "").trim() !== "";
+ const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
   const hayBarriles = (state.ventaActualBarriles || []).length > 0;
+  const hayServicios = (state.serviciosActuales || []).length > 0;
 
-  if (totalLatas === 0 && !hayAlquiler && !hayBarriles) {
-    alert("Cargá al menos 1 lata, un barril o el alquiler de barril");
+  if (totalLatas === 0 && !hayBarriles && !hayServicios) {
+    alert("Cargá al menos 1 lata, un barril o un servicio/adicional");
     return;
   }
-
+  
   const preview = calcularPreview();
   const totalCobrado = Number(state.totalCobradoInput) || 0;
 
@@ -172,6 +183,7 @@ function registrarVentaLocal() {
     estilos: {...state.ventaActual},
     alquilerBarril: state.alquilerBarril || "",
     barriles: state.ventaActualBarriles || [],
+    servicios: state.serviciosActuales || [],
     tipoLata: state.tipoLata,
     estado: "PENDIENTE",
     metodoPago: "",
@@ -223,7 +235,7 @@ function registrarVentaLocal() {
   state.ventaActual = { BLONDE: "", "IRISH RED": "", STOUT: "", "SESSION IPA": "", "RED IPA": "", HONEY: "" };
   state.ventaActualBarriles = [];
   state.clienteNombre = "";
-  state.alquilerBarril = "";
+  state.serviciosActuales = [];
   state.totalCobradoInput = "";
   state.precioUnitario = "";
   state.modoPrecioActivo = null;
@@ -823,7 +835,7 @@ function renderPanelUsuario() {
  const totalCobrado = state.modoPrecioActivo
     ? (Number(state.totalCobradoInput) || 0)
     : (totalLatas > 0 && precioSugerido ? totalLatas * Number(precioSugerido) : (Number(state.totalCobradoInput) || 0));
-  const hayAlquiler = state.alquilerBarril && state.alquilerBarril.trim() !== "";
+
 
   container.innerHTML = `<div class="panel-usuario card">
     <h1 style="border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Panel de ${state.usuarioActivo}</h1>
@@ -892,9 +904,8 @@ function renderPanelUsuario() {
           <input type="number" data-venta="${e}" value="${state.ventaActual[e] || ""}" placeholder="0" style="width: 80px;">
         </div>`).join("")}
         
-        <input type="text" id="alquiler-barril" placeholder="Alquiler barril (ej: HONEY 30Lts)" value="${state.alquilerBarril || ""}" style="margin-top: 6px;">
-        
-        <div id="bloque-automatico" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px; display: ${hayAlquiler ? 'none' : 'block'};">
+        <div id="bloque-automatico" style="margin-top: 10px; background: #1e293b; border-radius: 10px; padding: 12px;">
+      
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span style="color: #94a3b8; font-size: 0.9em;">Total latas:</span>
             <b style="color: #f1f5f9; font-size: 1.4em;">${totalLatas}</b>
@@ -917,6 +928,27 @@ function renderPanelUsuario() {
             <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
             <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display> $${totalCobrado > 0 ? totalCobrado.toLocaleString('es-AR') : "—"} </b>
           </div>
+          <div style="margin-top:15px; border-top:2px solid #e5e7eb; padding-top:10px;">
+          <h4 style="margin:0 0 8px 0;">🧰 Servicios / Adicionales</h4>
+          <input type="text" id="servicio-descripcion" placeholder="Ej: Limpieza de canillas, Flete" style="margin-bottom:6px; width:100%;">
+          <div style="display:flex; gap:6px; margin-bottom:8px;">
+            <input type="number" id="servicio-monto" placeholder="Monto $" style="flex:1;">
+            <select id="servicio-reparto" style="flex:1; padding:6px; border-radius:6px; border:1px solid #d1d5db;">
+              <option value="50-50">50/50 con Profeta</option>
+              <option value="vendedor">100% Vendedor</option>
+              <option value="profeta">100% Profeta</option>
+            </select>
+            <button onclick="agregarServicio()" style="background:#3b82f6; color:white; padding:8px 12px; border-radius:6px; cursor:pointer;">➕</button>
+          </div>
+          <div id="lista-servicios" style="font-size:0.85em; color:#374151;">
+            ${(state.serviciosActuales || []).map((s, i) => `
+              <div style="display:flex; justify-content:space-between; background:#f0fdf4; padding:4px 8px; border-radius:4px; margin-bottom:4px;">
+                <span>${s.descripcion} - $${(s.monto||0).toLocaleString('es-AR')} (${s.reparto === 'vendedor' ? '100% Vendedor' : s.reparto === 'profeta' ? '100% Profeta' : '50/50'})</span>
+                <button onclick="quitarServicio(${i})" style="background:#ef4444; color:white; border:none; border-radius:4px; padding:2px 6px; cursor:pointer;">X</button>
+              </div>
+            `).join("")}
+          </div>
+        </div>
         </div>
         
         <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-top:10px;">
@@ -1003,7 +1035,7 @@ function renderPanelUsuario() {
   bindPanelEventos();
   bindAutocompletadoCliente();
   bindPrecioUnitario();
-  bindAlquilerBarril();
+ 
 }
 
 function bindPrecioUnitario() {
@@ -1384,6 +1416,41 @@ function setPrecioVenta(tipo) {
   });
 }
 
+function agregarServicio() {
+  const descInput = document.getElementById("servicio-descripcion");
+  const montoInput = document.getElementById("servicio-monto");
+  const repartoSelect = document.getElementById("servicio-reparto");
+  if (!descInput || !montoInput || !repartoSelect) return;
+
+  const descripcion = descInput.value.trim();
+  const monto = Number(montoInput.value);
+  const reparto = repartoSelect.value;
+
+  if (!descripcion) return alert("Ingresá una descripción del servicio (ej: Limpieza de canillas, Flete)");
+  if (isNaN(monto) || monto <= 0) return alert("Ingresá un monto válido mayor a 0");
+
+  if (!state.serviciosActuales) state.serviciosActuales = [];
+  state.serviciosActuales.push({ descripcion, monto, reparto });
+
+  const totalActual = Number(state.totalCobradoInput) || 0;
+  state.totalCobradoInput = String(totalActual + monto);
+
+  descInput.value = "";
+  montoInput.value = "";
+  render();
+}
+
+function quitarServicio(index) {
+  if (!state.serviciosActuales) return;
+  const servicio = state.serviciosActuales[index];
+  if (servicio) {
+    const totalActual = Number(state.totalCobradoInput) || 0;
+    state.totalCobradoInput = String(Math.max(0, totalActual - (servicio.monto || 0)));
+  }
+  state.serviciosActuales.splice(index, 1);
+  render();
+}
+  
 
 function agregarBarrilAVenta() {
   const select = document.getElementById("select-barril-venta");
