@@ -32,6 +32,8 @@ function setup() {
     "Fecha", "Vendedor", "Cliente", "Estilos", "TipoLata", "TotalCobrado",
     "ParaProfeta", "Comision", "Costo", "Ganancia", "Barriles", "MetodoPago", "EsCobro", "Timestamp"
   ]);
+  agregarColumnaSiNoExiste(getSheet(SH_VENTAS), "Servicios");
+
   crearSheetSiNoExiste(ss, SH_CLIENTES, ["Nombre", "Deuda", "Pagado"]);
   crearSheetSiNoExiste(ss, SH_CLIENTES_ARCHIVO, ["Nombre", "Deuda", "Pagado", "ArchivadoFecha", "Nota"]);
 
@@ -93,6 +95,14 @@ function crearSheetSiNoExiste(ss, nombre, headers) {
   return sheet;
 }
 
+function agregarColumnaSiNoExiste(sheet, nombreColumna) {
+  const ultimaCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, ultimaCol).getValues()[0];
+  const yaExiste = headers.some(h => String(h).trim() === nombreColumna);
+  if (!yaExiste) {
+    sheet.getRange(1, ultimaCol + 1).setValue(nombreColumna);
+  }
+}
 // ---------- UTILIDADES ----------
 function getSheet(nombre) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -247,7 +257,8 @@ function accionSyncGeneral() {
             fecha: v.Fecha || "",
             vendedor: v.Vendedor,
             timestamp: v.Timestamp || 0,
-            barriles: jsonSeguro(v.Barriles, [])
+            barriles: jsonSeguro(v.Barriles, []),
+            servicios: jsonSeguro(v.Servicios, [])
           };
         })
     };
@@ -400,7 +411,8 @@ function accionNuevaVenta(v) {
     JSON.stringify(v.barriles || []), 
     v.metodoPago||"", 
     v.esCobro?"SI":"NO", 
-    Date.now()
+    Date.now(),
+    JSON.stringify(v.servicios || [])
   ]); 
   const nc=String(v.cliente||"").trim(); 
   if(nc&&nc.toLowerCase()!="consumidor final"){ 
@@ -591,4 +603,29 @@ function accionBorrarAuditoria() {
   const sheet = getSheet(SH_AUDITORIA);
   const last = sheet.getLastRow();
   if (last > 1) sheet.deleteRows(2, last - 1);
+}
+
+function diagnostico_ventas() {
+  const sheet = getSheet(SH_VENTAS);
+  Logger.log("Nombre real de la hoja: " + sheet.getName());
+  Logger.log("Last Row: " + sheet.getLastRow());
+  Logger.log("Last Column: " + sheet.getLastColumn());
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  Logger.log("Headers crudos: " + JSON.stringify(headers));
+
+  const objs = filaAObjetos(sheet);
+  Logger.log("Filas parseadas (deberían ser ~85): " + objs.length);
+
+  if (objs.length > 0) {
+    Logger.log("Primera fila completa: " + JSON.stringify(objs[0]));
+    Logger.log("Vendedor primera fila entre corchetes: [" + objs[0].Vendedor + "]");
+  }
+
+  const conteoPorVendedor = {};
+  objs.forEach(function (o) {
+    const v = String(o.Vendedor || "(VACIO)");
+    conteoPorVendedor[v] = (conteoPorVendedor[v] || 0) + 1;
+  });
+  Logger.log("Conteo por vendedor: " + JSON.stringify(conteoPorVendedor));
 }
