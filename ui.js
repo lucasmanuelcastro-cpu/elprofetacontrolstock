@@ -155,6 +155,9 @@ function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
       v.metodoPago = metodo;
       v.estado = "COBRADO";
       v.cobradoReal = Number(v.totalCobrado) || 0;
+      if (typeof encolarMetodoPagoVenta === 'function') {
+        encolarMetodoPagoVenta(v.cliente, metodo, v.timestamp);
+      }
     });
   });
 }
@@ -500,7 +503,11 @@ async function guardarEnSheets() {
   try { const bRaw = localStorage.getItem("borrarVentasPendientes"); if (bRaw) nBorrar = JSON.parse(bRaw).length; } catch (e) {}
   try { const blRaw = localStorage.getItem("barrilesPendientes"); if (blRaw) nBarriles = JSON.parse(blRaw).length; } catch (e) {}
 
-  if (nVentas === 0 && nPagos === 0 && nStock === 0 && nBorrar === 0 && nBarriles === 0) {
+  let nMetodoPago = 0, nCiclo = 0;
+  try { const mRaw = localStorage.getItem("pagosMetodoPendientes"); if (mRaw) nMetodoPago = JSON.parse(mRaw).length; } catch (e) {}
+  try { const cRaw = localStorage.getItem("cicloPendiente"); nCiclo = cRaw ? 1 : 0; } catch (e) {}
+
+  if (nVentas === 0 && nPagos === 0 && nStock === 0 && nBorrar === 0 && nBarriles === 0 && nMetodoPago === 0 && nCiclo === 0) {
     alert("No hay nada pendiente de enviar al Sheet.");
     return;
   }
@@ -512,6 +519,8 @@ async function guardarEnSheets() {
     await guardarStockPendienteEnSheet();
     await guardarBarrilesPendientesEnSheet(); 
     await guardarBarrilesPrestamoPendientesEnSheet();
+    await guardarPagosMetodoPendientesEnSheet();
+    await guardarCicloPendienteEnSheet();
     await cargarDatosDesdeSheet();
     alert("✅ Todo pendiente se envió a Google Sheets.");
   } catch (err) {
