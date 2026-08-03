@@ -946,7 +946,7 @@ function renderPanelUsuario() {
             <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display> $${totalCobrado > 0 ? totalCobrado.toLocaleString('es-AR') : "—"} </b>
           </div>
           
-          // ===== SECCIÓN SERVICIOS / ADICIONALES (SLOTS) =====
+          //===== SECCIÓN SERVICIOS / ADICIONALES (SLOTS) =====//
           <div style="margin-top:15px; background: #ffffff; border-radius: 8px; padding: 12px;">
           <h4 style="margin:0 0 8px 0; color:#1f2937;">🧰 Servicios / Adicionales</h4>
           <input type="text" id="servicio-descripcion" placeholder="Ej: Limpieza de canillas, Flete" style="margin-bottom:6px; width:100%; padding:6px; border:1px solid #d1d5db; border-radius:6px;">
