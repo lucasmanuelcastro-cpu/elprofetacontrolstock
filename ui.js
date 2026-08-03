@@ -670,8 +670,16 @@ function renderVentasGeneral() {
             ? v.barriles.map(b => `1x Barril ${b.tipo} ${b.tamano}`).join(', ') 
             : '';
           
-          const serviciosHtml = (v.servicios && v.servicios.length > 0)
-            ? v.servicios.map(s => `🧰 ${s.descripcion} ($${(s.montoTotal||0).toLocaleString('es-AR')})`).join(', ')
+        const serviciosHtml = (v.servicios && v.servicios.length > 0)
+            ? v.servicios.map(s => {
+                const partes = [];
+                if (Number(s.montoJulian) > 0) partes.push(`Julian $${Number(s.montoJulian).toLocaleString('es-AR')}`);
+                if (Number(s.montoMatias) > 0) partes.push(`Matias $${Number(s.montoMatias).toLocaleString('es-AR')}`);
+                if (Number(s.montoLucas) > 0) partes.push(`Lucas $${Number(s.montoLucas).toLocaleString('es-AR')}`);
+                if (Number(s.montoProfeta) > 0) partes.push(`Profeta $${Number(s.montoProfeta).toLocaleString('es-AR')}`);
+                const detalle = partes.length > 0 ? ` → ${partes.join(', ')}` : '';
+                return `🧰 ${s.descripcion}: $${(s.montoTotal||0).toLocaleString('es-AR')}${detalle}`;
+              }).join('<br>')
             : '';
 
           // Si la venta es del ciclo anterior, la ponemos opaca
