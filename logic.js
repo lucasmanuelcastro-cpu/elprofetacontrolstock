@@ -46,6 +46,8 @@ function normalizarTipoLataDesdeSheet(raw) {
 let clientesHistoricos = [];
 let ventasPendientes = [];
 let pagosPendientes = [];
+let pagosMetodoPendientes = [];
+let cicloPendiente = null;
 
 /** Cobros encolados hasta que el usuario pulse «Guardar en Sheet». */
 function encolarPagoParaSheet(nombreCliente, monto, metodo) {
@@ -351,7 +353,15 @@ async function cargarDatosDesdeSheet() {
         prev.popularidadSheet = datosCloud.popularidad;
         prev.popularidad = datosCloud.popularidad;
       }
+            // LEER CONFIGURACIÓN DE CICLO
+      if (datosCloud.cicloFechaCorte !== undefined) {
+        prev.cicloFechaCorte = Number(datosCloud.cicloFechaCorte) || 0;
+      }
+      if (datosCloud.profetaInicialCiclo !== undefined) {
+        prev.profetaInicialCiclo = Number(datosCloud.profetaInicialCiclo) || 0;
+      }
 
+      
       if (datosCloud.configuracion) {
         prev.configuracion = datosCloud.configuracion;
       }
@@ -667,4 +677,69 @@ function resetearCacheLocal() {
   claves.forEach((clave) => localStorage.removeItem(clave));
   alert("🧹 Caché local borrado. La página se va a recargar.");
   location.reload();
+}
+
+// ===== NUEVAS FUNCIONES DE COLA =====
+function encolarMetodoPagoVenta(cliente, metodo, timestamp) {
+  try {
+    const raw = localStorage.getItem("pagosMetodoPendientes");
+    if (raw) pagosMetodoPendientes = JSON.parse(raw);
+  } catch(e) {}
+  pagosMetodoPendientes.push({ cliente, metodo, timestamp });
+  localStorage.setItem("pagosMetodoPendientes", JSON.stringify(pagosMetodoPendientes));
+}
+
+async function guardarPagosMetodoPendientesEnSheet() {
+  try {
+    const raw = localStorage.getItem("pagosMetodoPendientes");
+    if (raw) pagosMetodoPendientes = JSON.parse(raw);
+  } catch(e) {}
+  if (!pagosMetodoPendientes.length) return;
+  
+  const cola = [...pagosMetodoPendientes];
+  pagosMetodoPendientes = [];
+  localStorage.removeItem("pagosMetodoPendientes");
+
+  try {
+    await fetch(URL_SCRIPT, {
+      method: "POST",
+      body: JSON.stringify({ accion: "actualizarMetodoPagoVentas", ventas: cola }),
+      headers: { "Content-Type": "text/plain" },
+      mode: "cors"
+    });
+  } catch (err) {
+    console.error("Error guardando métodos de pago:", err);
+    let prev = [];
+    try { prev = JSON.parse(localStorage.getItem("pagosMetodoPendientes") || "[]"); } catch(e) {}
+    localStorage.setItem("pagosMetodoPendientes", JSON.stringify(prev.concat(cola)));
+  }
+}
+
+function encolarNuevoCiclo(montoProfeta) {
+  cicloPendiente = { profetaInicial: montoProfeta };
+  localStorage.setItem("cicloPendiente", JSON.stringify(cicloPendiente));
+}
+
+async function guardarCicloPendienteEnSheet() {
+  try {
+    const raw = localStorage.getItem("cicloPendiente");
+    if (raw) cicloPendiente = JSON.parse(raw);
+  } catch(e) {}
+  if (!cicloPendiente) return;
+  
+  const data = { ...cicloPendiente };
+  cicloPendiente = null;
+  localStorage.removeItem("cicloPendiente");
+
+  try {
+    await fetch(URL_SCRIPT, {
+      method: "POST",
+      body: JSON.stringify({ accion: "iniciarNuevoCiclo", ...data }),
+      headers: { "Content-Type": "text/plain" },
+      mode: "cors"
+    });
+  } catch (err) {
+    console.error("Error iniciando nuevo ciclo:", err);
+    localStorage.setItem("cicloPendiente", JSON.stringify(data));
+  }
 }
