@@ -442,8 +442,9 @@ async function cargarDatosDesdeSheet() {
                   ? Number(venta.timestamp) 
                    : parsearFechaFlexible(venta.fecha),
                 vendedor: venta.vendedor || nombre,
-                cobradoReal: Number(venta.cobradoReal) || 0,
-                barriles: venta.barriles || []
+               cobradoReal: Number(venta.cobradoReal) || 0,
+                barriles: venta.barriles || [],
+                servicios: venta.servicios || []
               };
             });
           }
