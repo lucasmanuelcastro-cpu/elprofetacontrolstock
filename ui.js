@@ -496,14 +496,12 @@ function cargarDatos() {
 }
 
 async function guardarEnSheets() {
-  let nVentas = 0, nPagos = 0, nStock = 0, nBorrar = 0, nBarriles = 0;
+  let nVentas = 0, nPagos = 0, nStock = 0, nBorrar = 0, nBarriles = 0, nMetodoPago = 0, nCiclo = 0;
   try { const vRaw = localStorage.getItem("ventasPendientes"); if (vRaw) nVentas = JSON.parse(vRaw).length; } catch (e) {}
   try { const pRaw = localStorage.getItem("pagosPendientes"); if (pRaw) nPagos = JSON.parse(pRaw).length; } catch (e) {}
   try { const sRaw = localStorage.getItem("stockPendienteUsuarios"); if (sRaw) nStock = JSON.parse(sRaw).length; } catch (e) {}
   try { const bRaw = localStorage.getItem("borrarVentasPendientes"); if (bRaw) nBorrar = JSON.parse(bRaw).length; } catch (e) {}
   try { const blRaw = localStorage.getItem("barrilesPendientes"); if (blRaw) nBarriles = JSON.parse(blRaw).length; } catch (e) {}
-
-  let nMetodoPago = 0, nCiclo = 0;
   try { const mRaw = localStorage.getItem("pagosMetodoPendientes"); if (mRaw) nMetodoPago = JSON.parse(mRaw).length; } catch (e) {}
   try { const cRaw = localStorage.getItem("cicloPendiente"); nCiclo = cRaw ? 1 : 0; } catch (e) {}
 
