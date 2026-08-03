@@ -58,6 +58,8 @@ function actualizarStockGeneral() {
   state.stockGeneral = total;
 }
 
+
+
 function calcularPreview() {
   const config = state.configuracion || {};
   const costoConEtiqNormal = Number(config.costoConEtiquetaNormal) || 1850;
@@ -90,14 +92,12 @@ function calcularPreview() {
     costoTotalBarriles += litros * costoLitro;
   });
 
- let paraProfetaServicios = 0;
+  let paraProfetaServicios = 0;
   let sumServicios = 0;
   (state.serviciosActuales || []).forEach(s => {
-    const monto = Number(s.monto) || 0;
-    sumServicios += monto;
-    if (s.reparto === 'vendedor') paraProfetaServicios += 0;
-    else if (s.reparto === 'profeta') paraProfetaServicios += monto;
-    else paraProfetaServicios += monto / 2;
+    const montoTotal = Number(s.montoTotal) || 0;
+    sumServicios += montoTotal;
+    paraProfetaServicios += Number(s.montoProfeta) || 0; // Toma directo del slot de Profeta
   });
 
   const costoTotal = costoTotalLatas + costoTotalBarriles;
@@ -109,6 +109,9 @@ function calcularPreview() {
   
   return { costoTotal, comision, paraProfeta, totalLatas, gananciaBruta, costoTotalBarriles, costoTotalLatas, paraProfetaServicios };
 }
+
+
+
 function getVentasGenerales() {
   return Object.values(state.usuarios).flatMap((u) => u.ventas);
 }
@@ -607,6 +610,7 @@ function renderStockGeneral() {
 </div>`;
 }
 
+
 function renderVentasGeneral() {
   const container = document.getElementById("ventas-general-section");
   if (!container) return;
@@ -617,6 +621,7 @@ function renderVentasGeneral() {
   const totalProfeta = state.paraProfetaSheet;
   
   const todasLasVentas = getVentasGenerales().filter(v => ventaApareceEnHistorialGlobal(v));
+  const cicloCorte = state.cicloFechaCorte || 0;
   
   container.innerHTML = `
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -656,8 +661,16 @@ function renderVentasGeneral() {
             ? v.barriles.map(b => `1x Barril ${b.tipo} ${b.tamano}`).join(', ') 
             : '';
           
+          const serviciosHtml = (v.servicios && v.servicios.length > 0)
+            ? v.servicios.map(s => `🧰 ${s.descripcion} ($${(s.montoTotal||0).toLocaleString('es-AR')})`).join(', ')
+            : '';
+
+          // Si la venta es del ciclo anterior, la ponemos opaca
+          const esVieja = cicloCorte > 0 && (v.timestamp || 0) < cicloCorte;
+          const estiloFila = esVieja ? 'opacity: 0.4; filter: grayscale(80%);' : '';
+          
           return `
-          <div style="border-bottom: 1px solid #f3f4f6; padding: 8px 0; font-size: 0.88em;">
+          <div style="border-bottom: 1px solid #f3f4f6; padding: 8px 0; font-size: 0.88em; ${estiloFila}">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
               <span><b>👤 ${v.cliente || 'Consumidor Final'}</b>
                 <span style="margin-left:8px; background:#ede9fe; color:#7c3aed; border-radius:6px; padding:1px 7px; font-size:0.85em;">
@@ -670,6 +683,7 @@ function renderVentasGeneral() {
               ${latasHtml || ''}
               ${barrilesHtml ? `<span style="color:#7c3aed; font-weight:600; margin-left:6px;">🍺 ${barrilesHtml}</span>` : ''}
               ${latasHtml ? `<b style="color:#1e40af; margin-left:6px;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0), 0)} latas)</b>` : ''}
+              ${serviciosHtml ? `<div style="color:#059669; margin-top:3px;">${serviciosHtml}</div>` : ''}
               <span style="margin-left:6px; padding:1px 8px; border-radius:10px; font-size:0.82em; font-weight:600; background:${v.tipoLata === 'sinEtiqueta' ? '#dbeafe' : '#fef9c3'}; color:${v.tipoLata === 'sinEtiqueta' ? '#1e40af' : '#92400e'};">
                 ${v.tipoLata === 'sinEtiqueta' ? '📦 Sin etiqueta' : '🏷️ Con etiqueta'}
               </span>
@@ -686,6 +700,9 @@ function renderVentasGeneral() {
     </div>
   </div>`;
 }
+
+
+
 
 function renderClientesGlobales() {
   const container = document.getElementById("clientes-section");
@@ -928,24 +945,29 @@ function renderPanelUsuario() {
             <span style="color: #94a3b8; font-size: 0.85em;">Total a cobrar:</span>
             <b style="color: #34d399; font-size: 1.3em; margin-left: 8px;" data-total-display> $${totalCobrado > 0 ? totalCobrado.toLocaleString('es-AR') : "—"} </b>
           </div>
-       <!-- ===== SECCIÓN SERVICIOS / ADICIONALES ===== -->
-                   <div style="margin-top:15px; background: #ffffff; border-radius: 8px; padding: 12px;">
+          
+          // ===== SECCIÓN SERVICIOS / ADICIONALES (SLOTS) =====
+          <div style="margin-top:15px; background: #ffffff; border-radius: 8px; padding: 12px;">
           <h4 style="margin:0 0 8px 0; color:#1f2937;">🧰 Servicios / Adicionales</h4>
           <input type="text" id="servicio-descripcion" placeholder="Ej: Limpieza de canillas, Flete" style="margin-bottom:6px; width:100%; padding:6px; border:1px solid #d1d5db; border-radius:6px;">
           <div style="display:flex; gap:6px; margin-bottom:8px;">
-            <input type="number" id="servicio-monto" placeholder="Monto $" style="flex:1; padding:6px; border:1px solid #d1d5db; border-radius:6px;">
-            <select id="servicio-reparto" style="flex:1; padding:6px; border:1px solid #d1d5db; border-radius:6px;">
-              <option value="50-50">50/50 con Profeta</option>
-              <option value="vendedor">100% Vendedor</option>
-              <option value="profeta">100% Profeta</option>
-            </select>
-            <button onclick="agregarServicio()" style="background:#3b82f6; color:white; padding:8px 12px; border-radius:6px; cursor:pointer; border:none;">➕</button>
+            <input type="number" id="servicio-monto" placeholder="Monto Total $" style="flex:1; padding:6px; border:1px solid #d1d5db; border-radius:6px;">
+            <button onclick="agregarServicio()" style="background:#3b82f6; color:white; padding:8px 12px; border-radius:6px; cursor:pointer; border:none;">➕ Agregar</button>
           </div>
           <div id="lista-servicios" style="font-size:0.85em; color:#374151;">
             ${(state.serviciosActuales || []).map((s, i) => `
-              <div style="display:flex; justify-content:space-between; background:#f0fdf4; padding:4px 8px; border-radius:4px; margin-bottom:4px;">
-                <span>${s.descripcion} - $${(s.monto||0).toLocaleString('es-AR')} (${s.reparto === 'vendedor' ? '100% Vendedor' : s.reparto === 'profeta' ? '100% Profeta' : '50/50'})</span>
-                <button onclick="quitarServicio(${i})" style="background:#ef4444; color:white; border:none; border-radius:4px; padding:2px 6px; cursor:pointer;">X</button>
+              <div style="background:#f0fdf4; padding:6px 8px; border-radius:4px; margin-bottom:6px; border:1px solid #d1fae5;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                  <b>${s.descripcion}</b>
+                  <span>$${(s.montoTotal||0).toLocaleString('es-AR')}</span>
+                </div>
+                <div style="display:flex; gap:8px; font-size:0.85em; color:#166534; flex-wrap:wrap;">
+                  <span>🧑 Julian: $${(s.montoJulian||0)}</span>
+                  <span>🧑 Matias: $${(s.montoMatias||0)}</span>
+                  <span>🧑 Lucas: $${(s.montoLucas||0)}</span>
+                  <span>👑 Profeta: $${(s.montoProfeta||0)}</span>
+                </div>
+                <button onclick="quitarServicio(${i})" style="background:#ef4444; color:white; border:none; border-radius:4px; padding:2px 6px; cursor:pointer; margin-top:4px; font-size:0.8em;">X Quitar</button>
               </div>
             `).join("")}
           </div>
@@ -1420,21 +1442,36 @@ function setPrecioVenta(tipo) {
 function agregarServicio() {
   const descInput = document.getElementById("servicio-descripcion");
   const montoInput = document.getElementById("servicio-monto");
-  const repartoSelect = document.getElementById("servicio-reparto");
-  if (!descInput || !montoInput || !repartoSelect) return;
+  if (!descInput || !montoInput) return;
 
   const descripcion = descInput.value.trim();
-  const monto = Number(montoInput.value);
-  const reparto = repartoSelect.value;
+  const montoTotal = Number(montoInput.value);
 
-  if (!descripcion) return alert("Ingresá una descripción del servicio (ej: Limpieza de canillas, Flete)");
-  if (isNaN(monto) || monto <= 0) return alert("Ingresá un monto válido mayor a 0");
+  if (!descripcion) return alert("Ingresá una descripción del servicio.");
+  if (isNaN(montoTotal) || montoTotal <= 0) return alert("Ingresá un monto total válido mayor a 0.");
+
+  // Pedimos el reparto para los 4 slots
+  const j = Number(prompt(`Reparto para Julian (Total: $${montoTotal}):`, "0")) || 0;
+  const m = Number(prompt(`Reparto para Matias:`, "0")) || 0;
+  const l = Number(prompt(`Reparto para Lucas:`, "0")) || 0;
+  const p = Number(prompt(`Reparto para Profeta:`, "0")) || 0;
+
+  if ((j + m + l + p) !== montoTotal) {
+    if (!confirm("⚠️ La suma de los montos no coincide con el total. ¿Guardar de todas formas?")) return;
+  }
 
   if (!state.serviciosActuales) state.serviciosActuales = [];
-  state.serviciosActuales.push({ descripcion, monto, reparto });
+  state.serviciosActuales.push({ 
+    descripcion, 
+    montoTotal, 
+    montoJulian: j, 
+    montoMatias: m, 
+    montoLucas: l, 
+    montoProfeta: p 
+  });
 
   const totalActual = Number(state.totalCobradoInput) || 0;
-  state.totalCobradoInput = String(totalActual + monto);
+  state.totalCobradoInput = String(totalActual + montoTotal);
 
   descInput.value = "";
   montoInput.value = "";
@@ -1446,12 +1483,11 @@ function quitarServicio(index) {
   const servicio = state.serviciosActuales[index];
   if (servicio) {
     const totalActual = Number(state.totalCobradoInput) || 0;
-    state.totalCobradoInput = String(Math.max(0, totalActual - (servicio.monto || 0)));
+    state.totalCobradoInput = String(Math.max(0, totalActual - (servicio.montoTotal || 0)));
   }
   state.serviciosActuales.splice(index, 1);
   render();
 }
-  
 
 function agregarBarrilAVenta() {
   const select = document.getElementById("select-barril-venta");
@@ -1509,6 +1545,30 @@ function aplicarDescuento() {
   const nuevoTotal = Math.round(totalActual - (totalActual * pct));
   state.totalCobradoInput = String(nuevoTotal);
   render();
+}
+
+// ===== BOTÓN NUEVO CICLO =====
+function iniciarNuevoCicloUI() {
+  const montoStr = prompt("¿Cuál es el saldo de 'Para El Profeta' del ciclo anterior?\n(Ingresá solo números, ej: 50000)", "0");
+  if (montoStr === null) return;
+  const monto = Number(montoStr) || 0;
+  
+  if (typeof encolarNuevoCiclo === 'function') {
+    encolarNuevoCiclo(monto);
+  }
+  
+  // Actualizamos el estado visualmente, pero NO toca la BD hasta "Guardar en Sheet"
+  state.cicloFechaCorte = Date.now();
+  state.profetaInicialCiclo = monto;
+  state.efectivoSheet = 0;
+  state.transferenciaSheet = 0;
+  state.popularidadSheet = {};
+  state.popularidad = {};
+  state.totalIngresadoSheet = 0;
+  state.paraProfetaSheet = monto;
+  
+  render();
+  alert("✅ Ciclo iniciado localmente.\nLos contadores están en 0 y el historial viejo aparece opaco.\n\nAcordate de apretar '💾 Guardar en Sheet' para que el backup y el corte queden en la base de datos.");
 }
 
 // ===== FIN DE UI.JS =====
