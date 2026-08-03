@@ -729,18 +729,22 @@ async function guardarCicloPendienteEnSheet() {
   if (!cicloPendiente) return;
   
   const data = { ...cicloPendiente };
-  cicloPendiente = null;
-  localStorage.removeItem("cicloPendiente");
 
   try {
-    await fetch(URL_SCRIPT, {
+    const resp = await fetch(URL_SCRIPT, {
       method: "POST",
       body: JSON.stringify({ accion: "iniciarNuevoCiclo", ...data }),
       headers: { "Content-Type": "text/plain" },
       mode: "cors"
     });
+    const texto = await resp.text();
+    if (!texto.includes("OK")) {
+      throw new Error(texto);
+    }
+    cicloPendiente = null;
+    localStorage.removeItem("cicloPendiente");
   } catch (err) {
     console.error("Error iniciando nuevo ciclo:", err);
-    localStorage.setItem("cicloPendiente", JSON.stringify(data));
+    throw err;
   }
 }
