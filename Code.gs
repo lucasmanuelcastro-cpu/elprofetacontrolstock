@@ -201,6 +201,8 @@ function doPost(e) {
         case "registrarDepositoBarril": accionRegistrarDepositoBarril(data); break;
         case "cancelarDepositoBarril": accionCancelarDepositoBarril(data); break;
         case "borrarAuditoria": accionBorrarAuditoria(); break;
+        case "iniciarNuevoCiclo": accionIniciarNuevoCiclo(data); break;
+        case "actualizarMetodoPagoVentas": accionActualizarMetodoPagoVentas(data); break;
         default: return textOut("ERROR: acción desconocida (" + accion + ")");
       }
       return textOut("OK");
@@ -215,7 +217,7 @@ function doPost(e) {
 // ============================================================
 //  SYNC GENERAL 
 // ============================================================
-// Reemplaza ÚNICAMENTE esta función en tu Code.gs de Apps Script
+
 
 function accionSyncGeneral() {
   const stockObjs = filaAObjetos(getSheet(SH_STOCK));
@@ -224,14 +226,18 @@ function accionSyncGeneral() {
   const histStockObjs = filaAObjetos(getSheet(SH_HIST_STOCK));
   const histTransferObjs = filaAObjetos(getSheet(SH_TRANSFER));
   const barrilesObjs = filaAObjetos(getSheet(SH_BARRILES));
+  const pagosObjs = filaAObjetos(getSheet(SH_PAGOS));
 
-  // Función blindada para limpiar símbolos de moneda y puntos de miles
   function limpiarMonto(val) {
     if (!val) return 0;
     if (typeof val === 'number') return val;
     const numStr = String(val).replace(/[^0-9,-]/g, "").replace(/\./g, "").replace(",", ".");
     return Number(numStr) || 0;
   }
+
+  const configuracion = leerConfiguracion();
+  const cicloFechaCorte = Number(configuracion.cicloFechaCorte) || 0;
+  const profetaInicialCiclo = Number(configuracion.profetaInicialCiclo) || 0;
 
   const usuarios = {};
   USUARIOS.forEach(function (u) {
@@ -243,16 +249,22 @@ function accionSyncGeneral() {
         .filter(function (v) { return v.Vendedor === u; })
         .map(function (v) {
           const met = String(v.MetodoPago || "").trim();
+          const costo = limpiarMonto(v.Costo);
+          const com = limpiarMonto(v.Comision);
+          // Lógica blindada: Si ParaProfeta está vacío, lo calcula. Si está puesto por vos, lo respeta.
+          const pp = limpiarMonto(v.ParaProfeta);
+          const paraProfeta = (pp === 0 && (costo > 0 || com > 0)) ? costo + com : pp;
+          
           return {
             cliente: v.Cliente || "Consumidor Final",
             estilos: jsonSeguro(v.Estilos, {}),
             tipoLata: v.TipoLata || "conEtiqueta",
-            estado: met !== "" ? "COBRADO" : "PENDIENTE", // <--- Único ajuste visual para compatibilidad con la tabla
+            estado: met !== "" ? "COBRADO" : "PENDIENTE",
             totalCobrado: limpiarMonto(v.TotalCobrado),
-            costo: limpiarMonto(v.Costo),
-            costoTotal: limpiarMonto(v.Costo),
-            comision: limpiarMonto(v.Comision),
-            paraProfeta: limpiarMonto(v.ParaProfeta),
+            costo: costo,
+            costoTotal: costo,
+            comision: com,
+            paraProfeta: paraProfeta,
             metodoPago: met,
             fecha: v.Fecha || "",
             vendedor: v.Vendedor,
@@ -275,15 +287,16 @@ function accionSyncGeneral() {
   });
   stockGeneral["LATAS SIN ETIQUETA"] = totalSinEtiqueta;
 
+  // POPULARIDAD (Solo cuenta ventas posteriores al corte de ciclo)
   const popularidad = {};
   ventasObjs.forEach(function (v) {
+    if (cicloFechaCorte > 0 && (Number(v.Timestamp) || 0) < cicloFechaCorte) return;
     const estilos = jsonSeguro(v.Estilos, {});
     Object.keys(estilos).forEach(function (e) {
       popularidad[e] = (popularidad[e] || 0) + (Number(estilos[e]) || 0);
     });
   });
 
-  const pagosObjs = filaAObjetos(getSheet(SH_PAGOS));
   const ratioPagoPorCliente = {};
   clientesObjs.forEach(function (c) {
     const deuda = limpiarMonto(c.Deuda);
@@ -293,10 +306,18 @@ function accionSyncGeneral() {
   });
 
   let efectivo = 0, transferencia = 0, paraProfeta = 0;
+  
+  // Contar Ventas
   ventasObjs.forEach(function (v) {
+    if (cicloFechaCorte > 0 && (Number(v.Timestamp) || 0) < cicloFechaCorte) return;
+    
     const monto = limpiarMonto(v.TotalCobrado);
     const metodo = String(v.MetodoPago || "").toLowerCase().trim();
-    const paraProfetaVenta = limpiarMonto(v.ParaProfeta);
+    const costo = limpiarMonto(v.Costo);
+    const com = limpiarMonto(v.Comision);
+    const pp = limpiarMonto(v.ParaProfeta);
+    const paraProfetaVenta = (pp === 0 && (costo > 0 || com > 0)) ? costo + com : pp;
+    
     if (metodo) {
       if (metodo === "transferencia") transferencia += monto;
       else efectivo += monto;
@@ -307,12 +328,16 @@ function accionSyncGeneral() {
       paraProfeta += paraProfetaVenta * ratio;
     }
   });
+  
+  // Sumar Pagos sueltos (Cobros a deudores del ciclo actual)
   pagosObjs.forEach(function (p) {
+    // Asumimos que los pagos son del ciclo actual si no hay forma de filtrarlos por fecha en la hoja actual
     const monto = limpiarMonto(p.Monto);
     if (String(p.Metodo).toLowerCase() === "transferencia") transferencia += monto;
     else efectivo += monto;
   });
-  paraProfeta = Math.round(paraProfeta);
+  
+  paraProfeta = Math.round(paraProfeta + profetaInicialCiclo);
 
   const clientes = clientesObjs.map(function (c) {
     return {
@@ -337,7 +362,9 @@ function accionSyncGeneral() {
     efectivoSheet: efectivo,
     transferenciaSheet: transferencia,
     paraProfetaSheet: paraProfeta,
-    configuracion: leerConfiguracion(),
+    configuracion: configuracion,
+    cicloFechaCorte: cicloFechaCorte,
+    profetaInicialCiclo: profetaInicialCiclo,
     barrilesDisponibles: barrilesDisponibles,
     historialStock: histStockObjs.map(function (h) {
       return { fecha: h.Fecha, usuario: h.Usuario, estilos: jsonSeguro(h.Estilos, {}), tipo: h.Tipo };
@@ -411,7 +438,7 @@ function accionNuevaVenta(v) {
     JSON.stringify(v.barriles || []), 
     v.metodoPago||"", 
     v.esCobro?"SI":"NO", 
-    Date.now(),
+    v.timestamp || Date.now(), // <--- ACÁ ESTÁ EL FIX
     JSON.stringify(v.servicios || [])
   ]); 
   const nc=String(v.cliente||"").trim(); 
@@ -419,6 +446,7 @@ function accionNuevaVenta(v) {
     upsertDeudaCliente(nc,tc,0); 
   } 
 }
+
 
 function accionBorrarVenta(d) { 
   const s=getSheet(SH_VENTAS); 
@@ -628,4 +656,50 @@ function diagnostico_ventas() {
     conteoPorVendedor[v] = (conteoPorVendedor[v] || 0) + 1;
   });
   Logger.log("Conteo por vendedor: " + JSON.stringify(conteoPorVendedor));
+}
+
+// ===== FUNCIONES DE CICLO Y DEUDAS =====
+function accionIniciarNuevoCiclo(data) {
+  const confSheet = getSheet(SH_CONFIG);
+  const ventasSheet = getSheet(SH_VENTAS);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. Crear hoja de backup
+  const fechaBackup = Utilities.formatDate(new Date(), "GMT-3", "dd_MM_yyyy_HH_mm");
+  ventasSheet.copyTo(ss, "Ventas_Backup_" + fechaBackup);
+
+  // 2. Actualizar configuración
+  const config = leerConfiguracion();
+  config["cicloFechaCorte"] = Date.now();
+  config["profetaInicialCiclo"] = Number(data.profetaInicial) || 0;
+
+  const lastRow = confSheet.getLastRow();
+  if (lastRow > 1) {
+    confSheet.getRange(2, 1, lastRow - 1, 2).clearContent();
+  }
+  Object.entries(config).forEach(([k, v]) => {
+    confSheet.appendRow([k, v]);
+  });
+}
+
+// backup y marcar las ventas
+
+function accionActualizarMetodoPagoVentas(data) {
+  if (!data.ventas || !Array.isArray(data.ventas)) return;
+  const ventasSheet = getSheet(SH_VENTAS);
+  const objs = filaAObjetos(ventasSheet);
+  
+  data.ventas.forEach(v => {
+    const cliente = String(v.cliente || "").toLowerCase().trim();
+    const metodo = String(v.metodo || "efectivo").toLowerCase();
+    const timestamp = Number(v.timestamp) || 0;
+    
+    for (let i = 0; i < objs.length; i++) {
+      const row = objs[i];
+      if (String(row.Cliente || "").toLowerCase().trim() === cliente && Number(row.Timestamp) === timestamp) {
+        ventasSheet.getRange(row.__row, 12).setValue(metodo); // Columna 12 = MetodoPago
+        break;
+      }
+    }
+  });
 }
