@@ -130,9 +130,11 @@ function ventaApareceEnHistorialGlobal(v) {
 
 function getEstadisticasVentas() {
   const ventas = getVentasGenerales();
+  const cicloCorte = state.cicloFechaCorte || 0;
   const totalesPorEstilo = {};
   let granTotalLatas = 0;
   ventas.forEach(v => {
+    if (cicloCorte > 0 && (v.timestamp || 0) < cicloCorte) return;
     Object.entries(v.estilos || {}).forEach(([estilo, cant]) => {
       const c = Number(cant) || 0;
       if (c > 0) {
@@ -143,6 +145,7 @@ function getEstadisticasVentas() {
   });
   return { totalesPorEstilo, granTotalLatas };
 }
+
 
 function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
   const norm = (s) => String(s || "").toLowerCase().trim();
