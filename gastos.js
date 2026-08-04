@@ -1,13 +1,9 @@
-
 /**
  * GASTOS.JS - Módulo 100% independiente
  * No depende de ui.js ni logic.js. Habla directo con AppScript.
  */
 
-// La URL_SCRIPT ahora se define una sola vez en config.js
-
 let gastos = [];
-let datosApp = null;
 
 // Utilidades
 const fmt = (n) => n ? "$" + Math.round(n).toLocaleString("es-AR") : "$0";
@@ -16,13 +12,9 @@ const esc = (str) => String(str || "").replace(/</g, "&lt;").replace(/>/g, "&gt;
 // Inicialización
 document.addEventListener("DOMContentLoaded", async () => {
   try {
-    // Traemos finanzas generales y gastos en paralelo
-    const [resGeneral, resGastos] = await Promise.all([
-      fetch(`${URL_SCRIPT}?v=${Date.now()}`, { mode: "cors", cache: "no-cache" }),
-      fetch(`${URL_SCRIPT}?accion=leerGastos&v=${Date.now()}`, { mode: "cors", cache: "no-cache" })
-    ]);
+    // Como ya no mostramos las tarjetas financieras acá, pedimos solo los gastos
+    const resGastos = await fetch(`${URL_SCRIPT}?accion=leerGastos&v=${Date.now()}`, { mode: "cors", cache: "no-cache" });
 
-    datosApp = await resGeneral.json();
     const dataGastos = await resGastos.json();
     gastos = dataGastos.gastos || [];
 
@@ -36,29 +28,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function renderAll() {
-  renderFinanzas();
+  // Sacamos renderFinanzas() porque no lo necesitamos más en esta pantalla
   renderHistorial();
   calcularTotales();
-}
-
-// Render 4 cards financieras
-function renderFinanzas() {
-  const cont = document.getElementById("finanzas-container");
-  if (!datosApp) return;
-  
-  const cards = [
-    { label: "💵 Efectivo", val: datosApp.efectivoSheet, color: "#059669" },
-    { label: "🏦 Transferencia", val: datosApp.transferenciaSheet, color: "#2563eb" },
-    { label: "💰 Total Ingresado", val: datosApp.totalIngresadoSheet, color: "#3b82f6" },
-    { label: "👑 Para El Profeta", val: datosApp.paraProfetaSheet, color: "#7c3aed" }
-  ];
-
-  cont.innerHTML = cards.map(c => `
-    <div class="card" style="padding:15px;">
-      <div style="font-size:0.85em; color:#666;">${c.label}</div>
-      <div style="font-size:20px; font-weight:bold; color:${c.color}; margin-top:4px;">${fmt(c.val)}</div>
-    </div>
-  `).join("");
 }
 
 // Render lista de gastos
