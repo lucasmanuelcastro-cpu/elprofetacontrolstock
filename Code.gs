@@ -30,7 +30,7 @@ function setup() {
   crearSheetSiNoExiste(ss, SH_STOCK, ["Usuario", "Stock", "StockSinEtiqueta"]);
   crearSheetSiNoExiste(ss, SH_VENTAS, [
     "Fecha", "Vendedor", "Cliente", "Estilos", "TipoLata", "TotalCobrado",
-    "ParaProfeta", "Comision", "Costo", "Ganancia", "Barriles", "MetodoPago", "EsCobro", "Timestamp"
+    "ParaProfeta", "Comision", "Costo", "Ganancia", "Barriles", "MetodoPago", "Timestamp"
   ]);
   agregarColumnaSiNoExiste(getSheet(SH_VENTAS), "Servicios");
 
@@ -218,6 +218,13 @@ function doPost(e) {
 //  SYNC GENERAL 
 // ============================================================
 
+function parsearFechaPago(str) {
+  if (!str) return 0;
+  const m = String(str).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ ,]+(\d{1,2}):(\d{2})/);
+  if (!m) return 0;
+  const dia = Number(m[1]), mes = Number(m[2]), anio = Number(m[3]), hora = Number(m[4]), min = Number(m[5]);
+  return new Date(anio, mes - 1, dia, hora, min).getTime() || 0;
+}
 
 function accionSyncGeneral() {
   const stockObjs = filaAObjetos(getSheet(SH_STOCK));
@@ -329,9 +336,9 @@ function accionSyncGeneral() {
     }
   });
   
-  // Sumar Pagos sueltos (Cobros a deudores del ciclo actual)
+ // Sumar Pagos sueltos (Cobros a deudores del ciclo actual)
   pagosObjs.forEach(function (p) {
-    // Asumimos que los pagos son del ciclo actual si no hay forma de filtrarlos por fecha en la hoja actual
+    if (cicloFechaCorte > 0 && parsearFechaPago(p.Fecha) < cicloFechaCorte) return;
     const monto = limpiarMonto(p.Monto);
     if (String(p.Metodo).toLowerCase() === "transferencia") transferencia += monto;
     else efectivo += monto;
@@ -427,7 +434,7 @@ function accionNuevaVenta(v) {
   const com=Number(v.comision)||0; 
   const pp=v.paraProfeta!=null?Number(v.paraProfeta):(c+com); 
   const tc=Number(v.totalCobrado)||0; 
-  s.appendRow([
+s.appendRow([
     v.fecha||ahora(), 
     v.vendedor||"", 
     v.cliente||"Consumidor Final", 
@@ -437,10 +444,9 @@ function accionNuevaVenta(v) {
     v.ganancia!=null?Number(v.ganancia):(tc-c), 
     JSON.stringify(v.barriles || []), 
     v.metodoPago||"", 
-    v.esCobro?"SI":"NO", 
-    v.timestamp || Date.now(), // <--- ACÁ ESTÁ EL FIX
+    v.timestamp || Date.now(),
     JSON.stringify(v.servicios || [])
-  ]); 
+  ]);
   const nc=String(v.cliente||"").trim(); 
   if(nc&&nc.toLowerCase()!="consumidor final"){ 
     upsertDeudaCliente(nc,tc,0); 
@@ -664,11 +670,10 @@ function accionIniciarNuevoCiclo(data) {
   const ventasSheet = getSheet(SH_VENTAS);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // 1. Crear hoja de backup
   const fechaBackup = Utilities.formatDate(new Date(), "GMT-3", "dd_MM_yyyy_HH_mm");
-  ventasSheet.copyTo(ss, "Ventas_Backup_" + fechaBackup);
+  const backupSheet = ventasSheet.copyTo(ss);
+  backupSheet.setName("Ventas_Backup_" + fechaBackup);
 
-  // 2. Actualizar configuración
   const config = leerConfiguracion();
   config["cicloFechaCorte"] = Date.now();
   config["profetaInicialCiclo"] = Number(data.profetaInicial) || 0;
@@ -681,7 +686,6 @@ function accionIniciarNuevoCiclo(data) {
     confSheet.appendRow([k, v]);
   });
 }
-
 // backup y marcar las ventas
 
 function accionActualizarMetodoPagoVentas(data) {
