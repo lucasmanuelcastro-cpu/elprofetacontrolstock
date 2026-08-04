@@ -40,7 +40,8 @@ function setup() {
   crearSheetSiNoExiste(ss, SH_PAGOS, ["Fecha", "Cliente", "Monto", "Metodo"]);
   crearSheetSiNoExiste(ss, SH_HIST_STOCK, ["Fecha", "Usuario", "Estilos", "Tipo"]);
   crearSheetSiNoExiste(ss, SH_TRANSFER, ["Fecha", "Desde", "Hacia", "Estilos", "Tipo"]);
-  crearSheetSiNoExiste(ss, SH_GASTOS, ["IdFila", "Item", "Monto", "Obs", "Fecha"]);
+   const gastosSheet = crearSheetSiNoExiste(ss, SH_GASTOS, ["IdFila", "Item", "Monto", "Obs", "Fecha", "Timestamp"]);
+  agregarColumnaSiNoExiste(gastosSheet, "Timestamp");
   crearSheetSiNoExiste(ss, SH_BARRILES, [
     "Id", "Cliente", "Tipo", "Tamano", "Serie", "Deposito", "Observaciones",
     "Estado", "FechaPrestamo", "FechaDevolucion", "Timestamp"
@@ -517,8 +518,40 @@ function accionActualizarStock(d) {
 
 function accionGuardarHistorialStock(e) { if(!e) return; getSheet(SH_HIST_STOCK).appendRow([e.fecha||ahora(), e.usuario||"", JSON.stringify(e.estilos||{}), e.tipo||"conEtiqueta"]); }
 function accionGuardarTransferencia(e) { if(!e) return; getSheet(SH_TRANSFER).appendRow([e.fecha||ahora(), e.desde||"", e.hacia||"", JSON.stringify(e.estilos||{}), e.tipo||"conEtiqueta"]); }
-function accionLeerGastos() { const o=filaAObjetos(getSheet(SH_GASTOS)); return { gastos: o.map(function(g){ return {idFila:g.IdFila, item:g.Item, monto:Number(g.Monto)||0, obs:g.Obs, fecha:g.Fecha}; }) }; }
-function accionGuardarGasto(g) { if(!g) throw new Error("Falta 'gasto'"); const s=getSheet(SH_GASTOS); s.appendRow(["G"+Date.now(), g.item||"", Number(g.monto)||0, g.obs||"", g.fecha||ahora()]); }
+
+function accionLeerGastos() { 
+  const o = filaAObjetos(getSheet(SH_GASTOS)); 
+  const config = leerConfiguracion();
+  const cicloFechaCorte = Number(config.cicloFechaCorte) || 0;
+
+  // Mandamos todos los gastos, junto con la fecha de corte
+  return { 
+    cicloFechaCorte: cicloFechaCorte,
+    gastos: o.map(function(g) { 
+      return {
+        idFila: g.IdFila, 
+        item: g.Item, 
+        monto: Number(g.Monto) || 0, 
+        obs: g.Obs, 
+        fecha: g.Fecha,
+        timestamp: Number(g.Timestamp) || 0 // <--- Mandamos el timestamp
+      }; 
+    }) 
+  }; 
+}
+
+function accionGuardarGasto(g) { 
+  if(!g) throw new Error("Falta 'gasto'"); 
+  const s = getSheet(SH_GASTOS); 
+  s.appendRow([
+    "G" + Date.now(), 
+    g.item || "", 
+    Number(g.monto) || 0, 
+    g.obs || "", 
+    g.fecha || ahora(), 
+    g.timestamp || Date.now() // <--- NUEVO
+  ]); 
+}
 function accionBorrarGasto(id) { const s=getSheet(SH_GASTOS); const o=filaAObjetos(s); const f=o.filter(function(g){return String(g.IdFila)===String(id);})[0]; if(f) s.deleteRow(f.__row); }
 
 function accionLeerBarriles() {
@@ -668,12 +701,19 @@ function diagnostico_ventas() {
 function accionIniciarNuevoCiclo(data) {
   const confSheet = getSheet(SH_CONFIG);
   const ventasSheet = getSheet(SH_VENTAS);
+  const gastosSheet = getSheet(SH_GASTOS); // <--- NUEVO
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
+  // 1. Crear hojas de backup
   const fechaBackup = Utilities.formatDate(new Date(), "GMT-3", "dd_MM_yyyy_HH_mm");
-  const backupSheet = ventasSheet.copyTo(ss);
-  backupSheet.setName("Ventas_Backup_" + fechaBackup);
+  
+  const backupVentas = ventasSheet.copyTo(ss);
+  backupVentas.setName("Ventas_Backup_" + fechaBackup);
+  
+  const backupGastos = gastosSheet.copyTo(ss); // <--- NUEVO
+  backupGastos.setName("Gastos_Backup_" + fechaBackup); // <--- NUEVO
 
+  // 2. Actualizar configuración
   const config = leerConfiguracion();
   config["cicloFechaCorte"] = Date.now();
   config["profetaInicialCiclo"] = Number(data.profetaInicial) || 0;
