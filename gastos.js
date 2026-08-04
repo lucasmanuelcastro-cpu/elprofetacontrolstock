@@ -4,6 +4,7 @@
  */
 
 let gastos = [];
+let cicloFechaCorte = 0;
 
 // Utilidades
 const fmt = (n) => n ? "$" + Math.round(n).toLocaleString("es-AR") : "$0";
@@ -12,11 +13,10 @@ const esc = (str) => String(str || "").replace(/</g, "&lt;").replace(/>/g, "&gt;
 // Inicialización
 document.addEventListener("DOMContentLoaded", async () => {
   try {
-    // Como ya no mostramos las tarjetas financieras acá, pedimos solo los gastos
     const resGastos = await fetch(`${URL_SCRIPT}?accion=leerGastos&v=${Date.now()}`, { mode: "cors", cache: "no-cache" });
-
     const dataGastos = await resGastos.json();
     gastos = dataGastos.gastos || [];
+    cicloFechaCorte = dataGastos.cicloFechaCorte || 0;
 
     renderAll();
     bindEvents();
@@ -28,12 +28,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function renderAll() {
-  // Sacamos renderFinanzas() porque no lo necesitamos más en esta pantalla
   renderHistorial();
   calcularTotales();
 }
 
-// Render lista de gastos
+// Render lista de gastos (con historial viejo en gris)
 function renderHistorial() {
   const cont = document.getElementById("historial-gastos");
   if (gastos.length === 0) {
@@ -41,8 +40,13 @@ function renderHistorial() {
     return;
   }
 
-  cont.innerHTML = gastos.map(g => `
-    <div class="historial-item">
+  cont.innerHTML = gastos.map(g => {
+    // Si el gasto es del ciclo anterior, lo ponemos opaco
+    const esViejo = cicloFechaCorte > 0 && (g.timestamp || 0) < cicloFechaCorte;
+    const estiloFila = esViejo ? 'opacity: 0.4; filter: grayscale(80%);' : '';
+    
+    return `
+    <div class="historial-item" style="${estiloFila}">
       <div>
         <strong style="font-size:1em;">${esc(g.item)}</strong>
         <div style="font-size:0.8em; color:#666;">${esc(g.obs) || "Sin observación"}</div>
@@ -52,20 +56,21 @@ function renderHistorial() {
         <span style="font-weight:bold; color:#ef4444; font-size:1.1em;">-${fmt(g.monto)}</span>
         <button class="btn-delete" data-id="${g.idFila}">🗑️ Borrar</button>
       </div>
-    </div>
-  `).join("");
+    </div>`;
+  }).join("");
 }
 
-// Cálculos en vivo
+// Cálculos en vivo (Solo suma los gastos del ciclo actual)
 function calcularTotales() {
-  const total = gastos.reduce((s, g) => s + (Number(g.monto) || 0), 0);
+  const gastosCicloActual = gastos.filter(g => !(cicloFechaCorte > 0 && (g.timestamp || 0) < cicloFechaCorte));
+  const total = gastosCicloActual.reduce((s, g) => s + (Number(g.monto) || 0), 0);
+  
   const totalEl = document.getElementById("total-gastado");
   if (totalEl) totalEl.textContent = fmt(total);
   
   const cantEl = document.getElementById("cantidad-gastos");
-  if (cantEl) cantEl.textContent = `${gastos.length} gasto${gastos.length !== 1 ? "s" : ""}`;
+  if (cantEl) cantEl.textContent = `${gastosCicloActual.length} gasto${gastosCicloActual.length !== 1 ? "s" : ""} en este ciclo`;
 }
-
 
 // Eventos
 function bindEvents() {
@@ -91,7 +96,7 @@ function bindEvents() {
             monto, 
             obs, 
             fecha: new Date().toLocaleString("es-AR"),
-            timestamp: Date.now() // <--- Agregado para el filtro del Nuevo Ciclo
+            timestamp: Date.now() 
           } 
         })
       });
@@ -132,6 +137,7 @@ async function cargarGastosActualizados() {
     const res = await fetch(`${URL_SCRIPT}?accion=leerGastos`);
     const data = await res.json();
     gastos = data.gastos || [];
+    cicloFechaCorte = data.cicloFechaCorte || 0;
     renderHistorial();
     calcularTotales();
   } catch (e) { console.error(e); }
