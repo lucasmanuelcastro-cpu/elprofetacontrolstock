@@ -87,14 +87,11 @@ function renderHistorial() {
 // Cálculos en vivo
 function calcularTotales() {
   const total = gastos.reduce((s, g) => s + (Number(g.monto) || 0), 0);
-  document.getElementById("total-gastado").textContent = fmt(total);
-  document.getElementById("cantidad-gastos").textContent = `${gastos.length} gasto${gastos.length !== 1 ? "s" : ""}`;
-
-  const profeta = Number(datosApp?.paraProfetaSheet) || 0;
-  const equilibrio = profeta - total;
-  const eqEl = document.getElementById("punto-equilibrio");
-  eqEl.textContent = fmt(equilibrio);
-  eqEl.style.color = equilibrio >= 0 ? "#10b981" : "#ef4444";
+  const totalEl = document.getElementById("total-gastado");
+  if (totalEl) totalEl.textContent = fmt(total);
+  
+  const cantEl = document.getElementById("cantidad-gastos");
+  if (cantEl) cantEl.textContent = `${gastos.length} gasto${gastos.length !== 1 ? "s" : ""}`;
 }
 
 // Eventos
