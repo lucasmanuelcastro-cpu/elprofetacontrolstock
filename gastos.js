@@ -66,6 +66,7 @@ function calcularTotales() {
   if (cantEl) cantEl.textContent = `${gastos.length} gasto${gastos.length !== 1 ? "s" : ""}`;
 }
 
+
 // Eventos
 function bindEvents() {
   // AGREGAR
@@ -83,7 +84,16 @@ function bindEvents() {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
         mode: "cors",
-        body: JSON.stringify({ accion: "guardarGasto", gasto: { item, monto, obs, fecha: new Date().toISOString() } })
+        body: JSON.stringify({ 
+          accion: "guardarGasto", 
+          gasto: { 
+            item, 
+            monto, 
+            obs, 
+            fecha: new Date().toLocaleString("es-AR"),
+            timestamp: Date.now() // <--- Agregado para el filtro del Nuevo Ciclo
+          } 
+        })
       });
       if ((await res.text()).includes("OK")) {
         document.getElementById("gasto-item").value = "";
