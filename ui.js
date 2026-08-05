@@ -1100,7 +1100,7 @@ function renderPanelUsuario() {
                    <button onclick="aplicarDescuento()" style="width:100%; margin-top:5px; background:#f59e0b; color:white; padding:8px; border-radius:6px; font-size:0.85em; cursor:pointer;">% Aplicar Descuento</button>
         </div>
 
-        <!-- NUEVO: COSTOS ASOCIADOS -->
+              <!-- NUEVO: COSTOS ASOCIADOS -->
         <div style="margin-top:10px; background:#e0f2fe; border:1px solid #0284c7; border-radius:6px; padding:8px;">
           <label style="font-size:0.8em; color:#075985; display:block; margin-bottom:4px; font-weight:600;">🛠️ Costos asociados (se suma al costo)</label>
           <input type="number" id="costo-asociado-input" value="${state.costoAsociado || ""}" placeholder="Ej: 500" style="width:100%; box-sizing:border-box; padding:6px; border-radius:4px; border:1px solid #0284c7;">
@@ -1121,21 +1121,6 @@ function renderPanelUsuario() {
             <b style="color:#b45309; font-size:1.1em;" id="preview-total-rendir">$${preview.paraProfeta.toLocaleString('es-AR')}</b>
           </div>
           ${preview.gananciaBruta > 0 ? `<div style="margin-top:6px; font-size:0.8em; color:#78350f; text-align:right;" id="preview-ganancia">Ganancia bruta: $${preview.gananciaBruta.toLocaleString('es-AR')}</div>` : ''}
-        </div>
-          <h4 style="margin: 0 0 8px 0; color: #92400e;">📊 Vista Previa Profeta</h4>
-          <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
-            <span style="color:#78350f;">Costo Total (Latas + Barriles):</span>
-            <b style="color:#92400e;">$${preview.costoTotal.toLocaleString('es-AR')}</b>
-          </div>
-          <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
-            <span style="color:#78350f;">Comisión (50%):</span>
-            <b style="color:${preview.comision > 0 ? '#059669' : '#92400e'};"> ${preview.comision > 0 ? '$' + preview.comision.toLocaleString('es-AR') : '— (ingresá precio)'} </b>
-          </div>
-          <div style="display:flex; justify-content:space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f59e0b;">
-            <span style="color:#78350f; font-weight:bold;">Total a Rendir:</span>
-            <b style="color:#b45309; font-size:1.1em;">$${preview.paraProfeta.toLocaleString('es-AR')}</b>
-          </div>
-          ${preview.gananciaBruta > 0 ? `<div style="margin-top:6px; font-size:0.8em; color:#78350f; text-align:right;">Ganancia bruta: $${preview.gananciaBruta.toLocaleString('es-AR')}</div>` : ''}
         </div>
         <button id="btn-registrar" style="width:100%; margin-top:10px; background:#1e40af;"> ✅ Registrar Venta </button>
       </div>
@@ -1319,8 +1304,6 @@ function bindPanelEventos() {
       }
     });
   }
-
-  const btnRegistrar = document.getElementById("btn-registrar");
   
 const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
