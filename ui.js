@@ -275,12 +275,14 @@ function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
 }
 
 async function borrarVentaIndividual(index) {
-  if (!confirm("¿Borrar esta venta? Se devolverá el stock automáticamente.")) return;
+  if (!confirm("¿Borrar esta venta? Se devolverá el stock y los barriles automáticamente.")) return;
   const venta = state.usuarios[state.usuarioActivo].ventas[index];
   if (!venta) return;
 
   setState(prev => {
     const usuario = prev.usuarios[prev.usuarioActivo];
+    
+    // 1. Devolver Latas al stock
     Object.entries(venta.estilos || {}).forEach(([estilo, cant]) => {
       const c = Number(cant) || 0;
       if (c > 0) {
@@ -293,6 +295,35 @@ async function borrarVentaIndividual(index) {
       }
     });
 
+    // 2. Devolver Barriles a la cola de pendientes y al estado local
+    if (venta.barriles && venta.barriles.length > 0) {
+      let barrilesPendientes = [];
+      try { barrilesPendientes = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]"); } catch(e) {}
+      
+      venta.barriles.forEach(b => {
+        // Lo mandamos a la cola para que vuelva a "disponible" en Google Sheets cuando guardes
+        barrilesPendientes.push({
+          id: b.id,
+          cliente: "",
+          tipo: b.tipo,
+          tamano: b.tamano,
+          serie: b.serie || "",
+          deposito: 0,
+          observaciones: "Devuelto por borrado de venta",
+          estado: "disponible",
+          fechaPrestamo: "",
+          fechaDevolucion: new Date().toLocaleString("es-AR"),
+          timestamp: Date.now()
+        });
+        // Lo volvemos a agregar a la lista de disponibles en la pantalla para que lo veas ya
+        if (!prev.barrilesDisponibles.some(bd => String(bd.id) === String(b.id))) {
+          prev.barrilesDisponibles.push({ id: b.id, tipo: b.tipo, tamano: b.tamano, serie: b.serie });
+        }
+      });
+      localStorage.setItem("barrilesPendientes", JSON.stringify(barrilesPendientes));
+    }
+
+    // 3. Descontar deuda al cliente
     const nombreCliente = String(venta.cliente || "").toLowerCase().trim();
     const idxCliente = prev.clientesGlobales.findIndex(c =>
       String(c.nombre || "").toLowerCase().trim() === nombreCliente
@@ -305,10 +336,12 @@ async function borrarVentaIndividual(index) {
       }
     }
 
+    // 4. Borrar la venta del historial local
     prev.usuarios[prev.usuarioActivo].ventas.splice(index, 1);
     return prev;
   });
 
+  // 5. Encolar cambios para Google Sheets
   encolarBorrarVentaEnSheet({
     vendedor: venta.vendedor || state.usuarioActivo,
     fecha: venta.fecha,
