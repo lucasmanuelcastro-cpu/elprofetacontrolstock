@@ -136,25 +136,17 @@ function paraProfetaMostrar(v) {
 }
 
 function ventaApareceEnHistorialGlobal(v) {
-  return String(v.estado || "").toUpperCase() === "COBRADO" || (v.metodoPago && v.metodoPago !== "");
-}
-
-function getEstadisticasVentas() {
-  const ventas = getVentasGenerales();
-  const cicloCorte = state.cicloFechaCorte || 0;
-  const totalesPorEstilo = {};
-  let granTotalLatas = 0;
-  ventas.forEach(v => {
-    if (cicloCorte > 0 && (v.timestamp || 0) < cicloCorte) return;
-    Object.entries(v.estilos || {}).forEach(([estilo, cant]) => {
-      const c = Number(cant) || 0;
-      if (c > 0) {
-        totalesPorEstilo[estilo] = (totalesPorEstilo[estilo] || 0) + c;
-        granTotalLatas += c;
-      }
-    });
-  });
-  return { totalesPorEstilo, granTotalLatas };
+  const pagada = String(v.estado || "").toUpperCase() === "COBRADO" || (v.metodoPago && v.metodoPago !== "");
+  if (pagada) return true;
+  
+  // Si no está pagada, verificamos si tiene pagos parciales
+  const norm = (s) => String(s || "").toLowerCase().trim();
+  const cliente = state.clientesGlobales.find(c => norm(c.nombre) === norm(v.cliente));
+  if (cliente && Number(cliente.deuda) > 0) {
+    const ratio = Number(cliente.pagado) / Number(cliente.deuda);
+    if (ratio > 0 && ratio < 1) return true; // Pago parcial
+  }
+  return false;
 }
 
 
@@ -665,6 +657,7 @@ function renderStockGeneral() {
 }
 
 
+
 function renderVentasGeneral() {
   const container = document.getElementById("ventas-general-section");
   if (!container) return;
@@ -703,19 +696,19 @@ function renderVentasGeneral() {
     </div>
   </div>
   <div class="card" style="margin-top: 20px; border-left: 4px solid #7c3aed;">
-    <h2>📋 Historial Global (${todasLasVentas.length} ventas cobradas)</h2>
-    <p style="color:#64748b; font-size:0.85em; margin:0 0 8px 0;">Solo aparecen acá las ventas 100% saldadas. Sheet: botón «Guardar en Sheet».</p>
+    <h2>📋 Historial Global (${todasLasVentas.length} ventas)</h2>
+    <p style="color:#64748b; font-size:0.85em; margin:0 0 8px 0;">Acá se muestran las ventas cobradas y las que tienen pagos parciales.</p>
     <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
     ${todasLasVentas.length === 0
-      ? '<p style="color:gray;">No hay ventas cobradas en su totalidad aún.</p>'
+      ? '<p style="color:gray;">No hay ventas registradas aún.</p>'
       : [...todasLasVentas].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).map(v => {
-          const vendedor = v.vendedor || Object.keys(state.usuarios).find(u => state.usuarios[u].ventas.some(vv => vv === v)) || '—';
+          const vendedor = v.vendedor || '—';
           const latasHtml = Object.entries(v.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', ');
           const barrilesHtml = (v.barriles && v.barriles.length > 0) 
             ? v.barriles.map(b => `1x Barril ${b.tipo} ${b.tamano}`).join(', ') 
             : '';
           
-        const serviciosHtml = (v.servicios && v.servicios.length > 0)
+          const serviciosHtml = (v.servicios && v.servicios.length > 0)
             ? v.servicios.map(s => {
                 const partes = [];
                 if (Number(s.montoJulian) > 0) partes.push(`Julian $${Number(s.montoJulian).toLocaleString('es-AR')}`);
@@ -727,14 +720,43 @@ function renderVentasGeneral() {
               }).join('<br>')
             : '';
 
-          // Si la venta es del ciclo anterior, la ponemos opaca
-          const esVieja = cicloCorte > 0 && (v.timestamp || 0) < cicloCorte;
-          const estiloFila = esVieja ? 'opacity: 0.4; filter: grayscale(80%);' : '';
+          const norm = (s) => String(s || "").toLowerCase().trim();
+          const clienteObj = state.clientesGlobales.find(c => norm(c.nombre) === norm(v.cliente));
+          
+          let ratioCobrado = 1;
+          let esParcial = false;
+          const estaPagada = (v.metodoPago && v.metodoPago !== "");
+          
+          if (!estaPagada && clienteObj && Number(clienteObj.deuda) > 0) {
+              ratioCobrado = Number(clienteObj.pagado) / Number(clienteObj.deuda);
+              if (ratioCobrado > 0 && ratioCobrado < 1) esParcial = true;
+          }
+          
+          const totalVenta = Number(v.totalCobrado) || 0;
+          const montoCobrado = Math.round(totalVenta * ratioCobrado);
+          const totalComisionVendedor = Number(v.comision) || 0; // Ya incluye servicios por el fix anterior
+          const comisionLiberada = Math.round(totalComisionVendedor * ratioCobrado);
+          const profetaTotal = paraProfetaMostrar(v); // Ya incluye servicios por el fix anterior
+          const profetaLiberado = Math.round(profetaTotal * ratioCobrado);
+          
+          let estiloFila = '';
+          let icono = '✅';
+          
+          if (esParcial) {
+             estiloFila = 'border-left: 3px solid #ef4444; background: #fef2f2;'; 
+             icono = '🔴 (pago parcial)';
+          } else if (estaPagada) {
+              const esVieja = cicloCorte > 0 && (v.timestamp || 0) < cicloCorte;
+              if (esVieja) {
+                 estiloFila = 'border-left: 3px solid #10b981; background: #f0fdf4;';
+                 icono = '🟢 (cobrado en ciclo nuevo)';
+              }
+          }
           
           return `
-          <div style="border-bottom: 1px solid #f3f4f6; padding: 8px 0; font-size: 0.88em; ${estiloFila}">
+          <div style="border-bottom: 1px solid #f3f4f6; padding: 8px; font-size: 0.88em; ${estiloFila}">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
-              <span><b>👤 ${v.cliente || 'Consumidor Final'}</b>
+              <span><b>${icono} 👤 ${v.cliente || 'Consumidor Final'}</b>
                 <span style="margin-left:8px; background:#ede9fe; color:#7c3aed; border-radius:6px; padding:1px 7px; font-size:0.85em;">
                   ${vendedor}
                 </span>
@@ -750,11 +772,11 @@ function renderVentasGeneral() {
                 ${v.tipoLata === 'sinEtiqueta' ? '📦 Sin etiqueta' : '🏷️ Con etiqueta'}
               </span>
             </div>
-            <div style="display:flex; gap:12px; flex-wrap:wrap; color:#374151; align-items:center;">
-              <span>💵 $${(v.totalCobrado||0).toLocaleString('es-AR')}</span>
-              <span style="padding:1px 8px; border-radius:6px; font-size:0.85em; font-weight:600; background:#dcfce7; color:#166534;">✅ Cobrado</span>
-              <span>Comisión: $${(v.comision||0).toLocaleString('es-AR')}</span>
-              <span>👑 Profeta: $${paraProfetaMostrar(v).toLocaleString('es-AR')}</span>
+            <div style="display:flex; gap:12px; flex-wrap:wrap; color:#374151; align-items:center; margin-top:5px;">
+              <span>💵 Total: <b>$${totalVenta.toLocaleString('es-AR')}</b></span>
+              <span>🟠 Cobrado: <b>$${montoCobrado.toLocaleString('es-AR')}</b></span>
+              <span>🧑 Comisión + Serv: <b>$${comisionLiberada.toLocaleString('es-AR')}</b></span>
+              <span>👑 Profeta: <b>$${profetaLiberado.toLocaleString('es-AR')}</b></span>
             </div>
           </div>`;
         }).join("")
@@ -762,7 +784,6 @@ function renderVentasGeneral() {
     </div>
   </div>`;
 }
-
 
 
 
