@@ -59,7 +59,6 @@ function actualizarStockGeneral() {
 }
 
 
-
 function calcularPreview() {
   const config = state.configuracion || {};
   const costoConEtiqNormal = Number(config.costoConEtiquetaNormal) || 1850;
@@ -93,19 +92,31 @@ function calcularPreview() {
   });
 
   let paraProfetaServicios = 0;
+  let comisionVendedoresServicios = 0;
   let sumServicios = 0;
+  
   (state.serviciosActuales || []).forEach(s => {
     const montoTotal = Number(s.montoTotal) || 0;
     sumServicios += montoTotal;
-    paraProfetaServicios += Number(s.montoProfeta) || 0; // Toma directo del slot de Profeta
+    // Sumamos el slot de Profeta al total del Profeta
+    paraProfetaServicios += Number(s.montoProfeta) || 0;
+    // Sumamos los slots de los vendedores a la comisión total
+    comisionVendedoresServicios += (Number(s.montoJulian) || 0) + (Number(s.montoMatias) || 0) + (Number(s.montoLucas) || 0);
   });
 
   const costoTotal = costoTotalLatas + costoTotalBarriles;
   const totalCobrado = Number(state.totalCobradoInput) || 0;
   const totalCobradoSinServicios = totalCobrado - sumServicios;
+  
+  // Ganancia de latas/barriles
   const gananciaBruta = totalCobradoSinServicios > costoTotal ? totalCobradoSinServicios - costoTotal : 0;
-  const comision = gananciaBruta * 0.5;
-  const paraProfeta = costoTotal + comision + paraProfetaServicios;
+  const comisionLatas = gananciaBruta * 0.5;
+  
+  // Comisión total = Comisión latas/barriles + Servicios de vendedores
+  const comision = comisionLatas + comisionVendedoresServicios;
+  
+  // Para Profeta = Costo + Comisión latas/barriles + Servicios de Profeta
+  const paraProfeta = costoTotal + comisionLatas + paraProfetaServicios;
   
   return { costoTotal, comision, paraProfeta, totalLatas, gananciaBruta, costoTotalBarriles, costoTotalLatas, paraProfetaServicios };
 }
