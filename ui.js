@@ -656,7 +656,23 @@ function renderStockGeneral() {
 </div>`;
 }
 
-
+function getEstadisticasVentas() {
+  const ventas = getVentasGenerales();
+  const cicloCorte = state.cicloFechaCorte || 0;
+  const totalesPorEstilo = {};
+  let granTotalLatas = 0;
+  ventas.forEach(v => {
+    if (cicloCorte > 0 && (v.timestamp || 0) < cicloCorte) return;
+    Object.entries(v.estilos || {}).forEach(([estilo, cant]) => {
+      const c = Number(cant) || 0;
+      if (c > 0) {
+        totalesPorEstilo[estilo] = (totalesPorEstilo[estilo] || 0) + c;
+        granTotalLatas += c;
+      }
+    });
+  });
+  return { totalesPorEstilo, granTotalLatas };
+}
 
 function renderVentasGeneral() {
   const container = document.getElementById("ventas-general-section");
