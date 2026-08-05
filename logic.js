@@ -89,6 +89,7 @@ async function guardarPagosPendientesEnSheet() {
         metodo: p.metodo,
         metodoPago: p.metodoPago || p.metodo,
         fecha: p.fecha,
+        timestamp: p.timestamp // <--- Agregado para que el ciclo lo filtre bien
       };
       const resp = await fetch(URL_SCRIPT, {
         method: "POST",
