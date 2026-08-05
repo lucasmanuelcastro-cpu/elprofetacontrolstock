@@ -755,18 +755,15 @@ function renderVentasGeneral() {
           const profetaTotal = paraProfetaMostrar(v); // Ya incluye servicios por el fix anterior
           const profetaLiberado = Math.round(profetaTotal * ratioCobrado);
           
+                 const esVieja = cicloCorte > 0 && (v.timestamp || 0) < cicloCorte;
           let estiloFila = '';
           let icono = '✅';
           
           if (esParcial) {
              estiloFila = 'border-left: 3px solid #ef4444; background: #fef2f2;'; 
              icono = '🔴 (pago parcial)';
-          } else if (estaPagada) {
-              const esVieja = cicloCorte > 0 && (v.timestamp || 0) < cicloCorte;
-              if (esVieja) {
-                 estiloFila = 'border-left: 3px solid #10b981; background: #f0fdf4;';
-                 icono = '🟢 (cobrado en ciclo nuevo)';
-              }
+          } else if (esVieja) {
+             estiloFila = 'opacity: 0.5; filter: grayscale(80%);';
           }
           
           return `
