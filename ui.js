@@ -187,6 +187,24 @@ function registrarVentaLocal() {
     return;
   }
   
+  // ===== VALIDACIÓN DE STOCK DE LATAS =====
+  if (totalLatas > 0) {
+    const usuarioActual = state.usuarios[state.usuarioActivo];
+    for (const [estilo, cant] of Object.entries(state.ventaActual)) {
+      const c = Number(cant) || 0;
+      if (c > 0) {
+        const stockDisponible = state.tipoLata === 'sinEtiqueta' 
+          ? (usuarioActual.stockSinEtiqueta?.[estilo] || 0) 
+          : (usuarioActual.stock[estilo] || 0);
+        
+        if (c > stockDisponible) {
+          alert(`⚠️ No hay suficiente stock de ${estilo} (${state.tipoLata === 'sinEtiqueta' ? 'Sin Etiqueta' : 'Con Etiqueta'}).\n\nDisponible: ${stockDisponible}\nIngresado: ${c}`);
+          return; // Bloquea la venta
+        }
+      }
+    }
+  }
+  
   const preview = calcularPreview();
   const totalCobrado = Number(state.totalCobradoInput) || 0;
 
