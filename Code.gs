@@ -8,7 +8,7 @@
 // ---------- CONFIG ----------
 const USUARIOS = ["Julian", "Matias", "Lucas"];
 const ESTILOS = ["BLONDE", "IRISH RED", "STOUT", "SESSION IPA", "RED IPA", "HONEY"];
-const ESTILOS_BARRIL = ["VACIO", "HONEY", "RED IRISH", "RED HONEY", "STOUT", "HAZELNUT STOUT", "SESSION IPA", "RED IPA", "APA", "JAMESON ALE", "SCOTH MALT", "JAMESON IPA", "AMERICAN IPA", "NEIPA", "GIN TONIC", "VERMOUTH"];
+const ESTILOS_BARRIL = ["VACIO","BLONDE", "HONEY", "IRISH RED", "RED HONEY", "STOUT", "HAZELNUT STOUT", "SESSION IPA", "RED IPA", "APA", "JAMESON ALE", "SCOTH MALT", "JAMESON IPA", "AMERICAN IPA", "NEIPA", "GIN TONIC", "VERMOUTH"];
 
 const SH_STOCK        = "StockUsuarios";
 const SH_VENTAS       = "Ventas";
@@ -24,6 +24,7 @@ const SH_AUDITORIA    = "Auditoria";
 const SH_CONFIG       = "Configuracion";
 
 // ---------- SETUP ----------
+// ---------- SETUP ----------
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -37,11 +38,15 @@ function setup() {
   crearSheetSiNoExiste(ss, SH_CLIENTES, ["Nombre", "Deuda", "Pagado"]);
   crearSheetSiNoExiste(ss, SH_CLIENTES_ARCHIVO, ["Nombre", "Deuda", "Pagado", "ArchivadoFecha", "Nota"]);
 
-  crearSheetSiNoExiste(ss, SH_PAGOS, ["Fecha", "Cliente", "Monto", "Metodo"]);
+  crearSheetSiNoExiste(ss, SH_PAGOS, ["Fecha", "Cliente", "Monto", "Metodo", "Timestamp"]);
+  agregarColumnaSiNoExiste(getSheet(SH_PAGOS), "Timestamp");
+  
   crearSheetSiNoExiste(ss, SH_HIST_STOCK, ["Fecha", "Usuario", "Estilos", "Tipo"]);
   crearSheetSiNoExiste(ss, SH_TRANSFER, ["Fecha", "Desde", "Hacia", "Estilos", "Tipo"]);
-   const gastosSheet = crearSheetSiNoExiste(ss, SH_GASTOS, ["IdFila", "Item", "Monto", "Obs", "Fecha", "Timestamp"]);
+  
+  const gastosSheet = crearSheetSiNoExiste(ss, SH_GASTOS, ["IdFila", "Item", "Monto", "Obs", "Fecha", "Timestamp"]);
   agregarColumnaSiNoExiste(gastosSheet, "Timestamp");
+  
   crearSheetSiNoExiste(ss, SH_BARRILES, [
     "Id", "Cliente", "Tipo", "Tamano", "Serie", "Deposito", "Observaciones",
     "Estado", "FechaPrestamo", "FechaDevolucion", "Timestamp"
@@ -63,11 +68,17 @@ function setup() {
     confSheet.appendRow(["precioMayoristaLupulada", 2500]);
     confSheet.appendRow(["precioSixPack", 3250]);
     confSheet.appendRow(["precioDocePack", 3000]);
-
-    ESTILOS_BARRIL.forEach(e => {
-      if (e !== "VACIO") confSheet.appendRow(["costoLitro_" + e, 1600]); 
-    });
   }
+
+  // Lógica blindada para agregar costos de barriles que falten (como BLONDE)
+  const confObjs = filaAObjetos(confSheet);
+  ESTILOS_BARRIL.forEach(e => {
+    if (e !== "VACIO") {
+      const clave = "costoLitro_" + e;
+      const existeClave = confObjs.some(r => r.Clave === clave);
+      if (!existeClave) confSheet.appendRow([clave, 1600]); 
+    }
+  });
 
   const stockSheet = ss.getSheetByName(SH_STOCK);
   const stockObjs = filaAObjetos(stockSheet);
@@ -314,35 +325,59 @@ function accionSyncGeneral() {
   });
 
   let efectivo = 0, transferencia = 0, paraProfeta = 0;
-  
-  // Contar Ventas
+
+  // 1. Agrupar ventas por cliente (todas, sin importar el ciclo) para saber el ratio del Profeta
+  const ventasPorCliente = {};
   ventasObjs.forEach(function (v) {
-    if (cicloFechaCorte > 0 && (Number(v.Timestamp) || 0) < cicloFechaCorte) return;
+    const cliente = String(v.Cliente || "Consumidor Final").toLowerCase().trim();
+    if (!ventasPorCliente[cliente]) ventasPorCliente[cliente] = { totalCobrado: 0, totalParaProfeta: 0 };
     
-    const monto = limpiarMonto(v.TotalCobrado);
-    const metodo = String(v.MetodoPago || "").toLowerCase().trim();
+    const tc = limpiarMonto(v.TotalCobrado);
+    const pp = limpiarMonto(v.ParaProfeta);
     const costo = limpiarMonto(v.Costo);
     const com = limpiarMonto(v.Comision);
-    const pp = limpiarMonto(v.ParaProfeta);
-    const paraProfetaVenta = (pp === 0 && (costo > 0 || com > 0)) ? costo + com : pp;
+    const valParaProfeta = (pp === 0 && (costo > 0 || com > 0)) ? costo + com : pp;
     
-    if (metodo) {
-      if (metodo === "transferencia") transferencia += monto;
-      else efectivo += monto;
-      paraProfeta += paraProfetaVenta;
-    } else {
-      const nombreCliente = String(v.Cliente || "").toLowerCase().trim();
-      const ratio = ratioPagoPorCliente[nombreCliente] != null ? ratioPagoPorCliente[nombreCliente] : 0;
-      paraProfeta += paraProfetaVenta * ratio;
-    }
+    ventasPorCliente[cliente].totalCobrado += tc;
+    ventasPorCliente[cliente].totalParaProfeta += valParaProfeta;
   });
-  
- // Sumar Pagos sueltos (Cobros a deudores del ciclo actual)
+
+  // 2. Procesar Pagos de este ciclo (Cobros a deudores)
   pagosObjs.forEach(function (p) {
-    if (cicloFechaCorte > 0 && parsearFechaPago(p.Fecha) < cicloFechaCorte) return;
+    if (cicloFechaCorte > 0 && (Number(p.Timestamp) || 0) < cicloFechaCorte) return;
+    
     const monto = limpiarMonto(p.Monto);
+    const cliente = String(p.Cliente || "Consumidor Final").toLowerCase().trim();
+    
+    // Sumar dinero físico a la caja del ciclo actual
     if (String(p.Metodo).toLowerCase() === "transferencia") transferencia += monto;
     else efectivo += monto;
+    
+    // Sumar parte del Profeta (prorrateada) basándose en la deuda total del cliente
+    const dataCliente = ventasPorCliente[cliente];
+    if (dataCliente && dataCliente.totalCobrado > 0) {
+      const ratio = dataCliente.totalParaProfeta / dataCliente.totalCobrado;
+      paraProfeta += monto * ratio;
+    }
+  });
+
+  // 3. Sumar Ventas 100% cobradas en este ciclo (ventas directas que no pasaron por deudores)
+  ventasObjs.forEach(function (v) {
+    const ts = Number(v.Timestamp) || 0;
+    const met = String(v.MetodoPago || "").trim();
+    
+    // Si la venta se creó y pagó en este ciclo
+    if (ts >= cicloFechaCorte && met !== "") {
+      const monto = limpiarMonto(v.TotalCobrado);
+      const pp = limpiarMonto(v.ParaProfeta);
+      const costo = limpiarMonto(v.Costo);
+      const com = limpiarMonto(v.Comision);
+      const paraProfetaVenta = (pp === 0 && (costo > 0 || com > 0)) ? costo + com : pp;
+      
+      if (met === "transferencia") transferencia += monto;
+      else efectivo += monto;
+      paraProfeta += paraProfetaVenta;
+    }
   });
   
   paraProfeta = Math.round(paraProfeta + profetaInicialCiclo);
@@ -502,7 +537,7 @@ function accionRegistrarPago(d) {
   const s=getSheet(SH_PAGOS); 
   const m=Number(d.monto)||0; 
   const met=String(d.metodo||d.metodoPago||"efectivo").toLowerCase(); 
-  s.appendRow([d.fecha||ahora(), d.cliente||"", m, met]); 
+  s.appendRow([d.fecha||ahora(), d.cliente||"", m, met, d.timestamp || Date.now()]); // <--- Agregado timestamp
   if(d.cliente) upsertDeudaCliente(d.cliente,0,m); 
 }
 
@@ -740,10 +775,66 @@ function accionActualizarMetodoPagoVentas(data) {
     
     for (let i = 0; i < objs.length; i++) {
       const row = objs[i];
-      if (String(row.Cliente || "").toLowerCase().trim() === cliente && Number(row.Timestamp) === timestamp) {
+      
+      // Blindamos la lectura del Timestamp por si Google Sheets lo guardó como Fecha
+      let sheetTs = row.Timestamp;
+      if (sheetTs instanceof Date) {
+        sheetTs = sheetTs.getTime();
+      } else {
+        sheetTs = Number(sheetTs) || 0;
+      }
+      
+      if (String(row.Cliente || "").toLowerCase().trim() === cliente && sheetTs === timestamp) {
         ventasSheet.getRange(row.__row, 12).setValue(metodo); // Columna 12 = MetodoPago
         break;
       }
     }
   });
+}
+
+// ===== MANTENIMIENTO: RELLENAR TIMESTAMPS FALTANTES =====
+function rellenarTimestampsFaltantes() {
+  const sheet = getSheet(SH_VENTAS);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const colFecha = headers.indexOf("Fecha");
+  const colTs = headers.indexOf("Timestamp");
+  
+  if (colFecha === -1 || colTs === -1) {
+    SpreadsheetApp.getUi().alert("No se encuentran las columnas 'Fecha' o 'Timestamp'.");
+    return;
+  }
+  
+  let actualizadas = 0;
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    let ts = row[colTs];
+    
+    // Si el timestamp está vacío, es 0, o es una fecha que Sheets convirtió
+    if (!ts || ts === 0 || ts === "" || ts instanceof Date) {
+      const fechaStr = row[colFecha];
+      if (fechaStr) {
+        let parts = String(fechaStr).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ ,]+(\d{1,2}):(\d{2})/);
+        let dateObj;
+        
+        if (parts) {
+          // Si tiene fecha y hora
+          dateObj = new Date(parts[3], parts[2]-1, parts[1], parts[4], parts[5]);
+        } else {
+          let parts2 = String(fechaStr).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+          if (parts2) {
+            // Si solo tiene fecha (asume 00:00)
+            dateObj = new Date(parts2[3], parts2[2]-1, parts2[1]);
+          }
+        }
+        
+        if (dateObj) {
+          // Lo guardamos como TEXTO para que Sheets no lo vuelva a convertir en Fecha
+          sheet.getRange(i+1, colTs+1).setValue(String(dateObj.getTime()));
+          actualizadas++;
+        }
+      }
+    }
+  }
+  SpreadsheetApp.getUi().alert("Migración terminada. Se actualizaron " + actualizadas + " ventas con Timestamp faltante.");
 }
