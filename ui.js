@@ -28,6 +28,7 @@ let state = {
   tipoLata: "conEtiqueta",
   precioUnitario: "",
   modoPrecioActivo: null,
+  costoAsociado: "",
   transferDesde: "Julian",
   transferHacia: "Matias",
   transferEstilo: "BLONDE",
@@ -69,17 +70,11 @@ function calcularPreview() {
 
   let costoTotalLatas = 0;
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  
   Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
     const c = Number(cant) || 0;
     if (c > 0) {
       const esLupulada = estilosLupulados.includes(estilo);
-      let costoUnitario = 0;
-      if (state.tipoLata === "sinEtiqueta") {
-        costoUnitario = esLupulada ? costoSinEtiqLup : costoSinEtiqNormal;
-      } else {
-        costoUnitario = esLupulada ? costoConEtiqLup : costoConEtiqNormal;
-      }
+      let costoUnitario = state.tipoLata === "sinEtiqueta" ? (esLupulada ? costoSinEtiqLup : costoSinEtiqNormal) : (esLupulada ? costoConEtiqLup : costoConEtiqNormal);
       costoTotalLatas += c * costoUnitario;
     }
   });
@@ -91,33 +86,21 @@ function calcularPreview() {
     costoTotalBarriles += litros * costoLitro;
   });
 
-  let paraProfetaServicios = 0;
-  let comisionVendedoresServicios = 0;
-  let sumServicios = 0;
-  
+  let paraProfetaServicios = 0, comisionVendedoresServicios = 0, sumServicios = 0;
   (state.serviciosActuales || []).forEach(s => {
-    const montoTotal = Number(s.montoTotal) || 0;
-    sumServicios += montoTotal;
-    // Sumamos el slot de Profeta al total del Profeta
+    sumServicios += Number(s.montoTotal) || 0;
     paraProfetaServicios += Number(s.montoProfeta) || 0;
-    // Sumamos los slots de los vendedores a la comisión total
     comisionVendedoresServicios += (Number(s.montoJulian) || 0) + (Number(s.montoMatias) || 0) + (Number(s.montoLucas) || 0);
   });
 
-  const costoTotal = costoTotalLatas + costoTotalBarriles;
+  const costoAsociado = Number(state.costoAsociado) || 0;
+  const costoTotal = costoTotalLatas + costoTotalBarriles + costoAsociado;
   const totalCobrado = Number(state.totalCobradoInput) || 0;
   const totalCobradoSinServicios = totalCobrado - sumServicios;
-  
-  // Ganancia de latas/barriles
   const gananciaBruta = totalCobradoSinServicios > costoTotal ? totalCobradoSinServicios - costoTotal : 0;
   const comisionLatas = gananciaBruta * 0.5;
-  
-  // Comisión total = Comisión latas/barriles + Servicios de vendedores
   const comision = comisionLatas + comisionVendedoresServicios;
-  
-  // Para Profeta = Costo + Comisión latas/barriles + Servicios de Profeta
   const paraProfeta = costoTotal + comisionLatas + paraProfetaServicios;
-  
   return { costoTotal, comision, paraProfeta, totalLatas, gananciaBruta, costoTotalBarriles, costoTotalLatas, paraProfetaServicios };
 }
 
@@ -269,6 +252,7 @@ function registrarVentaLocal() {
   state.totalCobradoInput = "";
   state.precioUnitario = "";
   state.modoPrecioActivo = null;
+  state.costoAsociado = "";
 
   registrarAuditoria("VENTA", state.usuarioActivo, cliente,
     Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
@@ -1113,10 +1097,31 @@ function renderPanelUsuario() {
               </div>
             `).join("")}
           </div>
-          <button onclick="aplicarDescuento()" style="width:100%; margin-top:5px; background:#f59e0b; color:white; padding:8px; border-radius:6px; font-size:0.85em; cursor:pointer;">% Aplicar Descuento</button>
+                   <button onclick="aplicarDescuento()" style="width:100%; margin-top:5px; background:#f59e0b; color:white; padding:8px; border-radius:6px; font-size:0.85em; cursor:pointer;">% Aplicar Descuento</button>
+        </div>
+
+        <!-- NUEVO: COSTOS ASOCIADOS -->
+        <div style="margin-top:10px; background:#e0f2fe; border:1px solid #0284c7; border-radius:6px; padding:8px;">
+          <label style="font-size:0.8em; color:#075985; display:block; margin-bottom:4px; font-weight:600;">🛠️ Costos asociados (se suma al costo)</label>
+          <input type="number" id="costo-asociado-input" value="${state.costoAsociado || ""}" placeholder="Ej: 500" style="width:100%; box-sizing:border-box; padding:6px; border-radius:4px; border:1px solid #0284c7;">
         </div>
 
         <div style="background:#fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-top: 10px;">
+          <h4 style="margin: 0 0 8px 0; color: #92400e;">📊 Vista Previa Profeta</h4>
+          <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
+            <span style="color:#78350f;">Costo Total (Latas + Barriles + Asoc.):</span>
+            <b style="color:#92400e;" id="preview-costo-total">$${preview.costoTotal.toLocaleString('es-AR')}</b>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
+            <span style="color:#78350f;">Comisión (50%):</span>
+            <b style="color:${preview.comision > 0 ? '#059669' : '#92400e'};" id="preview-comision"> ${preview.comision > 0 ? '$' + preview.comision.toLocaleString('es-AR') : '— (ingresá precio)'} </b>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f59e0b;">
+            <span style="color:#78350f; font-weight:bold;">Total a Rendir:</span>
+            <b style="color:#b45309; font-size:1.1em;" id="preview-total-rendir">$${preview.paraProfeta.toLocaleString('es-AR')}</b>
+          </div>
+          ${preview.gananciaBruta > 0 ? `<div style="margin-top:6px; font-size:0.8em; color:#78350f; text-align:right;" id="preview-ganancia">Ganancia bruta: $${preview.gananciaBruta.toLocaleString('es-AR')}</div>` : ''}
+        </div>
           <h4 style="margin: 0 0 8px 0; color: #92400e;">📊 Vista Previa Profeta</h4>
           <div style="display:flex; justify-content:space-between; margin: 4px 0; font-size:0.9em;">
             <span style="color:#78350f;">Costo Total (Latas + Barriles):</span>
@@ -1294,6 +1299,28 @@ function bindPanelEventos() {
       if (bloqueAutomatico) bloqueAutomatico.style.display = hayTexto ? 'none' : 'block';
     };
   }
+
+  const costoAsocInput = document.getElementById("costo-asociado-input");
+  if (costoAsocInput) {
+    costoAsocInput.addEventListener("input", () => {
+      state.costoAsociado = costoAsocInput.value;
+      const prev = calcularPreview();
+      const costoEl = document.getElementById("preview-costo-total");
+      if (costoEl) costoEl.textContent = `$${prev.costoTotal.toLocaleString('es-AR')}`;
+      const comisionEl = document.getElementById("preview-comision");
+      if (comisionEl) comisionEl.innerHTML = prev.comision > 0 ? ` $${prev.comision.toLocaleString('es-AR')} ` : ' — (ingresá precio) ';
+      const rendirEl = document.getElementById("preview-total-rendir");
+      if (rendirEl) rendirEl.textContent = `$${prev.paraProfeta.toLocaleString('es-AR')}`;
+      const gananciaEl = document.getElementById("preview-ganancia");
+      if (gananciaEl && prev.gananciaBruta > 0) {
+          gananciaEl.textContent = `Ganancia bruta: $${prev.gananciaBruta.toLocaleString('es-AR')}`;
+      } else if (gananciaEl) {
+          gananciaEl.style.display = 'none';
+      }
+    });
+  }
+
+  const btnRegistrar = document.getElementById("btn-registrar");
   
 const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
