@@ -1078,8 +1078,26 @@ function renderPanelUsuario() {
       <h3>📜 Historial de Ventas</h3>
       <div><button id="btn-guardar" style="background:#059669;">💾 Guardar en Sheet</button></div>
     </div>
-    <div id="historial-lista" style="margin-top: 15px;">
-      ${usuario.ventas.length === 0 ? '<p>No hay ventas registradas</p>' : [...usuario.ventas].reverse().map((v, i) => `
+      <div id="historial-lista" style="margin-top: 15px;">
+      ${usuario.ventas.length === 0 ? '<p>No hay ventas registradas</p>' : [...usuario.ventas].reverse().map((v, i) => {
+          const latasHtml = Object.entries(v.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', ');
+          const barrilesHtml = (v.barriles && v.barriles.length > 0) 
+            ? v.barriles.map(b => `1x Barril ${b.tipo} ${b.tamano}`).join(', ') 
+            : '';
+          
+          const serviciosHtml = (v.servicios && v.servicios.length > 0)
+            ? v.servicios.map(s => {
+                const partes = [];
+                if (Number(s.montoJulian) > 0) partes.push(`Julian $${Number(s.montoJulian).toLocaleString('es-AR')}`);
+                if (Number(s.montoMatias) > 0) partes.push(`Matias $${Number(s.montoMatias).toLocaleString('es-AR')}`);
+                if (Number(s.montoLucas) > 0) partes.push(`Lucas $${Number(s.montoLucas).toLocaleString('es-AR')}`);
+                if (Number(s.montoProfeta) > 0) partes.push(`Profeta $${Number(s.montoProfeta).toLocaleString('es-AR')}`);
+                const detalle = partes.length > 0 ? ` → ${partes.join(', ')}` : '';
+                return `🧰 ${s.descripcion}: $${(s.montoTotal||0).toLocaleString('es-AR')}${detalle}`;
+              }).join('<br>')
+            : '';
+
+          return `
       <div style="border-bottom:1px solid #eee; padding:10px 0; font-size: 0.9em;">
         <div class="flex space-between" style="align-items: flex-start;">
           <div style="flex:1;">
@@ -1088,8 +1106,10 @@ function renderPanelUsuario() {
               <small>📅 ${v.fecha || ''}</small>
             </div>
             <div style="color: #666; margin: 4px 0;">
-              ${Object.entries(v.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(", ") || '—'}
-              <b style="color:#1e40af;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0),0)} latas)</b>
+              ${latasHtml || '—'}
+              ${barrilesHtml ? `<span style="color:#7c3aed; font-weight:600; margin-left:6px;">🍺 ${barrilesHtml}</span>` : ''}
+              ${latasHtml ? `<b style="color:#1e40af; margin-left:6px;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0),0)} latas)</b>` : ''}
+              ${serviciosHtml ? `<div style="color:#059669; margin-top:3px;">${serviciosHtml}</div>` : ''}
               <span style="margin-left:6px; padding:1px 8px; border-radius:10px; font-size:0.82em; font-weight:600; background:${v.tipoLata === 'sinEtiqueta' ? '#dbeafe' : '#fef9c3'}; color:${v.tipoLata === 'sinEtiqueta' ? '#1e40af' : '#92400e'};">
                 ${v.tipoLata === 'sinEtiqueta' ? '📦 Sin etiqueta' : '🏷️ Con etiqueta'}
               </span>
@@ -1102,7 +1122,8 @@ function renderPanelUsuario() {
           </div>
           <button onclick="borrarVentaIndividual(${usuario.ventas.length - 1 - i})" title="Borrar esta venta" style="margin-left:12px; background:#ef4444; padding:4px 10px; font-size:0.85em; border-radius:6px; flex-shrink:0; cursor:pointer;">🗑️</button>
         </div>
-      </div>`).join("")}
+      </div>`;
+      }).join("")}
     </div>
   </div>`;
   
