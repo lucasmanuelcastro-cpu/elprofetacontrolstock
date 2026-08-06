@@ -34,6 +34,7 @@ function setup() {
     "ParaProfeta", "Comision", "Costo", "Ganancia", "Barriles", "MetodoPago", "Timestamp"
   ]);
   agregarColumnaSiNoExiste(getSheet(SH_VENTAS), "Servicios");
+   agregarColumnaSiNoExiste(getSheet(SH_VENTAS), "CostosAsociados")
 
   crearSheetSiNoExiste(ss, SH_CLIENTES, ["Nombre", "Deuda", "Pagado"]);
   crearSheetSiNoExiste(ss, SH_CLIENTES_ARCHIVO, ["Nombre", "Deuda", "Pagado", "ArchivadoFecha", "Nota"]);
@@ -289,7 +290,8 @@ function accionSyncGeneral() {
             vendedor: v.Vendedor,
             timestamp: v.Timestamp || 0,
             barriles: jsonSeguro(v.Barriles, []),
-            servicios: jsonSeguro(v.Servicios, [])
+            servicios: jsonSeguro(v.Servicios, []),
+            costosAsociados: jsonSeguro(v.CostosAsociados, [])
           };
         })
     };
@@ -481,7 +483,8 @@ s.appendRow([
     JSON.stringify(v.barriles || []), 
     v.metodoPago||"", 
     v.timestamp || Date.now(),
-    JSON.stringify(v.servicios || [])
+    JSON.stringify(v.servicios || []),
+    JSON.stringify(v.costosAsociados || [])
   ]);
   const nc=String(v.cliente||"").trim(); 
   if(nc&&nc.toLowerCase()!="consumidor final"){ 
