@@ -29,6 +29,7 @@ let state = {
   precioUnitario: "",
   modoPrecioActivo: null,
   costoAsociado: "",
+  descCostoAsociado: "",
   transferDesde: "Julian",
   transferHacia: "Matias",
   transferEstilo: "BLONDE",
@@ -197,6 +198,8 @@ function registrarVentaLocal() {
     alquilerBarril: state.alquilerBarril || "",
     barriles: state.ventaActualBarriles || [],
     servicios: state.serviciosActuales || [],
+    costoAsociado: state.costoAsociado || 0, // <--- AGREGAR
+    descCostoAsociado: state.descCostoAsociado || "", // <--- AGREGAR
     tipoLata: state.tipoLata,
     estado: "PENDIENTE",
     metodoPago: "",
@@ -253,6 +256,7 @@ function registrarVentaLocal() {
   state.precioUnitario = "";
   state.modoPrecioActivo = null;
   state.costoAsociado = "";
+  state.descCostoAsociado = ""; // <--- AGREGAR
 
   registrarAuditoria("VENTA", state.usuarioActivo, cliente,
     Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
@@ -737,6 +741,10 @@ function renderVentasGeneral() {
                 return `🧰 ${s.descripcion}: $${(s.montoTotal||0).toLocaleString('es-AR')}${detalle}`;
               }).join('<br>')
             : '';
+           // NUEVO: HTML para costo asociado
+          const costoAsocHtml = Number(v.costoAsociado) > 0 
+            ? `<div style="color:#0284c7; margin-top:3px;">🛠️ Costo Asoc: ${v.descCostoAsociado || 'Sin detalle'} ($${Number(v.costoAsociado).toLocaleString('es-AR')})</div>` 
+            : '';
 
           const norm = (s) => String(s || "").toLowerCase().trim();
           const clienteObj = state.clientesGlobales.find(c => norm(c.nombre) === norm(v.cliente));
@@ -783,6 +791,7 @@ function renderVentasGeneral() {
               ${barrilesHtml ? `<span style="color:#7c3aed; font-weight:600; margin-left:6px;">🍺 ${barrilesHtml}</span>` : ''}
               ${latasHtml ? `<b style="color:#1e40af; margin-left:6px;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0), 0)} latas)</b>` : ''}
               ${serviciosHtml ? `<div style="color:#059669; margin-top:3px;">${serviciosHtml}</div>` : ''}
+               ${costoAsocHtml}
               <span style="margin-left:6px; padding:1px 8px; border-radius:10px; font-size:0.82em; font-weight:600; background:${v.tipoLata === 'sinEtiqueta' ? '#dbeafe' : '#fef9c3'}; color:${v.tipoLata === 'sinEtiqueta' ? '#1e40af' : '#92400e'};">
                 ${v.tipoLata === 'sinEtiqueta' ? '📦 Sin etiqueta' : '🏷️ Con etiqueta'}
               </span>
@@ -1099,11 +1108,10 @@ function renderPanelUsuario() {
           </div>
                    <button onclick="aplicarDescuento()" style="width:100%; margin-top:5px; background:#f59e0b; color:white; padding:8px; border-radius:6px; font-size:0.85em; cursor:pointer;">% Aplicar Descuento</button>
         </div>
-
-              <!-- NUEVO: COSTOS ASOCIADOS -->
+        <!-- NUEVO: COSTOS ASOCIADOS -->
         <div style="margin-top:10px; background:#e0f2fe; border:1px solid #0284c7; border-radius:6px; padding:8px;">
-          <label style="font-size:0.8em; color:#075985; display:block; margin-bottom:4px; font-weight:600;">🛠️ Costos asociados (se suma al costo)</label>
-          <input type="number" id="costo-asociado-input" value="${state.costoAsociado || ""}" placeholder="Ej: 500" style="width:100%; box-sizing:border-box; padding:6px; border-radius:4px; border:1px solid #0284c7;">
+          <input type="text" id="desc-costo-asociado" value="${state.descCostoAsociado || ""}" placeholder="Detalle del costo (Ej: Flete)" style="width:100%; box-sizing:border-box; padding:6px; border-radius:4px; border:1px solid #0284c7; margin-bottom:4px;">
+          <input type="number" id="costo-asociado-input" value="${state.costoAsociado || ""}" placeholder="Monto del costo $" style="width:100%; box-sizing:border-box; padding:6px; border-radius:4px; border:1px solid #0284c7;">
         </div>
 
         <div style="background:#fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-top: 10px;">
@@ -1149,6 +1157,10 @@ function renderPanelUsuario() {
                 return `🧰 ${s.descripcion}: $${(s.montoTotal||0).toLocaleString('es-AR')}${detalle}`;
               }).join('<br>')
             : '';
+         // NUEVO: HTML para costo asociado
+          const costoAsocHtml = Number(v.costoAsociado) > 0 
+            ? `<div style="color:#0284c7; margin-top:3px;">🛠️ Costo Asoc: ${v.descCostoAsociado || 'Sin detalle'} ($${Number(v.costoAsociado).toLocaleString('es-AR')})</div>` 
+            : '';
 
           return `
       <div style="border-bottom:1px solid #eee; padding:10px 0; font-size: 0.9em;">
@@ -1163,6 +1175,7 @@ function renderPanelUsuario() {
               ${barrilesHtml ? `<span style="color:#7c3aed; font-weight:600; margin-left:6px;">🍺 ${barrilesHtml}</span>` : ''}
               ${latasHtml ? `<b style="color:#1e40af; margin-left:6px;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0),0)} latas)</b>` : ''}
               ${serviciosHtml ? `<div style="color:#059669; margin-top:3px;">${serviciosHtml}</div>` : ''}
+              ${costoAsocHtml}
               <span style="margin-left:6px; padding:1px 8px; border-radius:10px; font-size:0.82em; font-weight:600; background:${v.tipoLata === 'sinEtiqueta' ? '#dbeafe' : '#fef9c3'}; color:${v.tipoLata === 'sinEtiqueta' ? '#1e40af' : '#92400e'};">
                 ${v.tipoLata === 'sinEtiqueta' ? '📦 Sin etiqueta' : '🏷️ Con etiqueta'}
               </span>
@@ -1283,6 +1296,13 @@ function bindPanelEventos() {
       const hayTexto = e.target.value.trim() !== '';
       if (bloqueAutomatico) bloqueAutomatico.style.display = hayTexto ? 'none' : 'block';
     };
+  }
+
+   const descCostoAsocInput = document.getElementById("desc-costo-asociado");
+  if (descCostoAsocInput) {
+    descCostoAsocInput.addEventListener("input", () => {
+      state.descCostoAsociado = descCostoAsocInput.value;
+    });
   }
 
   const costoAsocInput = document.getElementById("costo-asociado-input");
