@@ -1315,7 +1315,6 @@ function bindPanelEventos() {
     };
   }
 
-  
   const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
     // Si el precio no está en la memoria, lo tomamos del cuadrito de la pantalla
@@ -1324,11 +1323,26 @@ function bindPanelEventos() {
       if (inputPrecio) state.precioUnitario = inputPrecio.value;
     }
     
+    // Calculamos el total de las latas
     const precio = Number(state.precioUnitario) || 0;
     const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-    if (precio > 0 && totalLatas > 0) {
-      state.totalCobradoInput = String(totalLatas * precio);
+    const totalLatasPrecio = precio > 0 && totalLatas > 0 ? totalLatas * precio : 0;
+    
+    // Sumamos el precio de los barriles
+    let totalBarriles = 0;
+    (state.ventaActualBarriles || []).forEach(b => totalBarriles += Number(b.precioVenta) || 0);
+    
+    // Sumamos el precio de los servicios
+    let totalServicios = 0;
+    (state.serviciosActuales || []).forEach(s => totalServicios += Number(s.montoTotal) || 0);
+    
+    // El total a cobrar es la suma de TODO
+    const totalCalculado = totalLatasPrecio + totalBarriles + totalServicios;
+    
+    if (totalCalculado > 0) {
+      state.totalCobradoInput = String(totalCalculado);
     }
+    
     registrarVentaLocal();
     state.precioUnitario = "";
   };
