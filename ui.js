@@ -28,8 +28,7 @@ let state = {
   tipoLata: "conEtiqueta",
   precioUnitario: "",
   modoPrecioActivo: null,
-  costoAsociado: "",
-  descCostoAsociado: "",
+  costosAsociados: [],
   transferDesde: "Julian",
   transferHacia: "Matias",
   transferEstilo: "BLONDE",
@@ -94,8 +93,11 @@ function calcularPreview() {
     comisionVendedoresServicios += (Number(s.montoJulian) || 0) + (Number(s.montoMatias) || 0) + (Number(s.montoLucas) || 0);
   });
 
-  const costoAsociado = Number(state.costoAsociado) || 0;
-  const costoTotal = costoTotalLatas + costoTotalBarriles + costoAsociado;
+  let costoAsociadoTotal = 0;
+  (state.costosAsociados || []).forEach(c => {
+    costoAsociadoTotal += Number(c.monto) || 0;
+  });
+  const costoTotal = costoTotalLatas + costoTotalBarriles + costoAsociadoTotal;
   const totalCobrado = Number(state.totalCobradoInput) || 0;
   const totalCobradoSinServicios = totalCobrado - sumServicios;
   const gananciaBruta = totalCobradoSinServicios > costoTotal ? totalCobradoSinServicios - costoTotal : 0;
@@ -198,8 +200,7 @@ function registrarVentaLocal() {
     alquilerBarril: state.alquilerBarril || "",
     barriles: state.ventaActualBarriles || [],
     servicios: state.serviciosActuales || [],
-    costoAsociado: state.costoAsociado || 0, // <--- AGREGAR
-    descCostoAsociado: state.descCostoAsociado || "", // <--- AGREGAR
+    costosAsociados: state.costosAsociados || [], // <--- CAMBIAR ESTO
     tipoLata: state.tipoLata,
     estado: "PENDIENTE",
     metodoPago: "",
@@ -255,8 +256,7 @@ function registrarVentaLocal() {
   state.totalCobradoInput = "";
   state.precioUnitario = "";
   state.modoPrecioActivo = null;
-  state.costoAsociado = "";
-  state.descCostoAsociado = ""; // <--- AGREGAR
+  state.costosAsociados = [];
 
   registrarAuditoria("VENTA", state.usuarioActivo, cliente,
     Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
@@ -742,8 +742,9 @@ function renderVentasGeneral() {
               }).join('<br>')
             : '';
            // NUEVO: HTML para costo asociado
-          const costoAsocHtml = Number(v.costoAsociado) > 0 
-            ? `<div style="color:#0284c7; margin-top:3px;">🛠️ Costo Asoc: ${v.descCostoAsociado || 'Sin detalle'} ($${Number(v.costoAsociado).toLocaleString('es-AR')})</div>` 
+                    // NUEVO: HTML para costos asociados (ahora es una lista)
+          const costosAsocHtml = (v.costosAsociados && v.costosAsociados.length > 0)
+            ? `<div style="color:#0284c7; margin-top:3px;">🛠️ Costos Asoc: ${v.costosAsociados.map(c => `${c.descripcion} ($${Number(c.monto).toLocaleString('es-AR')})`).join(', ')}</div>`
             : '';
 
           const norm = (s) => String(s || "").toLowerCase().trim();
@@ -791,7 +792,7 @@ function renderVentasGeneral() {
               ${barrilesHtml ? `<span style="color:#7c3aed; font-weight:600; margin-left:6px;">🍺 ${barrilesHtml}</span>` : ''}
               ${latasHtml ? `<b style="color:#1e40af; margin-left:6px;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0), 0)} latas)</b>` : ''}
               ${serviciosHtml ? `<div style="color:#059669; margin-top:3px;">${serviciosHtml}</div>` : ''}
-               ${costoAsocHtml}
+               ${costosAsocHtml}
               <span style="margin-left:6px; padding:1px 8px; border-radius:10px; font-size:0.82em; font-weight:600; background:${v.tipoLata === 'sinEtiqueta' ? '#dbeafe' : '#fef9c3'}; color:${v.tipoLata === 'sinEtiqueta' ? '#1e40af' : '#92400e'};">
                 ${v.tipoLata === 'sinEtiqueta' ? '📦 Sin etiqueta' : '🏷️ Con etiqueta'}
               </span>
@@ -1108,10 +1109,23 @@ function renderPanelUsuario() {
           </div>
                    <button onclick="aplicarDescuento()" style="width:100%; margin-top:5px; background:#f59e0b; color:white; padding:8px; border-radius:6px; font-size:0.85em; cursor:pointer;">% Aplicar Descuento</button>
         </div>
-        <!-- NUEVO: COSTOS ASOCIADOS -->
+        
+                <!-- NUEVO: COSTOS ASOCIADOS -->
         <div style="margin-top:10px; background:#e0f2fe; border:1px solid #0284c7; border-radius:6px; padding:8px;">
-          <input type="text" id="desc-costo-asociado" value="${state.descCostoAsociado || ""}" placeholder="Detalle del costo " style="width:100%; box-sizing:border-box; padding:6px; border-radius:4px; border:1px solid #0284c7; margin-bottom:4px;">
-          <input type="number" id="costo-asociado-input" value="${state.costoAsociado || ""}" placeholder="Monto del costo $" style="width:100%; box-sizing:border-box; padding:6px; border-radius:4px; border:1px solid #0284c7;">
+          <h4 style="margin:0 0 8px 0; color:#075985;">🛠️ Costos Asociados (se suman al costo)</h4>
+          <input type="text" id="costo-asoc-desc" placeholder="Detalle (Ej: Flete)" style="width:100%; box-sizing:border-box; padding:6px; border-radius:4px; border:1px solid #0284c7; margin-bottom:4px;">
+          <div style="display:flex; gap:6px;">
+            <input type="number" id="costo-asoc-monto" placeholder="Monto $" style="flex:1; padding:6px; border-radius:4px; border:1px solid #0284c7;">
+            <button onclick="agregarCostoAsociado()" style="background:#0284c7; color:white; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">➕</button>
+          </div>
+          <div id="lista-costos-asoc" style="margin-top:6px; font-size:0.85em; color:#0c4a6e;">
+            ${(state.costosAsociados || []).map((c, i) => `
+              <div style="display:flex; justify-content:space-between; background:#bae6fd; padding:4px 8px; border-radius:4px; margin-bottom:4px;">
+                <span>${c.descripcion}: $${(c.monto||0).toLocaleString('es-AR')}</span>
+                <button onclick="quitarCostoAsociado(${i})" style="background:#ef4444; color:white; border:none; border-radius:4px; padding:2px 6px; cursor:pointer;">X</button>
+              </div>
+            `).join("")}
+                   </div>
         </div>
 
         <div style="background:#fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-top: 10px;">
@@ -1133,6 +1147,7 @@ function renderPanelUsuario() {
         <button id="btn-registrar" style="width:100%; margin-top:10px; background:#1e40af;"> ✅ Registrar Venta </button>
       </div>
     </div>
+  
     
     <hr>
     <div class="flex space-between">
@@ -1157,9 +1172,10 @@ function renderPanelUsuario() {
                 return `🧰 ${s.descripcion}: $${(s.montoTotal||0).toLocaleString('es-AR')}${detalle}`;
               }).join('<br>')
             : '';
-         // NUEVO: HTML para costo asociado
-          const costoAsocHtml = Number(v.costoAsociado) > 0 
-            ? `<div style="color:#0284c7; margin-top:3px;">🛠️ Costo Asoc: ${v.descCostoAsociado || 'Sin detalle'} ($${Number(v.costoAsociado).toLocaleString('es-AR')})</div>` 
+        
+          // NUEVO: HTML para costos asociados (ahora es una lista)
+          const costosAsocHtml = (v.costosAsociados && v.costosAsociados.length > 0)
+            ? `<div style="color:#0284c7; margin-top:3px;">🛠️ Costos Asoc: ${v.costosAsociados.map(c => `${c.descripcion} ($${Number(c.monto).toLocaleString('es-AR')})`).join(', ')}</div>`
             : '';
 
           return `
@@ -1175,7 +1191,7 @@ function renderPanelUsuario() {
               ${barrilesHtml ? `<span style="color:#7c3aed; font-weight:600; margin-left:6px;">🍺 ${barrilesHtml}</span>` : ''}
               ${latasHtml ? `<b style="color:#1e40af; margin-left:6px;">(${Object.values(v.estilos || {}).reduce((a,b) => a+(Number(b)||0),0)} latas)</b>` : ''}
               ${serviciosHtml ? `<div style="color:#059669; margin-top:3px;">${serviciosHtml}</div>` : ''}
-              ${costoAsocHtml}
+             ${costosAsocHtml}
               <span style="margin-left:6px; padding:1px 8px; border-radius:10px; font-size:0.82em; font-weight:600; background:${v.tipoLata === 'sinEtiqueta' ? '#dbeafe' : '#fef9c3'}; color:${v.tipoLata === 'sinEtiqueta' ? '#1e40af' : '#92400e'};">
                 ${v.tipoLata === 'sinEtiqueta' ? '📦 Sin etiqueta' : '🏷️ Con etiqueta'}
               </span>
@@ -1298,32 +1314,6 @@ function bindPanelEventos() {
     };
   }
 
-   const descCostoAsocInput = document.getElementById("desc-costo-asociado");
-  if (descCostoAsocInput) {
-    descCostoAsocInput.addEventListener("input", () => {
-      state.descCostoAsociado = descCostoAsocInput.value;
-    });
-  }
-
-  const costoAsocInput = document.getElementById("costo-asociado-input");
-  if (costoAsocInput) {
-    costoAsocInput.addEventListener("input", () => {
-      state.costoAsociado = costoAsocInput.value;
-      const prev = calcularPreview();
-      const costoEl = document.getElementById("preview-costo-total");
-      if (costoEl) costoEl.textContent = `$${prev.costoTotal.toLocaleString('es-AR')}`;
-      const comisionEl = document.getElementById("preview-comision");
-      if (comisionEl) comisionEl.innerHTML = prev.comision > 0 ? ` $${prev.comision.toLocaleString('es-AR')} ` : ' — (ingresá precio) ';
-      const rendirEl = document.getElementById("preview-total-rendir");
-      if (rendirEl) rendirEl.textContent = `$${prev.paraProfeta.toLocaleString('es-AR')}`;
-      const gananciaEl = document.getElementById("preview-ganancia");
-      if (gananciaEl && prev.gananciaBruta > 0) {
-          gananciaEl.textContent = `Ganancia bruta: $${prev.gananciaBruta.toLocaleString('es-AR')}`;
-      } else if (gananciaEl) {
-          gananciaEl.style.display = 'none';
-      }
-    });
-  }
   
 const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
@@ -1693,6 +1683,48 @@ function quitarBarrilDeVenta(index) {
     state.totalCobradoInput = String(Math.max(0, totalActual - (barril.precioVenta || 0)));
   }
   state.ventaActualBarriles.splice(index, 1);
+  render();
+}
+
+function agregarCostoAsociado() {
+  const descInput = document.getElementById("costo-asoc-desc");
+  const montoInput = document.getElementById("costo-asoc-monto");
+  if (!descInput || !montoInput) return;
+
+  const descripcion = descInput.value.trim();
+  const monto = Number(montoInput.value);
+
+  if (!descripcion) return alert("Ingresá un detalle para el costo.");
+  if (isNaN(monto) || monto <= 0) return alert("Ingresá un monto válido mayor a 0.");
+
+  if (!state.costosAsociados) state.costosAsociados = [];
+  state.costosAsociados.push({ descripcion, monto });
+
+  // Limpiar inputs
+  descInput.value = "";
+  montoInput.value = "";
+
+  // Actualizar vista previa
+  const prev = calcularPreview();
+  const costoEl = document.getElementById("preview-costo-total");
+  if (costoEl) costoEl.textContent = `$${prev.costoTotal.toLocaleString('es-AR')}`;
+  const rendirEl = document.getElementById("preview-total-rendir");
+  if (rendirEl) rendirEl.textContent = `$${prev.paraProfeta.toLocaleString('es-AR')}`;
+
+  render();
+}
+
+function quitarCostoAsociado(index) {
+  if (!state.costosAsociados) return;
+  state.costosAsociados.splice(index, 1);
+  
+  // Actualizar vista previa
+  const prev = calcularPreview();
+  const costoEl = document.getElementById("preview-costo-total");
+  if (costoEl) costoEl.textContent = `$${prev.costoTotal.toLocaleString('es-AR')}`;
+  const rendirEl = document.getElementById("preview-total-rendir");
+  if (rendirEl) rendirEl.textContent = `$${prev.paraProfeta.toLocaleString('es-AR')}`;
+
   render();
 }
 
