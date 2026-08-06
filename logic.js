@@ -445,7 +445,8 @@ async function cargarDatosDesdeSheet() {
                 vendedor: venta.vendedor || nombre,
                cobradoReal: Number(venta.cobradoReal) || 0,
                 barriles: venta.barriles || [],
-                servicios: venta.servicios || []
+                servicios: venta.servicios || [],
+                costosAsociados: venta.costosAsociados || []
               };
             });
           }
