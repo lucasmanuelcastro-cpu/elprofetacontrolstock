@@ -3,7 +3,6 @@
  * + Alquiler de Barril + Formato de Miles (es-AR)
  * + Precios dinámicos desde Sheets + Barriles en venta
  */
-
 // ===== CONSTANTES Y ESTADO GLOBAL =====
 const estilosBase = ["BLONDE", "IRISH RED", "STOUT", "SESSION IPA", "RED IPA", "HONEY"];
 
