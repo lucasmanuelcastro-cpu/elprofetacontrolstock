@@ -266,7 +266,7 @@ function registrarVentaLocal() {
     totalCobrado);
   alert(`✅ Venta registrada correctamente para ${cliente}`);
   render();
-  
+}  
 function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
   const cantidadNueva = Number(valor) || 0;
   const usuarioObj = state.usuarios[usuario];
