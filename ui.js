@@ -1110,7 +1110,7 @@ function renderPanelUsuario() {
         </div>
         <!-- NUEVO: COSTOS ASOCIADOS -->
         <div style="margin-top:10px; background:#e0f2fe; border:1px solid #0284c7; border-radius:6px; padding:8px;">
-          <input type="text" id="desc-costo-asociado" value="${state.descCostoAsociado || ""}" placeholder="Detalle del costo (Ej: Flete)" style="width:100%; box-sizing:border-box; padding:6px; border-radius:4px; border:1px solid #0284c7; margin-bottom:4px;">
+          <input type="text" id="desc-costo-asociado" value="${state.descCostoAsociado || ""}" placeholder="Detalle del costo " style="width:100%; box-sizing:border-box; padding:6px; border-radius:4px; border:1px solid #0284c7; margin-bottom:4px;">
           <input type="number" id="costo-asociado-input" value="${state.costoAsociado || ""}" placeholder="Monto del costo $" style="width:100%; box-sizing:border-box; padding:6px; border-radius:4px; border:1px solid #0284c7;">
         </div>
 
