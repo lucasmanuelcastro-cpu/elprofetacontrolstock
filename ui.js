@@ -1317,8 +1317,19 @@ function bindPanelEventos() {
   }
 
   
-const btnRegistrar = document.getElementById("btn-registrar");
+  const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
+    // Si el precio no está en la memoria, lo tomamos del cuadrito de la pantalla
+    if (!state.precioUnitario) {
+      const inputPrecio = document.getElementById("precio-unitario");
+      if (inputPrecio) state.precioUnitario = inputPrecio.value;
+    }
+    
+    const precio = Number(state.precioUnitario) || 0;
+    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+    if (precio > 0 && totalLatas > 0) {
+      state.totalCobradoInput = String(totalLatas * precio);
+    }
     registrarVentaLocal();
     state.precioUnitario = "";
   };
