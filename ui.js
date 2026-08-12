@@ -958,9 +958,11 @@ function renderPanelUsuario() {
   const preview = calcularPreview();
   const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
   const precioSugerido = state.precioUnitario || (Number(state.configuracion?.precioMinorista) || 3500);
- const totalCobrado = state.modoPrecioActivo
-    ? (Number(state.totalCobradoInput) || 0)
-    : (totalLatas > 0 && precioSugerido ? totalLatas * Number(precioSugerido) : (Number(state.totalCobradoInput) || 0));
+  let totalCobrado = Number(state.totalCobradoInput) || 0;
+  // Si no hay un total cargado todavía, pero hay latas y un precio, lo calculamos para mostrarlo
+  if (totalCobrado === 0 && totalLatas > 0 && precioSugerido) {
+    totalCobrado = totalLatas * Number(precioSugerido);
+  }
 
 
   container.innerHTML = `<div class="panel-usuario card">
