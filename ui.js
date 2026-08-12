@@ -1317,34 +1317,32 @@ function bindPanelEventos() {
     };
   }
 
-  const btnRegistrar = document.getElementById("btn-registrar");
+ const btnRegistrar = document.getElementById("btn-registrar");
   if (btnRegistrar) btnRegistrar.onclick = () => {
-    // Si el precio no está en la memoria, lo tomamos del cuadrito de la pantalla
-    if (!state.precioUnitario) {
-      const inputPrecio = document.getElementById("precio-unitario");
-      if (inputPrecio) state.precioUnitario = inputPrecio.value;
+    // Solo recalculamos el total automático si el campo quedó vacío (nunca se tocó).
+    // Si ya tiene un valor (por ejemplo, por un descuento aplicado), lo respetamos.
+    if (!state.totalCobradoInput || Number(state.totalCobradoInput) === 0) {
+      if (!state.precioUnitario) {
+        const inputPrecio = document.getElementById("precio-unitario");
+        if (inputPrecio) state.precioUnitario = inputPrecio.value;
+      }
+
+      const precio = Number(state.precioUnitario) || 0;
+      const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+      const totalLatasPrecio = precio > 0 && totalLatas > 0 ? totalLatas * precio : 0;
+
+      let totalBarriles = 0;
+      (state.ventaActualBarriles || []).forEach(b => totalBarriles += Number(b.precioVenta) || 0);
+
+      let totalServicios = 0;
+      (state.serviciosActuales || []).forEach(s => totalServicios += Number(s.montoTotal) || 0);
+
+      const totalCalculado = totalLatasPrecio + totalBarriles + totalServicios;
+      if (totalCalculado > 0) {
+        state.totalCobradoInput = String(totalCalculado);
+      }
     }
-    
-    // Calculamos el total de las latas
-    const precio = Number(state.precioUnitario) || 0;
-    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-    const totalLatasPrecio = precio > 0 && totalLatas > 0 ? totalLatas * precio : 0;
-    
-    // Sumamos el precio de los barriles
-    let totalBarriles = 0;
-    (state.ventaActualBarriles || []).forEach(b => totalBarriles += Number(b.precioVenta) || 0);
-    
-    // Sumamos el precio de los servicios
-    let totalServicios = 0;
-    (state.serviciosActuales || []).forEach(s => totalServicios += Number(s.montoTotal) || 0);
-    
-    // El total a cobrar es la suma de TODO
-    const totalCalculado = totalLatasPrecio + totalBarriles + totalServicios;
-    
-    if (totalCalculado > 0) {
-      state.totalCobradoInput = String(totalCalculado);
-    }
-    
+
     registrarVentaLocal();
     state.precioUnitario = "";
   };
