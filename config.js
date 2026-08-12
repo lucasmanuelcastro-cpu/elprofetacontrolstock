@@ -2,4 +2,4 @@
  * CONFIG.JS - El Profeta
 
  */
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxpSGr58U9GXs44U3mN6y-Bl_Vhbhvl7LPBuaooTfbqbbXo5_Upz_jiY45c-1Kx58fE/exec";
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbyC8ScmfSy5jUredCpk8mW7SQ9HdNe0mt0JKfvQFBMHMHPdBcisxek8Pl6x_WoVeU1P/exec";
