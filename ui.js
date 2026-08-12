@@ -114,7 +114,7 @@ function getVentasGenerales() {
 
 function paraProfetaMostrar(v) {
   const p = Number(v.paraProfeta);
-  if (!isNaN(p) && p > 0) return p;
+  if (v.paraProfeta !== undefined && v.paraProfeta !== null && v.paraProfeta !== "" && !isNaN(p)) return p;
   const c = Number(v.costoTotal !== undefined ? v.costoTotal : v.costo) || 0;
   const com = Number(v.comision) || 0;
   return c + com;
