@@ -1757,13 +1757,33 @@ function quitarCostoAsociado(index) {
 }
 
 function aplicarDescuento() {
-  const descStr = prompt("¿Qué porcentaje de descuento querés aplicar sobre el total actual?", "10");
+  // Si no hay un total cargado, lo calculamos sumando todo lo de la pantalla
+  if (!state.totalCobradoInput || Number(state.totalCobradoInput) === 0) {
+    const inputPrecio = document.getElementById("precio-unitario");
+    const precio = Number(inputPrecio?.value || state.precioUnitario || 0);
+    const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
+    let totalBarriles = 0;
+    (state.ventaActualBarriles || []).forEach(b => totalBarriles += Number(b.precioVenta) || 0);
+    let totalServicios = 0;
+    (state.serviciosActuales || []).forEach(s => totalServicios += Number(s.montoTotal) || 0);
+    
+    const totalCalculado = (totalLatas * precio) + totalBarriles + totalServicios;
+    state.totalCobradoInput = String(totalCalculado);
+  }
+
+  const totalActual = Number(state.totalCobradoInput) || 0;
+  if (totalActual === 0) {
+    return alert("Cargá algo en la venta antes de aplicar un descuento.");
+  }
+
+  const descStr = prompt(`El total actual es $${totalActual.toLocaleString('es-AR')}.\n¿Qué porcentaje de descuento querés aplicar?`, "10");
   if (!descStr) return;
   const pct = Number(descStr) / 100;
   if (isNaN(pct)) return alert("Porcentaje inválido.");
-  const totalActual = Number(state.totalCobradoInput) || 0;
+  
   const nuevoTotal = Math.round(totalActual - (totalActual * pct));
   state.totalCobradoInput = String(nuevoTotal);
+  
   render();
 }
 
