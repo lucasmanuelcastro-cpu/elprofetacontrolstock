@@ -1784,6 +1784,10 @@ function aplicarDescuento() {
   const nuevoTotal = Math.round(totalActual - (totalActual * pct));
   state.totalCobradoInput = String(nuevoTotal);
   
+  // ¡NUEVO! Forzamos la actualización del número en la pantalla al instante
+  const display = document.querySelector("[data-total-display]");
+  if (display) display.textContent = ` $${nuevoTotal.toLocaleString('es-AR')} `;
+  
   render();
 }
 
