@@ -734,3 +734,8 @@ async function guardarCicloPendienteEnSheet() {
     throw err;
   }
 }
+
+function registrarAuditoria(accion, usuario, cliente, detalle, monto) {
+  // Función vacía para evitar errores
+  console.log("📝 Auditoría ignorada:", accion, usuario, cliente);
+}
