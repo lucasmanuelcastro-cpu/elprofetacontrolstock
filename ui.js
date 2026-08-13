@@ -260,9 +260,7 @@ function registrarVentaLocal() {
   // ¡NUEVO! Encolar el descuento de stock para que se guarde en Sheets
   if (totalLatas > 0) encolarActualizarStockEnSheet(state.usuarioActivo);
 
- //  registrarAuditoria("VENTA", state.usuarioActivo, cliente,
-    Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
-    totalCobrado);
+
   alert(`✅ Venta registrada correctamente para ${cliente}`);
   render();
 }  
