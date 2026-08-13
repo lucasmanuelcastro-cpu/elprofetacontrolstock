@@ -359,11 +359,6 @@ async function borrarVentaIndividual(index) {
     totalCobrado: venta.totalCobrado || 0,
   });
   encolarActualizarStockEnSheet(state.usuarioActivo);
-//   registrarAuditoria("BORRADO", state.usuarioActivo, venta.cliente,
-    Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
-    venta.totalCobrado || 0);
-  guardarDatos();
-}
 
 function encolarPrestamoBarrilDesdeVenta(barril, cliente) {
   let cola = [];
