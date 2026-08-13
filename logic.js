@@ -618,23 +618,7 @@ async function guardarStockPendienteEnSheet() {
   }
 }
 
-// ===== AUDITORÍA =====
-function registrarAuditoria(accion, usuario, cliente, detalle, monto) {
-  const registro = {
-    fecha: new Date().toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}),
-    accion: accion,
-    usuario: usuario || state.usuarioActivo || "",
-    cliente: cliente || "",
-    detalle: detalle || "",
-    monto: monto || 0
-  };
-  fetch(URL_SCRIPT, {
-    method: "POST",
-    body: JSON.stringify({ accion: "guardarAuditoria", registro: registro }),
-    headers: { "Content-Type": "text/plain" },
-    mode: "cors"
-  }).catch(err => console.error("Error auditoría:", err));
-}
+
 
 // ===== RESETEO MANUAL DE CACHÉ LOCAL =====
 function resetearCacheLocal() {
