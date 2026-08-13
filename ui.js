@@ -260,7 +260,7 @@ function registrarVentaLocal() {
   // ¡NUEVO! Encolar el descuento de stock para que se guarde en Sheets
   if (totalLatas > 0) encolarActualizarStockEnSheet(state.usuarioActivo);
 
-  registrarAuditoria("VENTA", state.usuarioActivo, cliente,
+ //  registrarAuditoria("VENTA", state.usuarioActivo, cliente,
     Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
     totalCobrado);
   alert(`✅ Venta registrada correctamente para ${cliente}`);
@@ -361,7 +361,7 @@ async function borrarVentaIndividual(index) {
     totalCobrado: venta.totalCobrado || 0,
   });
   encolarActualizarStockEnSheet(state.usuarioActivo);
-  registrarAuditoria("BORRADO", state.usuarioActivo, venta.cliente,
+//   registrarAuditoria("BORRADO", state.usuarioActivo, venta.cliente,
     Object.entries(venta.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', '),
     venta.totalCobrado || 0);
   guardarDatos();
@@ -460,7 +460,7 @@ function aplicarCobroCartera(index, montoPropuesto, metodoRaw) {
     marcaVentasLocalesCobradasSiSaldado(cliente.nombre, metodo);
   }
   encolarPagoParaSheet(cliente.nombre, monto, metodo);
-  registrarAuditoria("COBRO", state.usuarioActivo, cliente.nombre, metodo, monto);
+  // registrarAuditoria("COBRO", state.usuarioActivo, cliente.nombre, metodo, monto);
   
   const metodoTexto = metodo === "efectivo" ? "💵 Efectivo" : "🏦 Transferencia";
   alert(`✅ Registrado cobro $${monto.toLocaleString('es-AR')} de ${cliente.nombre} (${metodoTexto}).\nPara grabar ventas y cobros en Google Sheets usá «Guardar en Sheet».`);
