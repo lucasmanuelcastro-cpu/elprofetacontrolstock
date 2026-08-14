@@ -20,10 +20,9 @@ const SH_TRANSFER     = "Transferencias";
 const SH_GASTOS       = "Gastos";
 const SH_BARRILES     = "Barriles";
 const SH_HIST_BARR    = "HistorialBarriles";
-const SH_AUDITORIA    = "Auditoria";
+// const SH_AUDITORIA    = "Auditoria";
 const SH_CONFIG       = "Configuracion";
 
-// ---------- SETUP ----------
 // ---------- SETUP ----------
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -55,7 +54,7 @@ function setup() {
   crearSheetSiNoExiste(ss, SH_HIST_BARR, [
     "Fecha", "Accion", "Cliente", "Tipo", "Tamano", "Serie", "Deposito", "Observaciones"
   ]);
-  crearSheetSiNoExiste(ss, SH_AUDITORIA, ["Fecha", "Accion", "Usuario", "Cliente", "Detalle", "Monto"]);
+  // crearSheetSiNoExiste(ss, SH_AUDITORIA, ["Fecha", "Accion", "Usuario", "Cliente", "Detalle", "Monto"]);
 
   const confSheet = crearSheetSiNoExiste(ss, SH_CONFIG, ["Clave", "Valor"]);
   if (confSheet.getLastRow() < 2) {
@@ -176,7 +175,7 @@ function doGet(e) {
     else if (accion === "leerBarriles") payload = accionLeerBarriles();
     else if (accion === "leerHistorialBarriles") payload = accionLeerHistorialBarriles();
     else if (accion === "estadisticasBarriles") payload = accionEstadisticasBarriles();
-    else if (accion === "leerAuditoria") payload = accionLeerAuditoria();
+   //  else if (accion === "leerAuditoria") payload = accionLeerAuditoria();
     else payload = accionSyncGeneral();
   } catch (err) {
     payload = { error: String(err) };
@@ -203,7 +202,7 @@ function doPost(e) {
         case "actualizarStock": accionActualizarStock(data); break;
         case "guardarHistorialStock": accionGuardarHistorialStock(data.entrada); break;
         case "guardarTransferencia": accionGuardarTransferencia(data.entrada); break;
-        case "guardarAuditoria": accionGuardarAuditoria(data.registro); break;
+       //  case "guardarAuditoria": accionGuardarAuditoria(data.registro); break;
         case "borrarDeudaCliente": accionBorrarDeudaCliente(data.cliente); break;
         case "guardarGasto": accionGuardarGasto(data.gasto); break;
         case "borrarGasto": accionBorrarGasto(data.idFila); break;
@@ -213,7 +212,7 @@ function doPost(e) {
         case "registrarMovimientoBarril": accionRegistrarMovimientoBarril(data.movimiento); break;
         case "registrarDepositoBarril": accionRegistrarDepositoBarril(data); break;
         case "cancelarDepositoBarril": accionCancelarDepositoBarril(data); break;
-        case "borrarAuditoria": accionBorrarAuditoria(); break;
+       //  case "borrarAuditoria": accionBorrarAuditoria(); break;
         case "iniciarNuevoCiclo": accionIniciarNuevoCiclo(data); break;
         case "actualizarMetodoPagoVentas": accionActualizarMetodoPagoVentas(data); break;
         default: return textOut("ERROR: acción desconocida (" + accion + ")");
@@ -268,12 +267,14 @@ function accionSyncGeneral() {
       ventas: ventasObjs
         .filter(function (v) { return v.Vendedor === u; })
         .map(function (v) {
-          const met = String(v.MetodoPago || "").trim();
+         const met = String(v.MetodoPago || "").trim();
           const costo = limpiarMonto(v.Costo);
           const com = limpiarMonto(v.Comision);
-          // Lógica blindada: Si ParaProfeta está vacío, lo calcula. Si está puesto por vos, lo respeta.
+          // Lógica blindada: Si la celda está VACÍA (venta vieja sin este campo), lo calcula.
+          // Si tiene un valor guardado (aunque sea 0), lo respeta tal cual.
+          const ppVacio = v.ParaProfeta === "" || v.ParaProfeta === null || v.ParaProfeta === undefined;
           const pp = limpiarMonto(v.ParaProfeta);
-          const paraProfeta = (pp === 0 && (costo > 0 || com > 0)) ? costo + com : pp;
+          const paraProfeta = (ppVacio && (costo > 0 || com > 0)) ? costo + com : pp;
           
           return {
             cliente: v.Cliente || "Consumidor Final",
@@ -329,16 +330,17 @@ function accionSyncGeneral() {
   let efectivo = 0, transferencia = 0, paraProfeta = 0;
 
   // 1. Agrupar ventas por cliente (todas, sin importar el ciclo) para saber el ratio del Profeta
-  const ventasPorCliente = {};
+const ventasPorCliente = {};
   ventasObjs.forEach(function (v) {
     const cliente = String(v.Cliente || "Consumidor Final").toLowerCase().trim();
     if (!ventasPorCliente[cliente]) ventasPorCliente[cliente] = { totalCobrado: 0, totalParaProfeta: 0 };
     
     const tc = limpiarMonto(v.TotalCobrado);
-    const pp = limpiarMonto(v.ParaProfeta);
     const costo = limpiarMonto(v.Costo);
     const com = limpiarMonto(v.Comision);
-    const valParaProfeta = (pp === 0 && (costo > 0 || com > 0)) ? costo + com : pp;
+    const ppVacio = v.ParaProfeta === "" || v.ParaProfeta === null || v.ParaProfeta === undefined;
+    const pp = limpiarMonto(v.ParaProfeta);
+    const valParaProfeta = (ppVacio && (costo > 0 || com > 0)) ? costo + com : pp;
     
     ventasPorCliente[cliente].totalCobrado += tc;
     ventasPorCliente[cliente].totalParaProfeta += valParaProfeta;
@@ -370,11 +372,13 @@ function accionSyncGeneral() {
     
     // Si la venta se creó y pagó en este ciclo
     if (ts >= cicloFechaCorte && met !== "") {
-      const monto = limpiarMonto(v.TotalCobrado);
-      const pp = limpiarMonto(v.ParaProfeta);
-      const costo = limpiarMonto(v.Costo);
-      const com = limpiarMonto(v.Comision);
-      const paraProfetaVenta = (pp === 0 && (costo > 0 || com > 0)) ? costo + com : pp;
+    const monto = limpiarMonto(v.TotalCobrado);
+    const metodo = String(v.MetodoPago || "").toLowerCase().trim();
+    const costo = limpiarMonto(v.Costo);
+    const com = limpiarMonto(v.Comision);
+    const ppVacio = v.ParaProfeta === "" || v.ParaProfeta === null || v.ParaProfeta === undefined;
+    const pp = limpiarMonto(v.ParaProfeta);
+    const paraProfetaVenta = (ppVacio && (costo > 0 || com > 0)) ? costo + com : pp;
       
       if (met === "transferencia") transferencia += monto;
       else efectivo += monto;
@@ -687,28 +691,28 @@ function accionEstadisticasBarriles() {
   return { total: objs.length, prestados: prestados, disponibles: disponibles };
 }
 
-function accionGuardarAuditoria(registro) {
-  if (!registro) return;
-  getSheet(SH_AUDITORIA).appendRow([
-    registro.fecha || ahora(), registro.accion || "", registro.usuario || "",
-    registro.cliente || "", registro.detalle || "", Number(registro.monto) || 0
-  ]);
-}
+// function accionGuardarAuditoria(registro) {
+ //  if (!registro) return;
+//   getSheet(SH_AUDITORIA).appendRow([
+//     registro.fecha || ahora(), registro.accion || "", registro.usuario || "",
+ // //    registro.cliente || "", registro.detalle || "", Number(registro.monto) || 0// 
+//   ]);
+// }
 
-function accionLeerAuditoria() {
-  const objs = filaAObjetos(getSheet(SH_AUDITORIA));
-  const registros = objs.map(function (r) {
-    return { fecha: r.Fecha, accion: r.Accion, usuario: r.Usuario, cliente: r.Cliente, detalle: r.Detalle, monto: Number(r.Monto) || 0 };
-  });
-  registros.reverse(); 
-  return { registros: registros };
-}
+// function accionLeerAuditoria() {
+ //  const objs = filaAObjetos(getSheet(SH_AUDITORIA));
+ //  const registros = objs.map(function (r) {
+  //   return { fecha: r.Fecha, accion: r.Accion, usuario: r.Usuario, cliente: r.Cliente, detalle: r.Detalle, monto: Number(r.Monto) || 0 };
+  // });
+  // registros.reverse(); 
+  // return { registros: registros };
+// }
 
-function accionBorrarAuditoria() {
-  const sheet = getSheet(SH_AUDITORIA);
-  const last = sheet.getLastRow();
-  if (last > 1) sheet.deleteRows(2, last - 1);
-}
+// function accionBorrarAuditoria() {
+  // const sheet = getSheet(SH_AUDITORIA);
+  // const last = sheet.getLastRow();
+  // if (last > 1) sheet.deleteRows(2, last - 1);
+// }
 
 function diagnostico_ventas() {
   const sheet = getSheet(SH_VENTAS);
