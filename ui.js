@@ -359,7 +359,7 @@ async function borrarVentaIndividual(index) {
     totalCobrado: venta.totalCobrado || 0,
   });
   encolarActualizarStockEnSheet(state.usuarioActivo);
-
+}
 function encolarPrestamoBarrilDesdeVenta(barril, cliente) {
   let cola = [];
   try {
