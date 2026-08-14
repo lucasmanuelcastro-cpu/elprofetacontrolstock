@@ -1807,4 +1807,3 @@ function iniciarNuevoCicloUI() {
 }
 
 // ===== FIN DE UI.JS =====
-}
