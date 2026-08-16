@@ -41,117 +41,7 @@ let state = {
 };
 
 // ===== UTILIDADES =====
-function setState(updater) {
-  const estadoClonado = JSON.parse(JSON.stringify(state));
-  state = typeof updater === "function" ? updater(estadoClonado) : updater;
-  actualizarStockGeneral();
-  render();
-}
 
-function actualizarStockGeneral() {
-  let total = {};
-  Object.values(state.usuarios).forEach((u) => {
-    Object.entries(u.stock).forEach(([estilo, cant]) => {
-      total[estilo] = (total[estilo] || 0) + (Number(cant) || 0);
-    });
-  });
-  state.stockGeneral = total;
-}
-
-
-function calcularPreview() {
-  const config = state.configuracion || {};
-  const costoConEtiqNormal = Number(config.costoConEtiquetaNormal) || 1850;
-  const costoSinEtiqNormal = Number(config.costoSinEtiquetaNormal) || 1510;
-  const costoConEtiqLup = Number(config.costoConEtiquetaLupulada) || 1950;
-  const costoSinEtiqLup = Number(config.costoSinEtiquetaLupulada) || 1610;
-  const estilosLupulados = ["SESSION IPA", "RED IPA"];
-
-  let costoTotalLatas = 0;
-  const totalLatas = Object.values(state.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-  Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
-    const c = Number(cant) || 0;
-    if (c > 0) {
-      const esLupulada = estilosLupulados.includes(estilo);
-      let costoUnitario = state.tipoLata === "sinEtiqueta" ? (esLupulada ? costoSinEtiqLup : costoSinEtiqNormal) : (esLupulada ? costoConEtiqLup : costoConEtiqNormal);
-      costoTotalLatas += c * costoUnitario;
-    }
-  });
-
-  let costoTotalBarriles = 0;
-  (state.ventaActualBarriles || []).forEach(b => {
-    const litros = parseInt(b.tamano) || 0; 
-    const costoLitro = Number(config["costoLitro_" + b.tipo]) || 0;
-    costoTotalBarriles += litros * costoLitro;
-  });
-
-  let paraProfetaServicios = 0, comisionVendedoresServicios = 0, sumServicios = 0;
-  (state.serviciosActuales || []).forEach(s => {
-    sumServicios += Number(s.montoTotal) || 0;
-    paraProfetaServicios += Number(s.montoProfeta) || 0;
-    comisionVendedoresServicios += (Number(s.montoJulian) || 0) + (Number(s.montoMatias) || 0) + (Number(s.montoLucas) || 0);
-  });
-
-  let costoAsociadoTotal = 0;
-  (state.costosAsociados || []).forEach(c => {
-    costoAsociadoTotal += Number(c.monto) || 0;
-  });
-  const costoTotal = costoTotalLatas + costoTotalBarriles + costoAsociadoTotal;
-  const totalCobrado = Number(state.totalCobradoInput) || 0;
-  const totalCobradoSinServicios = totalCobrado - sumServicios;
-  const gananciaBruta = totalCobradoSinServicios > costoTotal ? totalCobradoSinServicios - costoTotal : 0;
-  const comisionLatas = gananciaBruta * 0.5;
-  const comision = comisionLatas + comisionVendedoresServicios;
-  const paraProfeta = costoTotal + comisionLatas + paraProfetaServicios;
-  return { costoTotal, comision, paraProfeta, totalLatas, gananciaBruta, costoTotalBarriles, costoTotalLatas, paraProfetaServicios };
-}
-
-
-
-function getVentasGenerales() {
-  return Object.values(state.usuarios).flatMap((u) => u.ventas);
-}
-
-function paraProfetaMostrar(v) {
-  const p = Number(v.paraProfeta);
-  if (v.paraProfeta !== undefined && v.paraProfeta !== null && v.paraProfeta !== "" && !isNaN(p)) return p;
-  const c = Number(v.costoTotal !== undefined ? v.costoTotal : v.costo) || 0;
-  const com = Number(v.comision) || 0;
-  return c + com;
-}
-
-function ventaApareceEnHistorialGlobal(v) {
-  const pagada = String(v.estado || "").toUpperCase() === "COBRADO" || (v.metodoPago && v.metodoPago !== "");
-  if (pagada) return true;
-  
-  // Si no está pagada, verificamos si tiene pagos parciales
-  const norm = (s) => String(s || "").toLowerCase().trim();
-  const cliente = state.clientesGlobales.find(c => norm(c.nombre) === norm(v.cliente));
-  if (cliente && Number(cliente.deuda) > 0) {
-    const ratio = Number(cliente.pagado) / Number(cliente.deuda);
-    if (ratio > 0 && ratio < 1) return true; // Pago parcial
-  }
-  return false;
-}
-
-
-function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
-  const norm = (s) => String(s || "").toLowerCase().trim();
-  const n = norm(nombreCliente);
-  Object.values(state.usuarios).forEach((u) => {
-    u.ventas.forEach((v) => {
-      if (norm(v.cliente) !== n) return;
-      const sinCobrar = v.estado === "PENDIENTE" || !v.metodoPago || v.metodoPago === "";
-      if (!sinCobrar) return;
-      v.metodoPago = metodo;
-      v.estado = "COBRADO";
-      v.cobradoReal = Number(v.totalCobrado) || 0;
-      if (typeof encolarMetodoPagoVenta === 'function') {
-        encolarMetodoPagoVenta(v.cliente, metodo, v.timestamp);
-      }
-    });
-  });
-}
 
 function registrarVentaLocal() {
   const cliente = (state.clienteNombre || "").trim();
@@ -264,216 +154,6 @@ function registrarVentaLocal() {
   alert(`✅ Venta registrada correctamente para ${cliente}`);
   render();
 }  
-function modificarStockDirecto(usuario, estilo, valor, tipo = 'conEtiqueta') {
-  const cantidadNueva = Number(valor) || 0;
-  const usuarioObj = state.usuarios[usuario];
-  const cantidadAnterior = tipo === 'sinEtiqueta'
-    ? (usuarioObj.stockSinEtiqueta?.[estilo] || 0)
-    : (usuarioObj.stock[estilo] || 0);
-  
-  if (tipo === 'sinEtiqueta') {
-    if (!usuarioObj.stockSinEtiqueta) usuarioObj.stockSinEtiqueta = {};
-    usuarioObj.stockSinEtiqueta[estilo] = cantidadNueva;
-  } else {
-    usuarioObj.stock[estilo] = cantidadNueva;
-  }
-  registrarCargaStock(usuario, estilo, cantidadNueva - cantidadAnterior, tipo);
-  encolarActualizarStockEnSheet(usuario);
-  render();
-}
-
-async function borrarVentaIndividual(index) {
-  if (!confirm("¿Borrar esta venta? Se devolverá el stock y los barriles automáticamente.")) return;
-  const venta = state.usuarios[state.usuarioActivo].ventas[index];
-  if (!venta) return;
-
-  setState(prev => {
-    const usuario = prev.usuarios[prev.usuarioActivo];
-    
-    // 1. Devolver Latas al stock
-    Object.entries(venta.estilos || {}).forEach(([estilo, cant]) => {
-      const c = Number(cant) || 0;
-      if (c > 0) {
-        if (venta.tipoLata === 'sinEtiqueta') {
-          if (!usuario.stockSinEtiqueta) usuario.stockSinEtiqueta = {};
-          usuario.stockSinEtiqueta[estilo] = (usuario.stockSinEtiqueta[estilo] || 0) + c;
-        } else {
-          usuario.stock[estilo] = (usuario.stock[estilo] || 0) + c;
-        }
-      }
-    });
-
-    // 2. Devolver Barriles a la cola de pendientes y al estado local
-    if (venta.barriles && venta.barriles.length > 0) {
-      let barrilesPendientes = [];
-      try { barrilesPendientes = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]"); } catch(e) {}
-      
-      venta.barriles.forEach(b => {
-        // Lo mandamos a la cola para que vuelva a "disponible" en Google Sheets cuando guardes
-        barrilesPendientes.push({
-          id: b.id,
-          cliente: "",
-          tipo: b.tipo,
-          tamano: b.tamano,
-          serie: b.serie || "",
-          deposito: 0,
-          observaciones: "Devuelto por borrado de venta",
-          estado: "disponible",
-          fechaPrestamo: "",
-          fechaDevolucion: new Date().toLocaleString("es-AR"),
-          timestamp: Date.now()
-        });
-        // Lo volvemos a agregar a la lista de disponibles en la pantalla para que lo veas ya
-        if (!prev.barrilesDisponibles.some(bd => String(bd.id) === String(b.id))) {
-          prev.barrilesDisponibles.push({ id: b.id, tipo: b.tipo, tamano: b.tamano, serie: b.serie });
-        }
-      });
-      localStorage.setItem("barrilesPendientes", JSON.stringify(barrilesPendientes));
-    }
-
-    // 3. Descontar deuda al cliente
-    const nombreCliente = String(venta.cliente || "").toLowerCase().trim();
-    const idxCliente = prev.clientesGlobales.findIndex(c =>
-      String(c.nombre || "").toLowerCase().trim() === nombreCliente
-    );
-    if (idxCliente !== -1) {
-      const monto = Number(venta.totalCobrado) || 0;
-      prev.clientesGlobales[idxCliente].deuda = Math.max(0, (prev.clientesGlobales[idxCliente].deuda || 0) - monto);
-      if (prev.clientesGlobales[idxCliente].deuda === 0) {
-        prev.clientesGlobales[idxCliente].pagado = 0;
-      }
-    }
-
-    // 4. Borrar la venta del historial local
-    prev.usuarios[prev.usuarioActivo].ventas.splice(index, 1);
-    return prev;
-  });
-
-  // 5. Encolar cambios para Google Sheets
-  encolarBorrarVentaEnSheet({
-    vendedor: venta.vendedor || state.usuarioActivo,
-    fecha: venta.fecha,
-    cliente: venta.cliente,
-    estilos: venta.estilos,
-    tipoLata: venta.tipoLata || "conEtiqueta",
-    totalCobrado: venta.totalCobrado || 0,
-  });
-  encolarActualizarStockEnSheet(state.usuarioActivo);
-}
-function encolarPrestamoBarrilDesdeVenta(barril, cliente) {
-  let cola = [];
-  try {
-    cola = JSON.parse(localStorage.getItem("barrilesPrestamoPendientes") || "[]");
-  } catch (e) {}
-  cola.push({
-    barril: {
-      id: barril.id,
-      cliente: cliente || "Consumidor Final",
-      tipo: barril.tipo,
-      tamano: barril.tamano,
-      serie: barril.serie || "",
-      deposito: 0,
-      observaciones: `Vendido en venta a ${cliente || "Consumidor Final"} - $${(barril.precioVenta||0).toLocaleString('es-AR')}`,
-      estado: "prestado",
-      fechaPrestamo: new Date().toLocaleString("es-AR"),
-      fechaDevolucion: "",
-      timestamp: Date.now()
-    },
-    movimiento: {
-      fecha: new Date().toLocaleString("es-AR"),
-      accion: "PRÉSTAMO (Venta)",
-      cliente: cliente || "Consumidor Final",
-      tipo: barril.tipo,
-      tamano: barril.tamano,
-      serie: barril.serie || "",
-      deposito: 0,
-      observaciones: `Precio venta: $${(barril.precioVenta||0).toLocaleString('es-AR')}`
-    }
-  });
-  localStorage.setItem("barrilesPrestamoPendientes", JSON.stringify(cola));
-}
-
-async function guardarBarrilesPrestamoPendientesEnSheet() {
-  let cola = [];
-  try {
-    cola = JSON.parse(localStorage.getItem("barrilesPrestamoPendientes") || "[]");
-  } catch (e) {}
-  if (!cola.length) return;
-  localStorage.removeItem("barrilesPrestamoPendientes");
-  const fallidos = [];
-  for (const item of cola) {
-    try {
-      await fetch(URL_SCRIPT, {
-        method: "POST",
-        body: JSON.stringify({ accion: "actualizarBarril", barril: item.barril }),
-        headers: { "Content-Type": "text/plain" },
-        mode: "cors"
-      });
-      await fetch(URL_SCRIPT, {
-        method: "POST",
-        body: JSON.stringify({ accion: "registrarMovimientoBarril", movimiento: item.movimiento }),
-        headers: { "Content-Type": "text/plain" },
-        mode: "cors"
-      });
-    } catch (err) {
-      console.error("Error prestando barril desde venta:", err);
-      fallidos.push(item);
-    }
-  }
-  if (fallidos.length) {
-    let prev = [];
-    try { prev = JSON.parse(localStorage.getItem("barrilesPrestamoPendientes") || "[]"); } catch (e2) {}
-    localStorage.setItem("barrilesPrestamoPendientes", JSON.stringify(prev.concat(fallidos)));
-  }
-}
-
-function normalizarMetodoPago(metodoRaw) {
-  const s = String(metodoRaw || "").toLowerCase().trim();
-  return s === "transferencia" ? "transferencia" : "efectivo";
-}
-
-function aplicarCobroCartera(index, montoPropuesto, metodoRaw) {
-  const metodo = normalizarMetodoPago(metodoRaw);
-  const cliente = state.clientesGlobales[index];
-  if (!cliente) return;
-  const deudaAntes = cliente.deuda - cliente.pagado;
-  if (deudaAntes <= 0) {
-    alert(`✅ ${cliente.nombre} no tiene deuda pendiente.`);
-    return;
-  }
-  const monto = Math.min(Math.max(0, Number(montoPropuesto) || 0), deudaAntes);
-  if (monto <= 0) return;
-
-  cliente.pagado += monto;
-  if (!cliente.pagos) cliente.pagos = [];
-  cliente.pagos.push({ monto: monto, metodo: metodo, fecha: new Date().toLocaleString("es-AR"), _pendiente: true });
-
-  const deudaRestante = Math.max(0, cliente.deuda - cliente.pagado);
-  if (deudaRestante < 1) {
-    marcaVentasLocalesCobradasSiSaldado(cliente.nombre, metodo);
-  }
-  encolarPagoParaSheet(cliente.nombre, monto, metodo);
-  // registrarAuditoria("COBRO", state.usuarioActivo, cliente.nombre, metodo, monto);
-  
-  const metodoTexto = metodo === "efectivo" ? "💵 Efectivo" : "🏦 Transferencia";
-  alert(`✅ Registrado cobro $${monto.toLocaleString('es-AR')} de ${cliente.nombre} (${metodoTexto}).\nPara grabar ventas y cobros en Google Sheets usá «Guardar en Sheet».`);
-  
-  guardarDatos();
-  render();
-}
-
-function registrarPagoCliente(index, metodo, porcentaje) {
-  const cliente = state.clientesGlobales[index];
-  if (!cliente) return;
-  const deudaActual = cliente.deuda - cliente.pagado;
-  if (deudaActual <= 0) {
-    alert(`✅ ${cliente.nombre} no tiene deuda pendiente.`);
-    return;
-  }
-  const monto = porcentaje === "100" ? deudaActual : deudaActual * 0.5;
-  aplicarCobroCartera(index, monto, metodo);
-}
-
 function registrarPagoManual(index) {
   const inputEl = document.getElementById(`pago-manual-${index}`);
   const metodoEl = document.getElementById(`pago-metodo-${index}`);
@@ -493,45 +173,6 @@ function registrarPagoManual(index) {
   }
   inputEl.value = "";
   aplicarCobroCartera(index, montoIngresado, metodo);
-}
-
-function registrarCargaStock(usuario, estilos, tipo) {
-  const fecha = new Date().toLocaleString('es-AR');
-  if (typeof estilos === 'string') return; 
-  const entrada = { usuario, estilos, tipo, fecha };
-  state.historialStock.push(entrada);
-  
-  fetch(URL_SCRIPT, {
-    method: "POST",
-    body: JSON.stringify({ accion: "guardarHistorialStock", entrada }),
-    headers: { "Content-Type": "text/plain" },
-    mode: "cors"
-  }).catch(err => console.error("Error guardando historial stock:", err));
-}
-
-function registrarTransferenciaHistorial(desde, hacia, estilos, tipo) {
-  state.historialTransferencias.push({
-    desde,
-    hacia,
-    estilos,
-    tipo,
-    fecha: new Date().toLocaleString('es-AR')
-  });
-}
-
-function guardarDatos() {
-  const data = { usuarios: state.usuarios, clientes: state.clientesGlobales };
-  localStorage.setItem("elProfetaData", JSON.stringify(data));
-}
-
-function cargarDatos() {
-  const dataRaw = localStorage.getItem("elProfetaData");
-  if (dataRaw) {
-    const data = JSON.parse(dataRaw);
-    state.usuarios = data.usuarios || state.usuarios;
-    state.clientesGlobales = data.clientes || [];
-    actualizarStockGeneral();
-  }
 }
 
 async function guardarEnSheets() {
@@ -576,15 +217,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn("No se pudo sincronizar con Sheets al inicio:", e);
   }
 });
-
-function render() {
-  renderStockGeneral();
-  renderVentasGeneral();
-  renderClientesGlobales();
-  renderTransferencia();
-  renderUsuarios();
-  renderPanelUsuario();
-}
 
 function renderStockGeneral() {
   const container = document.getElementById("stock-general-section");
@@ -654,24 +286,6 @@ function renderStockGeneral() {
 })()}
   </div>
 </div>`;
-}
-
-function getEstadisticasVentas() {
-  const ventas = getVentasGenerales();
-  const cicloCorte = state.cicloFechaCorte || 0;
-  const totalesPorEstilo = {};
-  let granTotalLatas = 0;
-  ventas.forEach(v => {
-    if (cicloCorte > 0 && (v.timestamp || 0) < cicloCorte) return;
-    Object.entries(v.estilos || {}).forEach(([estilo, cant]) => {
-      const c = Number(cant) || 0;
-      if (c > 0) {
-        totalesPorEstilo[estilo] = (totalesPorEstilo[estilo] || 0) + c;
-        granTotalLatas += c;
-      }
-    });
-  });
-  return { totalesPorEstilo, granTotalLatas };
 }
 
 function renderVentasGeneral() {
@@ -805,7 +419,6 @@ function renderVentasGeneral() {
 }
 
 
-
 function renderClientesGlobales() {
   const container = document.getElementById("clientes-section");
   if (!container) return;
@@ -844,102 +457,6 @@ function renderClientesGlobales() {
       }).join("")}
     </div>
   </div>`;
-}
-
-function borrarDeudaCliente(idx) {
-  const cliente = state.clientesGlobales[idx];
-  if (!cliente) return;
-  
-  if (!confirm(`⚠️ ¿Borrar toda la deuda de ${cliente.nombre}?\nSe devolverá el stock y se precargará el formulario.`)) return;
-
-  let ventasCliente = [];
-  Object.entries(state.usuarios).forEach(([nombreUsuario, u]) => {
-    u.ventas.forEach((v, i) => {
-      if (String(v.cliente || "").toLowerCase().trim() === String(cliente.nombre || "").toLowerCase().trim()) {
-        if (v.estado === "PENDIENTE" || !v.metodoPago || v.metodoPago === "") {
-          ventasCliente.push({ venta: v, usuario: nombreUsuario, index: i });
-        }
-      }
-    });
-  });
-
-  setState(prev => {
-    ventasCliente.forEach(({ venta, usuario }) => {
-      const u = prev.usuarios[usuario];
-      Object.entries(venta.estilos || {}).forEach(([estilo, cant]) => {
-        const c = Number(cant) || 0;
-        if (c <= 0) return;
-        if (venta.tipoLata === 'sinEtiqueta') {
-          if (!u.stockSinEtiqueta) u.stockSinEtiqueta = {};
-          u.stockSinEtiqueta[estilo] = (u.stockSinEtiqueta[estilo] || 0) + c;
-        } else {
-          u.stock[estilo] = (u.stock[estilo] || 0) + c;
-        }
-      });
-    });
-
-    prev.clientesGlobales[idx].deuda = 0;
-    prev.clientesGlobales[idx].pagado = 0;
-    prev.clientesGlobales[idx].pagos = [];
-
-    Object.keys(prev.usuarios).forEach(nombreUsuario => {
-      prev.usuarios[nombreUsuario].ventas = prev.usuarios[nombreUsuario].ventas.filter(v => {
-        const esEsteCliente = String(v.cliente || "").toLowerCase().trim() === String(cliente.nombre || "").toLowerCase().trim();
-        const esPendiente = v.estado === "PENDIENTE" || !v.metodoPago || v.metodoPago === "";
-        return !(esEsteCliente && esPendiente);
-      });
-    });
-
-    return prev;
-  });
-
-  if (ventasCliente.length > 0) {
-    const ultima = ventasCliente[ventasCliente.length - 1].venta;
-    state.usuarioActivo = ventasCliente[ventasCliente.length - 1].usuario;
-    state.clienteNombre = cliente.nombre;
-    state.ventaActual = { ...ultima.estilos };
-    state.tipoLata = ultima.tipoLata || 'conEtiqueta';
-    state.alquilerBarril = ultima.alquilerBarril || "";
-    state.totalCobradoInput = String(ultima.totalCobrado || "");
-  }
-
-  Object.keys(state.usuarios).forEach(u => encolarActualizarStockEnSheet(u));
-
-  fetch(URL_SCRIPT, {
-    method: "POST",
-    body: JSON.stringify({ accion: "borrarDeudaCliente", cliente: cliente.nombre }),
-    headers: { "Content-Type": "text/plain" },
-    mode: "cors"
-  }).catch(err => console.error("Error borrando deuda en Sheet:", err));
-
-  guardarDatos();
-  render();
-  alert(`✅ Deuda de ${cliente.nombre} borrada. Stock devuelto. Formulario precargado.`);
-}
-
-function renderDesgloseMayorista() {
-  const config = state.configuracion || {};
-  const estilosLupulados = ["SESSION IPA", "RED IPA"];
-  const precioLup = Number(config.precioMayoristaLupulada) || 2500;
-  const precioNorm = Number(config.precioMayoristaNormal) || 2400;
-  let filas = "";
-  Object.entries(state.ventaActual).forEach(([estilo, cant]) => {
-    const c = Number(cant) || 0;
-    if (c > 0) {
-      const precio = estilosLupulados.includes(estilo) ? precioLup : precioNorm;
-      const subtotal = c * precio;
-      filas += `<div style="display:flex; justify-content:space-between; padding:3px 0; font-size:0.85em; color:#cbd5e1;">
-        <span>${estilo} (${c} x $${precio.toLocaleString('es-AR')})</span>
-        <span>$${subtotal.toLocaleString('es-AR')}</span>
-      </div>`;
-    }
-  });
-  return `
-    <div style="background:#0f172a; border-radius:8px; padding:10px; margin-bottom:8px;">
-      <div style="color:#94a3b8; font-size:0.8em; margin-bottom:6px;">📋 Detalle Mayorista (precio por estilo):</div>
-      ${filas || '<div style="color:#64748b; font-size:0.85em;">Cargá cantidades para ver el detalle</div>'}
-    </div>
-  `;
 }
 
 function renderPanelUsuario() {
@@ -1571,43 +1088,6 @@ function mostrarHistorialTransferencias() {
   document.body.appendChild(modal);
 }
 
-function calcularPrecioSegunModo(prev) {
-  if (!prev.modoPrecioActivo) return;
-  const config = prev.configuracion || {};
-  const estilosLupulados = ["SESSION IPA", "RED IPA"];
-
-  if (prev.modoPrecioActivo === 'mayorista') {
-    const precioLup = Number(config.precioMayoristaLupulada) || 2500;
-    const precioNorm = Number(config.precioMayoristaNormal) || 2400;
-    let total = 0, totalLatas = 0;
-    Object.entries(prev.ventaActual).forEach(([estilo, cant]) => {
-      const c = Number(cant) || 0;
-      if (c > 0) {
-        total += c * (estilosLupulados.includes(estilo) ? precioLup : precioNorm);
-        totalLatas += c;
-      }
-    });
-    prev.precioUnitario = totalLatas > 0 ? String(Math.round(total / totalLatas)) : "";
-    prev.totalCobradoInput = totalLatas > 0 ? String(total) : "";
-  } else {
-    let precio = 0;
-    if (prev.modoPrecioActivo === 'six') precio = Number(config.precioSixPack) || 3250;
-    else if (prev.modoPrecioActivo === 'doce') precio = Number(config.precioDocePack) || 3000;
-    else if (prev.modoPrecioActivo === 'minorista') precio = Number(config.precioMinorista) || 3500;
-    const totalLatas = Object.values(prev.ventaActual).reduce((a, b) => a + (Number(b) || 0), 0);
-    prev.precioUnitario = String(precio);
-    prev.totalCobradoInput = totalLatas > 0 ? String(totalLatas * precio) : "";
-  }
-}
-
-function setPrecioVenta(tipo) {
-  setState(prev => {
-    prev.modoPrecioActivo = tipo;
-    calcularPrecioSegunModo(prev);
-    return prev;
-  });
-}
-
 function agregarServicio() {
   const descInput = document.getElementById("servicio-descripcion");
   const montoInput = document.getElementById("servicio-monto");
@@ -1647,17 +1127,6 @@ function agregarServicio() {
   render();
 }
 
-function quitarServicio(index) {
-  if (!state.serviciosActuales) return;
-  const servicio = state.serviciosActuales[index];
-  if (servicio) {
-    const totalActual = Number(state.totalCobradoInput) || 0;
-    state.totalCobradoInput = String(Math.max(0, totalActual - (servicio.montoTotal || 0)));
-  }
-  state.serviciosActuales.splice(index, 1);
-  render();
-}
-
 function agregarBarrilAVenta() {
   const select = document.getElementById("select-barril-venta");
   if (!select || !select.value) return alert("Seleccioná un barril disponible primero.");
@@ -1691,17 +1160,6 @@ function agregarBarrilAVenta() {
   const totalActual = Number(state.totalCobradoInput) || 0;
   state.totalCobradoInput = String(totalActual + precioVenta);
   
-  render();
-}
-
-function quitarBarrilDeVenta(index) {
-  if (!state.ventaActualBarriles) return;
-  const barril = state.ventaActualBarriles[index];
-  if (barril) {
-    const totalActual = Number(state.totalCobradoInput) || 0;
-    state.totalCobradoInput = String(Math.max(0, totalActual - (barril.precioVenta || 0)));
-  }
-  state.ventaActualBarriles.splice(index, 1);
   render();
 }
 
@@ -1783,27 +1241,4 @@ function aplicarDescuento() {
 }
 
 // ===== BOTÓN NUEVO CICLO =====
-function iniciarNuevoCicloUI() {
-  const montoStr = prompt("¿Cuál es el saldo de 'Para El Profeta' del ciclo anterior?\n(Ingresá solo números, ej: 50000)", "0");
-  if (montoStr === null) return;
-  const monto = Number(montoStr) || 0;
-  
-  if (typeof encolarNuevoCiclo === 'function') {
-    encolarNuevoCiclo(monto);
-  }
-  
-  // Actualizamos el estado visualmente, pero NO toca la BD hasta "Guardar en Sheet"
-  state.cicloFechaCorte = Date.now();
-  state.profetaInicialCiclo = monto;
-  state.efectivoSheet = 0;
-  state.transferenciaSheet = 0;
-  state.popularidadSheet = {};
-  state.popularidad = {};
-  state.totalIngresadoSheet = 0;
-  state.paraProfetaSheet = monto;
-  
-  render();
-  alert("✅ Ciclo iniciado localmente.\nLos contadores están en 0 y el historial viejo aparece opaco.\n\nAcordate de apretar '💾 Guardar en Sheet' para que el backup y el corte queden en la base de datos.");
-}
-
 // ===== FIN DE UI.JS =====
