@@ -110,103 +110,10 @@ async function guardarPagosPendientesEnSheet() {
   }
 }
 
-function modificarStockDirecto(usuario, estilo, cantidad) {
-  setState((prev) => {
-    prev.usuarios[usuario].stock[estilo] = Number(cantidad) || 0;
-    return prev;
-  });
-}
+
 
 // REGISTRAR VENTA LOCAL
-function registrarVentaLocal() {
-  if (!state.usuarioActivo) return;
-  const preview = calcularPreview();
-  const totalVenta = Number(state.totalCobradoInput) || 0;
-  const alquilerBarril = state.alquilerBarril || "";
-  const barrilesVendidos = state.ventaActualBarriles || [];
 
-  const ventaDatos = {
-    cliente: state.clienteNombre || "Consumidor Final",
-    estilos: { ...state.ventaActual },
-    alquilerBarril: alquilerBarril,
-    barriles: barrilesVendidos,
-    totalCobrado: totalVenta,
-    paraProfeta: preview.paraProfeta,
-    comision: preview.comision,
-    totalLatas: preview.totalLatas,
-    costo: preview.costoTotal,
-    ganancia: totalVenta - preview.costoTotal,
-    metodoPago: "",
-    fecha: new Date().toLocaleDateString("es-AR"),
-    vendedor: state.usuarioActivo,
-    esCobro: false,
-  };
-
-  ventasPendientes.push(ventaDatos);
-  localStorage.setItem("ventasPendientes", JSON.stringify(ventasPendientes));
-
-  if (barrilesVendidos.length > 0) {
-    let barrilesPendientes = [];
-    try { barrilesPendientes = JSON.parse(localStorage.getItem("barrilesPendientes") || "[]"); } catch(e) {}
-    barrilesVendidos.forEach(b => {
-      barrilesPendientes.push({
-        id: b.id,
-        tipo: b.tipo,
-        tamano: b.tamano,
-        serie: b.serie,
-        cliente: ventaDatos.cliente,
-        estado: "prestado",
-        fechaPrestamo: new Date().toLocaleString("es-AR")
-      });
-    });
-    localStorage.setItem("barrilesPendientes", JSON.stringify(barrilesPendientes));
-  }
-
-  setState((prev) => {
-    const usuario = prev.usuarios[prev.usuarioActivo];
-    usuario.ventas.push({
-      cliente: ventaDatos.cliente,
-      estilos: ventaDatos.estilos,
-      totalCobrado: totalVenta,
-      paraProfeta: preview.paraProfeta,
-      comision: preview.comision,
-      metodoPago: "",
-      fecha: ventaDatos.fecha,
-      tipoLata: ventaDatos.tipoLata,
-      barriles: barrilesVendidos
-    });
-
-    if (prev.clienteNombre && prev.clienteNombre.trim() !== "") {
-      const idx = prev.clientesGlobales.findIndex(c => c.nombre.toLowerCase() === prev.clienteNombre.toLowerCase());
-      if (idx !== -1) {
-        prev.clientesGlobales[idx].deuda += totalVenta;
-      } else {
-        prev.clientesGlobales.push({ nombre: prev.clienteNombre, deuda: totalVenta, pagado: 0 });
-      }
-    }
-
-    if (barrilesVendidos.length > 0) {
-      prev.barrilesDisponibles = prev.barrilesDisponibles.filter(b => !barrilesVendidos.some(v => v.id === b.id));
-    }
-
-    Object.entries(prev.ventaActual).forEach(([estilo, cant]) => {
-      if (prev.tipoLata === 'sinEtiqueta') {
-        if (!usuario.stockSinEtiqueta) usuario.stockSinEtiqueta = {};
-        usuario.stockSinEtiqueta[estilo] = (usuario.stockSinEtiqueta[estilo] || 0) - (Number(cant) || 0);
-      } else {
-        usuario.stock[estilo] = (usuario.stock[estilo] || 0) - (Number(cant) || 0);
-      }
-    });
-
-    prev.ventaActual = {};
-    prev.ventaActualBarriles = [];
-    prev.clienteNombre = "";
-    prev.totalCobradoInput = "";
-    prev.alquilerBarril = "";
-    prev.precioUnitario = "";
-    return prev;
-  });
-}
 
 async function guardarVentasPendientesEnSheet() {
   if (!ventasPendientes.length) {
