@@ -299,6 +299,7 @@ function renderVentasGeneral() {
   
   const todasLasVentas = getVentasGenerales().filter(v => ventaApareceEnHistorialGlobal(v));
   const cicloCorte = state.cicloFechaCorte || 0;
+  const ratiosFIFO = calcularRatiosCobroFIFO(todasLasVentas);
   
   container.innerHTML = `
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -355,17 +356,8 @@ function renderVentasGeneral() {
             ? `<div style="color:#0284c7; margin-top:3px;">🛠️ Costos Asoc: ${v.costosAsociados.map(c => `${c.descripcion} ($${Number(c.monto).toLocaleString('es-AR')})`).join(', ')}</div>`
             : '';
 
-          const norm = (s) => String(s || "").toLowerCase().trim();
-          const clienteObj = state.clientesGlobales.find(c => norm(c.nombre) === norm(v.cliente));
-          
-          let ratioCobrado = 1;
-          let esParcial = false;
-          const estaPagada = (v.metodoPago && v.metodoPago !== "");
-          
-          if (!estaPagada && clienteObj && Number(clienteObj.deuda) > 0) {
-              ratioCobrado = Number(clienteObj.pagado) / Number(clienteObj.deuda);
-              if (ratioCobrado > 0 && ratioCobrado < 1) esParcial = true;
-          }
+          let ratioCobrado = ratiosFIFO.has(v) ? ratiosFIFO.get(v) : 1;
+          let esParcial = (ratioCobrado > 0 && ratioCobrado < 1);
           
           const totalVenta = Number(v.totalCobrado) || 0;
           const montoCobrado = Math.round(totalVenta * ratioCobrado);

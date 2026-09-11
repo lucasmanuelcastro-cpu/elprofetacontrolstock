@@ -1214,3 +1214,42 @@ function iniciarNuevoCicloUI() {
   render();
   alert("✅ Ciclo iniciado localmente.\nLos contadores están en 0 y el historial viejo aparece opaco.\n\nAcordate de apretar '💾 Guardar en Sheet' para que el backup y el corte queden en la base de datos.");
 }
+
+// ============================================================
+// CÁLCULO FIFO DE COBROS: la deuda más vieja se cobra primero.
+// Los montos ya calculados de ventas viejas nunca se mueven al
+// agregar deuda nueva; solo avanzan cuando entra un pago nuevo.
+// ============================================================
+function calcularRatiosCobroFIFO(ventas) {
+  const norm = (s) => String(s || "").toLowerCase().trim();
+  const porCliente = {};
+  ventas.forEach(v => {
+    const key = norm(v.cliente);
+    if (!porCliente[key]) porCliente[key] = [];
+    porCliente[key].push(v);
+  });
+
+  const ratios = new Map();
+
+  Object.keys(porCliente).forEach((key) => {
+    const ventasCliente = porCliente[key];
+    const clienteObj = state.clientesGlobales.find(c => norm(c.nombre) === key);
+    const ordenadas = [...ventasCliente].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    let restante = clienteObj ? (Number(clienteObj.pagado) || 0) : 0;
+
+    ordenadas.forEach(v => {
+      const estaPagada = (v.metodoPago && v.metodoPago !== "");
+      const totalVenta = Number(v.totalCobrado) || 0;
+      if (estaPagada || totalVenta <= 0) {
+        ratios.set(v, 1);
+        return;
+      }
+      const cobradoEnEsta = Math.min(totalVenta, Math.max(0, restante));
+      restante -= cobradoEnEsta;
+      ratios.set(v, cobradoEnEsta / totalVenta);
+    });
+  });
+
+  return ratios;
+}
