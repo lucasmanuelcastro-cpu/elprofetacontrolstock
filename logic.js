@@ -728,19 +728,6 @@ function paraProfetaMostrar(v) {
   return c + com;
 }
 
-function ventaApareceEnHistorialGlobal(v) {
-  const pagada = String(v.estado || "").toUpperCase() === "COBRADO" || (v.metodoPago && v.metodoPago !== "");
-  if (pagada) return true;
-  
-  // Si no está pagada, verificamos si tiene pagos parciales
-  const norm = (s) => String(s || "").toLowerCase().trim();
-  const cliente = state.clientesGlobales.find(c => norm(c.nombre) === norm(v.cliente));
-  if (cliente && Number(cliente.deuda) > 0) {
-    const ratio = Number(cliente.pagado) / Number(cliente.deuda);
-    if (ratio > 0 && ratio < 1) return true; // Pago parcial
-  }
-  return false;
-}
 
 function marcaVentasLocalesCobradasSiSaldado(nombreCliente, metodo) {
   const norm = (s) => String(s || "").toLowerCase().trim();
