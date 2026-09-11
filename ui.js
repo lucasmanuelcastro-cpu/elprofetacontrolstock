@@ -297,9 +297,15 @@ function renderVentasGeneral() {
   const dineroTotal = state.totalIngresadoSheet;
   const totalProfeta = state.paraProfetaSheet;
   
-  const todasLasVentas = getVentasGenerales().filter(v => ventaApareceEnHistorialGlobal(v));
+  const todasVentasCrudo = getVentasGenerales();
+  const ratiosFIFO = calcularRatiosCobroFIFO(todasVentasCrudo);
+  const todasLasVentas = todasVentasCrudo.filter(v => {
+    const pagada = String(v.estado || "").toUpperCase() === "COBRADO" || (v.metodoPago && v.metodoPago !== "");
+    if (pagada) return true;
+    const ratio = ratiosFIFO.has(v) ? ratiosFIFO.get(v) : 0;
+    return ratio > 0; // Solo se muestra si se cobró algo de ESTA venta puntual
+  });
   const cicloCorte = state.cicloFechaCorte || 0;
-  const ratiosFIFO = calcularRatiosCobroFIFO(todasLasVentas);
   
   container.innerHTML = `
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
