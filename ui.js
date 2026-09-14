@@ -223,7 +223,7 @@ function renderStockGeneral() {
   if (!container) return;
   const stats = getEstadisticasVentas();
   container.innerHTML = `
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;">
   <div class="card">
     <div class="flex space-between">
       <h2>Stock General (Disponible)</h2>
@@ -315,7 +315,7 @@ const cicloCorte = state.cicloFechaCorte || 0;
   const ventasAMostrar = ventasOrdenadas.slice(0, historialVentasVisible);
   
   container.innerHTML = `
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;">
     <div class="card" style="border-left: 4px solid #059669;">
       <h2>💵 Dinero Ingresado (Efectivo)</h2>
       <p class="big-number" style="color:#059669;">${dineroEfectivo != null ? '$' + dineroEfectivo.toLocaleString('es-AR') : '—'}</p>
@@ -327,7 +327,7 @@ const cicloCorte = state.cicloFechaCorte || 0;
       <small>Ventas cobradas por transferencia</small>
     </div>
   </div>
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-top: 20px;">
     <div class="card" style="border-left: 4px solid #3b82f6;">
       <h2>💰 Total Ingresado</h2>
       <p class="big-number" style="color:#3b82f6;">${dineroTotal != null ? '$' + dineroTotal.toLocaleString('es-AR') : '—'}</p>
@@ -485,7 +485,7 @@ function renderPanelUsuario() {
 
   container.innerHTML = `<div class="panel-usuario card">
     <h1 style="border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Panel de ${state.usuarioActivo}</h1>
-    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
       
       <div>
         <h3>📦 Stock Propio</h3>
@@ -522,7 +522,7 @@ function renderPanelUsuario() {
           <span style="font-size: 0.9em;">${e}</span>
           <input type="number" data-agregar="${e}" placeholder="0" style="width: 70px; margin-bottom:0; padding: 4px; border: 1px solid #d1d5db; border-radius: 4px;">
         </div>`).join("")}
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; margin-top: 12px;">
           <button id="btn-agregar-stock" style="background:#059669; padding: 10px; font-size: 0.9em;">✅ Con Etiqueta</button>
           <button id="btn-agregar-stock-sin-etiqueta" style="background:#6b7280; padding: 10px; font-size: 0.9em;">📦 Sin Etiqueta</button>
         </div>
@@ -603,7 +603,7 @@ function renderPanelUsuario() {
         </div>
         </div>
         
-        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-top:10px;">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap:6px; margin-top:10px;">
           <button onclick="setPrecioVenta('mayorista')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">Mayorista</button>
           <button onclick="setPrecioVenta('six')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">Six Pack</button>
           <button onclick="setPrecioVenta('doce')" style="background:#0f172a; color:#f1f5f9; padding:8px; font-size:0.8em; border-radius:6px; cursor:pointer;">12 Pack</button>
