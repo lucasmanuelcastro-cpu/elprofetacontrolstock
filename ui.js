@@ -288,6 +288,11 @@ function renderStockGeneral() {
 </div>`;
 }
 
+let historialVentasVisible = 20;
+function mostrarMasHistorial() {
+  historialVentasVisible += 20;
+  renderVentasGeneral();
+}
 function renderVentasGeneral() {
   const container = document.getElementById("ventas-general-section");
   if (!container) return;
@@ -305,7 +310,9 @@ function renderVentasGeneral() {
     const ratio = ratiosFIFO.has(v) ? ratiosFIFO.get(v) : 0;
     return ratio > 0; // Solo se muestra si se cobró algo de ESTA venta puntual
   });
-  const cicloCorte = state.cicloFechaCorte || 0;
+const cicloCorte = state.cicloFechaCorte || 0;
+  const ventasOrdenadas = [...todasLasVentas].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const ventasAMostrar = ventasOrdenadas.slice(0, historialVentasVisible);
   
   container.innerHTML = `
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -338,7 +345,7 @@ function renderVentasGeneral() {
     <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
     ${todasLasVentas.length === 0
       ? '<p style="color:gray;">No hay ventas registradas aún.</p>'
-      : [...todasLasVentas].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).map(v => {
+       : ventasAMostrar.map(v => {
           const vendedor = v.vendedor || '—';
           const latasHtml = Object.entries(v.estilos || {}).filter(([,c]) => Number(c) > 0).map(([e,c]) => `${c} ${e}`).join(', ');
           const barrilesHtml = (v.barriles && v.barriles.length > 0) 
@@ -410,9 +417,12 @@ function renderVentasGeneral() {
               <span>👑 Profeta: <b>$${profetaLiberado.toLocaleString('es-AR')}</b></span>
             </div>
           </div>`;
-        }).join("")
+      }).join("")
     }
     </div>
+    ${ventasOrdenadas.length > historialVentasVisible
+      ? `<button onclick="mostrarMasHistorial()" style="margin-top:10px; width:100%; background:#7c3aed;">Ver más (${ventasOrdenadas.length - historialVentasVisible} restantes)</button>`
+      : ''}
   </div>`;
 }
 
