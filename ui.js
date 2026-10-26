@@ -558,10 +558,10 @@ function renderPanelUsuario() {
           </div>
           <div style="display: flex; gap: 8px; margin-bottom: 10px;">
             <button onclick="setState(p => { p.tipoLata = 'conEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#334155'}; background: ${state.tipoLata !== 'sinEtiqueta' ? '#f59e0b' : '#0f172a'}; color: ${state.tipoLata !== 'sinEtiqueta' ? '#1e40af' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
-              🏷️ Con Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$${state.configuracion?.costoConEtiquetaNormal || 1850}</span>
+              🏷️ Con Etiqueta
             </button>
             <button onclick="setState(p => { p.tipoLata = 'sinEtiqueta'; return p; })" style="flex:1; padding: 8px 4px; border-radius: 8px; border: 2px solid ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#334155'}; background: ${state.tipoLata === 'sinEtiqueta' ? '#60a5fa' : '#0f172a'}; color: ${state.tipoLata === 'sinEtiqueta' ? '#1e40af' : '#64748b'}; font-weight: bold; font-size: 0.8em; cursor: pointer; line-height: 1.4;">
-              📦 Sin Etiqueta<br><span style="font-size:0.85em; font-weight:normal;">$${state.configuracion?.costoSinEtiquetaNormal || 1510}</span>
+              📦 Sin Etiqueta
             </button>
           </div>
           ${state.modoPrecioActivo === 'mayorista' ? renderDesgloseMayorista() : `
