@@ -210,6 +210,8 @@ async function prestarBarril() {
   const observaciones = document.getElementById("obs-barril").value.trim();
 
   if (!tamano) return alert("Completá al menos el Tamaño.");
+  
+  const borrarDelStock = document.getElementById("borrar-del-stock-barril")?.checked || false;
 
   const barril = {
     id: idExistente || Date.now().toString(),
@@ -226,14 +228,16 @@ async function prestarBarril() {
   };
 
   try {
-    const accion = idExistente ? "actualizarBarril" : "guardarBarril";
-    const resp = await fetch(URL_SCRIPT, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ accion, barril })
-    });
-    const texto = await resp.text();
-    if (!texto.includes("OK")) throw new Error(texto);
+      if (!borrarDelStock) {
+      const accion = idExistente ? "actualizarBarril" : "guardarBarril";
+      const resp = await fetch(URL_SCRIPT, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ accion, barril })
+      });
+      const texto = await resp.text();
+      if (!texto.includes("OK")) throw new Error(texto);
+    }
 
     await fetch(URL_SCRIPT, {
       method: "POST",
@@ -250,6 +254,16 @@ async function prestarBarril() {
     });
 
     // 🟢 Depósito/Seña -> cartera de deudores del cliente
+        // 🗑️ Si se tildó "Borrar del stock", se elimina el barril de la hoja (el historial ya quedó registrado arriba)
+    if (borrarDelStock && idExistente) {
+      const respBorrar = await fetch(URL_SCRIPT, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ accion: "borrarBarril", id: idExistente })
+      });
+      const textoBorrar = await respBorrar.text();
+      if (!textoBorrar.includes("OK")) throw new Error(textoBorrar);
+    }
     if (barril.deposito > 0 && barril.cliente && barril.cliente.toLowerCase() !== "consumidor final") {
       await fetch(URL_SCRIPT, {
         method: "POST",
