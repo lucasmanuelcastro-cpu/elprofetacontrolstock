@@ -269,8 +269,11 @@ function renderStockGeneral() {
  ${(() => {
   if (Object.entries(stats.totalesPorEstilo).length === 0)
     return '<p style="color:gray; font-size: 0.9em;">Esperando primeras ventas...</p>';
-  return Object.entries(stats.totalesPorEstilo).sort((a, b) => b[1] - a[1]).map(([estilo, cant]) => {
-    const porcentaje = stats.granTotalLatas > 0
+  return Object.entries(stats.totalesPorEstilo).sort((a, b) => {
+      const ia = estilosBase.indexOf(a[0]);
+      const ib = estilosBase.indexOf(b[0]);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    }).map(([estilo, cant]) => {    const porcentaje = stats.granTotalLatas > 0
       ? ((cant / stats.granTotalLatas) * 100).toFixed(0)
       : '0';
     return `
